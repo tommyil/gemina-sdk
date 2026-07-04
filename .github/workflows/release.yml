@@ -6,8 +6,9 @@
 #   NPM_TOKEN, PYPI_TOKEN, NUGET_API_KEY,
 #   MAVEN_CENTRAL_USERNAME, MAVEN_CENTRAL_PASSWORD,
 #   MAVEN_GPG_PRIVATE_KEY, MAVEN_GPG_PASSPHRASE,
-#   SDK_PHP_MIRROR_TOKEN (repo-scope PAT for the gemina-sdk-php read-only
-#   mirror; Packagist auto-updates from that repo's webhook).
+#   SDK_PHP_MIRROR_SSH_KEY (private half of a write deploy key on the
+#   gemina-sdk-php read-only mirror; Packagist auto-updates from that
+#   repo's webhook).
 name: Release
 
 on:
@@ -34,7 +35,9 @@ jobs:
           check sdks/python/pyproject.toml "version = \"$VERSION\""
           check sdks/csharp/src/Gemina.Sdk/Gemina.Sdk.csproj "<Version>$VERSION</Version>"
           check sdks/java/pom.xml "<version>$VERSION</version>"
+          check packages/elements/package.json "\"version\": \"$VERSION\""
           grep -Eq "VERSION = ['\"]$VERSION['\"]" sdks/typescript/src/version.ts || fail=1
+          grep -Eq "VERSION = ['\"]$VERSION['\"]" packages/elements/src/version.ts || fail=1
           exit $fail
 
   npm:
@@ -53,6 +56,30 @@ jobs:
       - name: Publish @gemina/sdk
         if: steps.cred.outputs.have == 'true'
         working-directory: sdks/typescript
+        env: { NODE_AUTH_TOKEN: "${{ secrets.NPM_TOKEN }}" }
+        run: |
+          npm ci && npm run build && npm test
+          npm publish --access public
+
+  npm-elements:
+    # After the SDK so registry state is consistent; the lockfile pins the
+    # @gemina/sdk version npm ci installs, so the build never races the
+    # freshly-published SDK version.
+    needs: [verify, npm]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check credential
+        id: cred
+        run: |
+          if [ -n "${{ secrets.NPM_TOKEN }}" ]; then echo "have=true" >> "$GITHUB_OUTPUT";
+          else echo "::warning title=npm elements publish SKIPPED::NPM_TOKEN secret is not configured"; fi
+      - uses: actions/setup-node@v4
+        if: steps.cred.outputs.have == 'true'
+        with: { node-version: 22, registry-url: "https://registry.npmjs.org" }
+      - name: Publish @gemina/elements
+        if: steps.cred.outputs.have == 'true'
+        working-directory: packages/elements
         env: { NODE_AUTH_TOKEN: "${{ secrets.NPM_TOKEN }}" }
         run: |
           npm ci && npm run build && npm test
@@ -144,19 +171,28 @@ jobs:
       - name: Check credential
         id: cred
         run: |
-          if [ -n "${{ secrets.SDK_PHP_MIRROR_TOKEN }}" ]; then echo "have=true" >> "$GITHUB_OUTPUT";
-          else echo "::warning title=Packagist mirror push SKIPPED::SDK_PHP_MIRROR_TOKEN secret is not configured"; fi
+          if [ -n "${{ secrets.SDK_PHP_MIRROR_SSH_KEY }}" ]; then echo "have=true" >> "$GITHUB_OUTPUT";
+          else echo "::warning title=Packagist mirror push SKIPPED::SDK_PHP_MIRROR_SSH_KEY secret is not configured"; fi
       - name: Push subtree split + tag
         if: steps.cred.outputs.have == 'true'
+        env:
+          MIRROR_SSH_KEY: ${{ secrets.SDK_PHP_MIRROR_SSH_KEY }}
         run: |
+          # Deploy-key auth: the key is write-scoped to gemina-sdk-php ONLY
+          # (narrower than any PAT). Public half lives on that repo's deploy keys.
+          mkdir -p ~/.ssh
+          printf '%s\n' "$MIRROR_SSH_KEY" > ~/.ssh/mirror_key
+          chmod 600 ~/.ssh/mirror_key
+          ssh-keyscan github.com >> ~/.ssh/known_hosts 2>/dev/null
+          export GIT_SSH_COMMAND="ssh -i ~/.ssh/mirror_key -o IdentitiesOnly=yes"
           git config user.name "gemina-sdk-release"
           git config user.email "support@gemina.co"
           SPLIT=$(git subtree split --prefix=sdks/php HEAD)
-          git push "https://x-access-token:${{ secrets.SDK_PHP_MIRROR_TOKEN }}@github.com/tommyil/gemina-sdk-php.git" "$SPLIT:refs/heads/main" -f
-          git push "https://x-access-token:${{ secrets.SDK_PHP_MIRROR_TOKEN }}@github.com/tommyil/gemina-sdk-php.git" "$SPLIT:refs/tags/${GITHUB_REF_NAME}" -f
+          git push git@github.com:tommyil/gemina-sdk-php.git "$SPLIT:refs/heads/main" -f
+          git push git@github.com:tommyil/gemina-sdk-php.git "$SPLIT:refs/tags/${GITHUB_REF_NAME}" -f
 
   github-release:
-    needs: [verify, npm, pypi, nuget, maven-central, packagist-mirror]
+    needs: [verify, npm, npm-elements, pypi, nuget, maven-central, packagist-mirror]
     if: always() && needs.verify.result == 'success'
     runs-on: ubuntu-latest
     permissions: { contents: write }
@@ -169,5 +205,5 @@ jobs:
             --title "Gemina SDKs $GITHUB_REF_NAME" \
             --notes "Built from frozen spec snapshot: \`${{ needs.verify.outputs.spec }}\`
 
-          Registry publish results: npm=${{ needs.npm.result }} pypi=${{ needs.pypi.result }} nuget=${{ needs.nuget.result }} maven=${{ needs.maven-central.result }} packagist-mirror=${{ needs.packagist-mirror.result }} (success with a missing secret = loud skip; check job warnings)." \
+          Registry publish results: npm=${{ needs.npm.result }} elements=${{ needs.npm-elements.result }} pypi=${{ needs.pypi.result }} nuget=${{ needs.nuget.result }} maven=${{ needs.maven-central.result }} packagist-mirror=${{ needs.packagist-mirror.result }} (success with a missing secret = loud skip; check job warnings)." \
             specs/${{ needs.verify.outputs.spec }}

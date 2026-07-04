@@ -1,6 +1,6 @@
 {
   "name": "@gemina/sdk",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Official TypeScript/JavaScript SDK for the Gemina API — invoice OCR and document intelligence.",
   "license": "MIT",
   "repository": {

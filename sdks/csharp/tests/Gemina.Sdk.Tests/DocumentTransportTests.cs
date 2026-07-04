@@ -89,6 +89,24 @@ namespace Gemina.Sdk.Tests
             Assert.Equal(500, ex.ErrorCode);
         }
 
+        [Fact]
+        public void HandleResponse_AuthErrorEnvelope_ThrowsOriginalApiExceptionNotProcessing()
+        {
+            // Gemina's generic error envelope (auth/quota) also says
+            // status=failed but always carries meta:null — it is NOT a
+            // document result and must stay a transport error, matching the
+            // other language SDKs (their stricter deserializers reject it).
+            const string authEnvelope =
+                "{\"servedAt\":\"2026-07-04T16:03:00.189227\",\"status\":\"failed\"," +
+                "\"meta\":null,\"data\":null," +
+                "\"errors\":[{\"error_code\":\"UNAUTHORIZED_ERROR\"," +
+                "\"description\":\"API Key Unauthorized: Missing API Key\"}]}";
+
+            var ex = Assert.Throws<ApiException>(
+                () => DocumentTransport.HandleResponse(401, authEnvelope, "GetDocumentProcessingResultByCorrelationId"));
+            Assert.Equal(401, ex.ErrorCode);
+        }
+
         // ---- Success-path parsing ----
 
         [Fact]

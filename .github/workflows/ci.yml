@@ -71,3 +71,16 @@ jobs:
         with: { php-version: "8.3" }
       - run: composer install --no-interaction
       - run: vendor/bin/phpunit tests
+
+  elements:
+    runs-on: ubuntu-latest
+    defaults: { run: { working-directory: packages/elements } }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      # @gemina/sdk resolves from the npm registry (lockfile-pinned).
+      - run: npm ci
+      - run: npm run build
+      - run: npx tsc --noEmit
+      - run: npm test

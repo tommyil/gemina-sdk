@@ -253,8 +253,14 @@ namespace Gemina.Sdk
         /// <summary>
         /// Attempts to parse an error-response body as a terminal
         /// <c>failed</c> <see cref="DocumentProcessingResultOutDTO"/>.
-        /// Returns null for unparseable bodies or any non-<c>failed</c> status
-        /// (the caller keeps the original transport error then).
+        /// Returns null for unparseable bodies, any non-<c>failed</c> status,
+        /// or bodies without <c>meta</c> (the caller keeps the original
+        /// transport error then). The <c>meta</c> requirement distinguishes a
+        /// genuine document result from Gemina's generic error envelope —
+        /// auth/quota errors also carry <c>status: "failed"</c> but always
+        /// <c>meta: null</c>, and must surface as transport errors (matching
+        /// the other language SDKs, whose stricter deserializers reject the
+        /// envelope outright).
         /// </summary>
         internal static DocumentProcessingResultOutDTO TryParseFailedResult(string content)
         {
@@ -266,7 +272,9 @@ namespace Gemina.Sdk
             try
             {
                 var parsed = JsonConvert.DeserializeObject<DocumentProcessingResultOutDTO>(content, SerializerSettings);
-                return parsed != null && parsed.Status == Model.ResponseStatus.Failed ? parsed : null;
+                return parsed != null && parsed.Status == Model.ResponseStatus.Failed && parsed.Meta != null
+                    ? parsed
+                    : null;
             }
             catch (JsonException)
             {
