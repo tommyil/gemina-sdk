@@ -8,6 +8,7 @@ node_modules/
 dist/
 bin/
 obj/
+build/
 target/
 vendor/
 composer.lock
