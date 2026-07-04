@@ -1,0 +1,73 @@
+# PR/main CI: prove the spec→SDK pipeline is reproducible, then build and
+# unit-test every language package. Live smokes are NOT run here (they need
+# an API key); they run at release time and locally via tools/smoke.py.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  regen-check:
+    name: Regeneration is reproducible
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      # Same pinned generator image as local dev; --check fails on any diff
+      # under sdks/, which catches both hand-edits to generated dirs and
+      # spec/config drift that wasn't regenerated.
+      - run: python tools/generate.py --check
+
+  typescript:
+    runs-on: ubuntu-latest
+    defaults: { run: { working-directory: sdks/typescript } }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - run: npm ci
+      - run: npm run build
+      - run: npx tsc --noEmit
+      - run: npm test
+
+  python:
+    runs-on: ubuntu-latest
+    defaults: { run: { working-directory: sdks/python } }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: pip install -e ".[dev]"
+      - run: pytest -q
+
+  csharp:
+    runs-on: ubuntu-latest
+    defaults: { run: { working-directory: sdks/csharp } }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with: { dotnet-version: "8.0.x" }
+      - run: dotnet build Gemina.Sdk.sln -c Release
+      - run: dotnet test -c Release --no-build
+
+  java:
+    runs-on: ubuntu-latest
+    defaults: { run: { working-directory: sdks/java } }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: "17", cache: maven }
+      - run: mvn -B -q test
+
+  php:
+    runs-on: ubuntu-latest
+    defaults: { run: { working-directory: sdks/php } }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with: { php-version: "8.3" }
+      - run: composer install --no-interaction
+      - run: vendor/bin/phpunit tests
