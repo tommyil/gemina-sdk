@@ -13,6 +13,7 @@ import pytest
 import gemina.helpers as helpers
 from gemina import (
     GeminaClient,
+    __version__,
     GeminaError,
     GeminaProcessingError,
     GeminaTimeoutError,
@@ -545,7 +546,7 @@ async def test_empty_extraction_types_rejected(client):
 def test_configuration_api_key_host_and_user_agent(client):
     assert client.configuration.api_key == {"APIKeyHeader": "test-api-key"}
     assert client.configuration.host == "http://localhost:1"
-    assert client.api_client.user_agent == "gemina-sdk-python/0.1.0"
+    assert client.api_client.user_agent == f"gemina-sdk-python/{__version__}"
     # Auth comes solely from Configuration's declared security schemes; the
     # facade must not inject credential default headers (every protected op
     # declares security since gemina-api-v2 PR #200).
@@ -560,7 +561,7 @@ def test_with_session_token_uses_bearer_scheme():
     assert client.configuration.api_key == {}
     auth = client.configuration.auth_settings()
     assert auth["OAuth2PasswordBearer"]["value"] == "Bearer tok-123"
-    assert client.api_client.user_agent == "gemina-sdk-python/0.1.0"
+    assert client.api_client.user_agent == f"gemina-sdk-python/{__version__}"
     assert "Authorization" not in client.api_client.default_headers
     assert "X-API-Key" not in client.api_client.default_headers
 

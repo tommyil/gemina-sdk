@@ -583,7 +583,6 @@ namespace Gemina.Sdk.Tests
             Assert.Empty(client.Configuration.DefaultHeaders);
             Assert.Equal("https://api.staging.gemina.co", client.Configuration.BasePath); // trailing slash trimmed
             Assert.Equal("gemina-sdk-csharp/" + SdkVersion.Version, client.Configuration.UserAgent);
-            Assert.Equal("0.1.0", SdkVersion.Version);
         }
 
         [Fact]
