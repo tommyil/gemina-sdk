@@ -5,14 +5,20 @@
       "generator": "typescript-fetch",
       "config": "config/typescript.json",
       "copy": [
-        { "from": "src", "to": "sdks/typescript/src/generated" }
+        {
+          "from": "src",
+          "to": "sdks/typescript/src/generated"
+        }
       ]
     },
     "python": {
       "generator": "python",
       "config": "config/python.json",
       "copy": [
-        { "from": "gemina/generated", "to": "sdks/python/src/gemina/generated" }
+        {
+          "from": "gemina/generated",
+          "to": "sdks/python/src/gemina/generated"
+        }
       ]
     },
     "csharp": {
@@ -22,7 +28,9 @@
         {
           "from": "src/Gemina.Sdk",
           "to": "sdks/csharp/src/Gemina.Sdk/Generated",
-          "exclude": ["*.csproj"]
+          "exclude": [
+            "*.csproj"
+          ]
         }
       ]
     },
@@ -40,7 +48,10 @@
       "generator": "php",
       "config": "config/php.json",
       "copy": [
-        { "from": "lib", "to": "sdks/php/lib" }
+        {
+          "from": "lib",
+          "to": "sdks/php/lib"
+        }
       ]
     }
   }

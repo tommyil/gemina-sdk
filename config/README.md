@@ -39,3 +39,23 @@ custom UA (browsers forbid overriding it).
 in the spec (gemina-api-v2 PR #199) — that is what lets every generated client
 deserialize in-flight poll responses. If a regenerated client suddenly returns
 null from polling, check that the frozen spec still declares 202.
+
+**Known generator defects contained in the hand-written layer** (do NOT try to
+fix these by editing generated code):
+
+- **Multipart list params** (`extraction_types`): the Java (okhttp-gson), PHP,
+  and C# (restsharp) generators serialize repeated form fields wrongly
+  (JSON-array-in-one-field or bracket notation) → live 422. Each helper builds
+  the file-submit multipart itself; typescript-fetch and python are correct.
+- **C# nullable referenced enums**: `anyOf [$ref-to-enum, null]` generates a
+  NON-nullable enum property (`PurgeReasonModel`); a null in the payload then
+  silently nulls the whole deserialized object. Tried and failed: 3.0
+  down-convert with both `allOf`-wrapped and `$ref`-sibling `nullable: true`
+  (the `_normalize_nullables` pass in `tools/generate.py` remains available).
+  Containment: the C# helper's `DocumentTransport` deserializes with a
+  null-tolerant error handler and exposes `GetProcessingResultAsync`.
+- **typescript-fetch bearer tokens**: the oauth2 template sends `accessToken`
+  verbatim (no `Bearer ` prefix); the TS facade prepends it.
+- **Java datetime parsing**: the API emits naive datetimes (`servedAt` without
+  offset); the Java facade installs a lenient `OffsetDateTime` formatter.
+  Root-cause fix belongs API-side (timezone-aware serialization).

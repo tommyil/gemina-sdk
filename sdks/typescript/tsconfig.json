@@ -1,0 +1,24 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "lib": ["ES2020", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "strict": true,
+    // noImplicitAny is the ONLY strict flag disabled: 8 generated models
+    // (ComparisonSummaryModel, FileTagResultOutDTO, ...) use the generator's
+    // dual camelCase/snake_case `in`-narrowing in instanceOf* guards, which
+    // cannot pass TS7053, and src/generated/** is never hand-edited.
+    "noImplicitAny": false,
+    "noUncheckedIndexedAccess": false,
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "isolatedModules": true,
+    "skipLibCheck": true,
+    "declaration": true,
+    "sourceMap": true,
+    "noEmit": true
+  },
+  "include": ["src", "test", "tsup.config.ts"],
+  "exclude": ["node_modules", "dist"]
+}

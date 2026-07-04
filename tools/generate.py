@@ -62,15 +62,51 @@ def current_spec() -> Path:
     return spec
 
 
+def _normalize_nullables(node):
+    """Rewrite 3.1 ``anyOf: [X, {"type": "null"}]`` into the 3.0 idiom.
+
+    pydantic emits every ``X | None`` field as that anyOf pair, and
+    openapi-down-convert does not touch it (it only handles
+    ``type: [..., "null"]`` arrays) — leaving generators to guess. Guessing
+    wrong is not cosmetic: the csharp generator emits a NON-nullable enum for
+    ``anyOf [$ref-to-enum, null]``, and a null in the payload then silently
+    kills deserialization of the whole object. The 3.0 idiom is explicit:
+    ``nullable: true`` (with ``allOf`` wrapping when X is a ``$ref``, since
+    3.0 ignores siblings of ``$ref``).
+    """
+    if isinstance(node, list):
+        return [_normalize_nullables(item) for item in node]
+    if not isinstance(node, dict):
+        return node
+
+    any_of = node.get("anyOf")
+    if (
+        isinstance(any_of, list)
+        and len(any_of) == 2
+        and {"type": "null"} in any_of
+    ):
+        other = next(x for x in any_of if x != {"type": "null"})
+        rest = {k: v for k, v in node.items() if k != "anyOf"}
+        # For $ref targets, put nullable as a SIBLING of the $ref. Strict 3.0
+        # says siblings of $ref are ignored, but openapi-generator honors this
+        # form — and ignores the spec-pure allOf-wrapped variant (verified with
+        # v7.23.0: allOf+nullable still produced a non-nullable C# enum).
+        node = {**rest, **other, "nullable": True}
+
+    return {k: _normalize_nullables(v) for k, v in node.items()}
+
+
 def downconverted_spec(spec: Path) -> Path:
     """OpenAPI 3.1 → 3.0 for generators that can't take 3.1 (see config/README.md)."""
     out = BUILD_DIR / f"{spec.stem}-3.0.json"
     if not out.exists():
         BUILD_DIR.mkdir(exist_ok=True)
         run([
-            "npx", "--yes", "@apiture/openapi-down-convert@1.0.0",
+            "npx", "--yes", "@apiture/openapi-down-convert@0.14.2",
             "--input", str(spec), "--output", str(out),
         ])
+        converted = json.loads(out.read_text())
+        out.write_text(json.dumps(_normalize_nullables(converted), indent=2))
     return out
 
 
