@@ -1,0 +1,36 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{D0F55BD1-34E3-4BF3-B960-52EB24C17356}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Gemina.Sdk", "src\Gemina.Sdk\Gemina.Sdk.csproj", "{9013E750-5E02-4716-B651-7927D22D9A22}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{6DB8100E-45E6-4E29-B983-655A41FC6C76}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Gemina.Sdk.Tests", "tests\Gemina.Sdk.Tests\Gemina.Sdk.Tests.csproj", "{87AFB0EC-95A6-41F2-BB93-3BE8EF8A8684}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{9013E750-5E02-4716-B651-7927D22D9A22}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{9013E750-5E02-4716-B651-7927D22D9A22}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{9013E750-5E02-4716-B651-7927D22D9A22}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{9013E750-5E02-4716-B651-7927D22D9A22}.Release|Any CPU.Build.0 = Release|Any CPU
+		{87AFB0EC-95A6-41F2-BB93-3BE8EF8A8684}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{87AFB0EC-95A6-41F2-BB93-3BE8EF8A8684}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{87AFB0EC-95A6-41F2-BB93-3BE8EF8A8684}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{87AFB0EC-95A6-41F2-BB93-3BE8EF8A8684}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{9013E750-5E02-4716-B651-7927D22D9A22} = {D0F55BD1-34E3-4BF3-B960-52EB24C17356}
+		{87AFB0EC-95A6-41F2-BB93-3BE8EF8A8684} = {6DB8100E-45E6-4E29-B983-655A41FC6C76}
+	EndGlobalSection
+EndGlobal

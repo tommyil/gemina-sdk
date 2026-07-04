@@ -1,0 +1,51 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <AssemblyName>Gemina.Sdk</AssemblyName>
+    <RootNamespace>Gemina.Sdk</RootNamespace>
+    <OutputType>Library</OutputType>
+    <PackageId>Gemina.Sdk</PackageId>
+    <Version>0.1.0</Version>
+    <Authors>Gemina</Authors>
+    <Company>Gemina</Company>
+    <Description>Official C# client for the Gemina API — invoice OCR and document intelligence: upload documents, get typed structured data back, then search, aggregate, and chat over everything you've processed.</Description>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <RepositoryUrl>https://github.com/tommyil/gemina-sdk</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageProjectUrl>https://gemina.co</PackageProjectUrl>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageTags>gemina;invoice;ocr;document-intelligence;api;sdk</PackageTags>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <!-- 1591: missing XML doc comments — the generated client does not document every member. -->
+    <NoWarn>$(NoWarn);1591</NoWarn>
+  </PropertyGroup>
+
+  <!-- Mirrors the generator's package set (see .build/csharp) — keep versions in lockstep on regeneration. -->
+  <ItemGroup>
+    <PackageReference Include="JsonSubTypes" Version="2.0.1" />
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+    <PackageReference Include="RestSharp" Version="112.0.0" />
+    <PackageReference Include="Polly" Version="8.1.0" />
+    <PackageReference Include="System.ComponentModel.Annotations" Version="5.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="../../README.md" Pack="true" PackagePath="/" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleTo">
+      <_Parameter1>Gemina.Sdk.Tests</_Parameter1>
+    </AssemblyAttribute>
+    <!-- Lets Moq (Castle DynamicProxy) mock the internal submit seam in unit tests. -->
+    <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleTo">
+      <_Parameter1>DynamicProxyGenAssembly2</_Parameter1>
+    </AssemblyAttribute>
+  </ItemGroup>
+
+  <!-- The generator's csproj also carries <Reference Include="System.Web"/>; it is
+       unresolvable (and unnecessary) on netstandard2.0 under the Linux SDK — the
+       generated `using System.Web;` compiles against netstandard's own surface —
+       so it is intentionally NOT mirrored here (it only emits MSB3245 noise). -->
+</Project>

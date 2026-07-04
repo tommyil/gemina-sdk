@@ -35,11 +35,9 @@ namespace Gemina.Sdk.Api
         /// </remarks>
         /// <exception cref="Gemina.Sdk.Client.ApiException">Thrown when fails to make API call</exception>
         /// <param name="retrievalAggregateInDTO"></param>
-        /// <param name="xAPIKey"> (optional)</param>
-        /// <param name="authorization"> (optional)</param>
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <returns>RetrievalAggregateOutDTO</returns>
-        RetrievalAggregateOutDTO RetrievalAggregate(RetrievalAggregateInDTO retrievalAggregateInDTO, string xAPIKey = default, string authorization = default, int operationIndex = 0);
+        RetrievalAggregateOutDTO RetrievalAggregate(RetrievalAggregateInDTO retrievalAggregateInDTO, int operationIndex = 0);
 
         /// <summary>
         /// Retrieval Aggregate
@@ -49,11 +47,9 @@ namespace Gemina.Sdk.Api
         /// </remarks>
         /// <exception cref="Gemina.Sdk.Client.ApiException">Thrown when fails to make API call</exception>
         /// <param name="retrievalAggregateInDTO"></param>
-        /// <param name="xAPIKey"> (optional)</param>
-        /// <param name="authorization"> (optional)</param>
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <returns>ApiResponse of RetrievalAggregateOutDTO</returns>
-        ApiResponse<RetrievalAggregateOutDTO> RetrievalAggregateWithHttpInfo(RetrievalAggregateInDTO retrievalAggregateInDTO, string xAPIKey = default, string authorization = default, int operationIndex = 0);
+        ApiResponse<RetrievalAggregateOutDTO> RetrievalAggregateWithHttpInfo(RetrievalAggregateInDTO retrievalAggregateInDTO, int operationIndex = 0);
         /// <summary>
         /// Retrieval Query
         /// </summary>
@@ -62,11 +58,9 @@ namespace Gemina.Sdk.Api
         /// </remarks>
         /// <exception cref="Gemina.Sdk.Client.ApiException">Thrown when fails to make API call</exception>
         /// <param name="retrievalQueryInDTO"></param>
-        /// <param name="xAPIKey"> (optional)</param>
-        /// <param name="authorization"> (optional)</param>
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <returns>RetrievalQueryOutDTO</returns>
-        RetrievalQueryOutDTO RetrievalQuery(RetrievalQueryInDTO retrievalQueryInDTO, string xAPIKey = default, string authorization = default, int operationIndex = 0);
+        RetrievalQueryOutDTO RetrievalQuery(RetrievalQueryInDTO retrievalQueryInDTO, int operationIndex = 0);
 
         /// <summary>
         /// Retrieval Query
@@ -76,11 +70,9 @@ namespace Gemina.Sdk.Api
         /// </remarks>
         /// <exception cref="Gemina.Sdk.Client.ApiException">Thrown when fails to make API call</exception>
         /// <param name="retrievalQueryInDTO"></param>
-        /// <param name="xAPIKey"> (optional)</param>
-        /// <param name="authorization"> (optional)</param>
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <returns>ApiResponse of RetrievalQueryOutDTO</returns>
-        ApiResponse<RetrievalQueryOutDTO> RetrievalQueryWithHttpInfo(RetrievalQueryInDTO retrievalQueryInDTO, string xAPIKey = default, string authorization = default, int operationIndex = 0);
+        ApiResponse<RetrievalQueryOutDTO> RetrievalQueryWithHttpInfo(RetrievalQueryInDTO retrievalQueryInDTO, int operationIndex = 0);
         /// <summary>
         /// Retrieval Status
         /// </summary>
@@ -119,12 +111,10 @@ namespace Gemina.Sdk.Api
         /// </remarks>
         /// <exception cref="Gemina.Sdk.Client.ApiException">Thrown when fails to make API call</exception>
         /// <param name="retrievalAggregateInDTO"></param>
-        /// <param name="xAPIKey"> (optional)</param>
-        /// <param name="authorization"> (optional)</param>
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <param name="cancellationToken">Cancellation Token to cancel the request.</param>
         /// <returns>Task of RetrievalAggregateOutDTO</returns>
-        System.Threading.Tasks.Task<RetrievalAggregateOutDTO> RetrievalAggregateAsync(RetrievalAggregateInDTO retrievalAggregateInDTO, string xAPIKey = default, string authorization = default, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default);
+        System.Threading.Tasks.Task<RetrievalAggregateOutDTO> RetrievalAggregateAsync(RetrievalAggregateInDTO retrievalAggregateInDTO, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default);
 
         /// <summary>
         /// Retrieval Aggregate
@@ -134,12 +124,10 @@ namespace Gemina.Sdk.Api
         /// </remarks>
         /// <exception cref="Gemina.Sdk.Client.ApiException">Thrown when fails to make API call</exception>
         /// <param name="retrievalAggregateInDTO"></param>
-        /// <param name="xAPIKey"> (optional)</param>
-        /// <param name="authorization"> (optional)</param>
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <param name="cancellationToken">Cancellation Token to cancel the request.</param>
         /// <returns>Task of ApiResponse (RetrievalAggregateOutDTO)</returns>
-        System.Threading.Tasks.Task<ApiResponse<RetrievalAggregateOutDTO>> RetrievalAggregateWithHttpInfoAsync(RetrievalAggregateInDTO retrievalAggregateInDTO, string xAPIKey = default, string authorization = default, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default);
+        System.Threading.Tasks.Task<ApiResponse<RetrievalAggregateOutDTO>> RetrievalAggregateWithHttpInfoAsync(RetrievalAggregateInDTO retrievalAggregateInDTO, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default);
         /// <summary>
         /// Retrieval Query
         /// </summary>
@@ -148,12 +136,10 @@ namespace Gemina.Sdk.Api
         /// </remarks>
         /// <exception cref="Gemina.Sdk.Client.ApiException">Thrown when fails to make API call</exception>
         /// <param name="retrievalQueryInDTO"></param>
-        /// <param name="xAPIKey"> (optional)</param>
-        /// <param name="authorization"> (optional)</param>
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <param name="cancellationToken">Cancellation Token to cancel the request.</param>
         /// <returns>Task of RetrievalQueryOutDTO</returns>
-        System.Threading.Tasks.Task<RetrievalQueryOutDTO> RetrievalQueryAsync(RetrievalQueryInDTO retrievalQueryInDTO, string xAPIKey = default, string authorization = default, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default);
+        System.Threading.Tasks.Task<RetrievalQueryOutDTO> RetrievalQueryAsync(RetrievalQueryInDTO retrievalQueryInDTO, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default);
 
         /// <summary>
         /// Retrieval Query
@@ -163,12 +149,10 @@ namespace Gemina.Sdk.Api
         /// </remarks>
         /// <exception cref="Gemina.Sdk.Client.ApiException">Thrown when fails to make API call</exception>
         /// <param name="retrievalQueryInDTO"></param>
-        /// <param name="xAPIKey"> (optional)</param>
-        /// <param name="authorization"> (optional)</param>
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <param name="cancellationToken">Cancellation Token to cancel the request.</param>
         /// <returns>Task of ApiResponse (RetrievalQueryOutDTO)</returns>
-        System.Threading.Tasks.Task<ApiResponse<RetrievalQueryOutDTO>> RetrievalQueryWithHttpInfoAsync(RetrievalQueryInDTO retrievalQueryInDTO, string xAPIKey = default, string authorization = default, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default);
+        System.Threading.Tasks.Task<ApiResponse<RetrievalQueryOutDTO>> RetrievalQueryWithHttpInfoAsync(RetrievalQueryInDTO retrievalQueryInDTO, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default);
         /// <summary>
         /// Retrieval Status
         /// </summary>
@@ -317,13 +301,11 @@ namespace Gemina.Sdk.Api
         /// </summary>
         /// <exception cref="Gemina.Sdk.Client.ApiException">Thrown when fails to make API call</exception>
         /// <param name="retrievalAggregateInDTO"></param>
-        /// <param name="xAPIKey"> (optional)</param>
-        /// <param name="authorization"> (optional)</param>
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <returns>RetrievalAggregateOutDTO</returns>
-        public RetrievalAggregateOutDTO RetrievalAggregate(RetrievalAggregateInDTO retrievalAggregateInDTO, string xAPIKey = default, string authorization = default, int operationIndex = 0)
+        public RetrievalAggregateOutDTO RetrievalAggregate(RetrievalAggregateInDTO retrievalAggregateInDTO, int operationIndex = 0)
         {
-            Gemina.Sdk.Client.ApiResponse<RetrievalAggregateOutDTO> localVarResponse = RetrievalAggregateWithHttpInfo(retrievalAggregateInDTO, xAPIKey, authorization);
+            Gemina.Sdk.Client.ApiResponse<RetrievalAggregateOutDTO> localVarResponse = RetrievalAggregateWithHttpInfo(retrievalAggregateInDTO);
             return localVarResponse.Data;
         }
 
@@ -332,11 +314,9 @@ namespace Gemina.Sdk.Api
         /// </summary>
         /// <exception cref="Gemina.Sdk.Client.ApiException">Thrown when fails to make API call</exception>
         /// <param name="retrievalAggregateInDTO"></param>
-        /// <param name="xAPIKey"> (optional)</param>
-        /// <param name="authorization"> (optional)</param>
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <returns>ApiResponse of RetrievalAggregateOutDTO</returns>
-        public Gemina.Sdk.Client.ApiResponse<RetrievalAggregateOutDTO> RetrievalAggregateWithHttpInfo(RetrievalAggregateInDTO retrievalAggregateInDTO, string xAPIKey = default, string authorization = default, int operationIndex = 0)
+        public Gemina.Sdk.Client.ApiResponse<RetrievalAggregateOutDTO> RetrievalAggregateWithHttpInfo(RetrievalAggregateInDTO retrievalAggregateInDTO, int operationIndex = 0)
         {
             // verify the required parameter 'retrievalAggregateInDTO' is set
             if (retrievalAggregateInDTO == null)
@@ -368,19 +348,32 @@ namespace Gemina.Sdk.Api
                 localVarRequestOptions.HeaderParameters.Add("Accept", localVarAccept);
             }
 
-            if (xAPIKey != null)
-            {
-                localVarRequestOptions.HeaderParameters.Add("X-API-Key", Gemina.Sdk.Client.ClientUtils.ParameterToString(xAPIKey)); // header parameter
-            }
-            if (authorization != null)
-            {
-                localVarRequestOptions.HeaderParameters.Add("authorization", Gemina.Sdk.Client.ClientUtils.ParameterToString(authorization)); // header parameter
-            }
             localVarRequestOptions.Data = retrievalAggregateInDTO;
 
             localVarRequestOptions.Operation = "RetrievalApi.RetrievalAggregate";
             localVarRequestOptions.OperationIndex = operationIndex;
 
+            // authentication (APIKeyHeader) required
+            if (!string.IsNullOrEmpty(this.Configuration.GetApiKeyWithPrefix("X-API-Key")))
+            {
+                localVarRequestOptions.HeaderParameters.Add("X-API-Key", this.Configuration.GetApiKeyWithPrefix("X-API-Key"));
+            }
+            // authentication (OAuth2PasswordBearer) required
+            // oauth required
+            if (!localVarRequestOptions.HeaderParameters.ContainsKey("Authorization"))
+            {
+                if (!string.IsNullOrEmpty(this.Configuration.AccessToken))
+                {
+                    localVarRequestOptions.HeaderParameters.Add("Authorization", "Bearer " + this.Configuration.AccessToken);
+                }
+                else if (!string.IsNullOrEmpty(this.Configuration.OAuthTokenUrl) &&
+                         !string.IsNullOrEmpty(this.Configuration.OAuthClientId) &&
+                         !string.IsNullOrEmpty(this.Configuration.OAuthClientSecret) &&
+                         this.Configuration.OAuthFlow != null)
+                {
+                    localVarRequestOptions.OAuth = true;
+                }
+            }
 
             // make the HTTP request
             var localVarResponse = this.Client.Post<RetrievalAggregateOutDTO>("/api/v1/retrieval/aggregate", localVarRequestOptions, this.Configuration);
@@ -401,14 +394,12 @@ namespace Gemina.Sdk.Api
         /// </summary>
         /// <exception cref="Gemina.Sdk.Client.ApiException">Thrown when fails to make API call</exception>
         /// <param name="retrievalAggregateInDTO"></param>
-        /// <param name="xAPIKey"> (optional)</param>
-        /// <param name="authorization"> (optional)</param>
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <param name="cancellationToken">Cancellation Token to cancel the request.</param>
         /// <returns>Task of RetrievalAggregateOutDTO</returns>
-        public async System.Threading.Tasks.Task<RetrievalAggregateOutDTO> RetrievalAggregateAsync(RetrievalAggregateInDTO retrievalAggregateInDTO, string xAPIKey = default, string authorization = default, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default)
+        public async System.Threading.Tasks.Task<RetrievalAggregateOutDTO> RetrievalAggregateAsync(RetrievalAggregateInDTO retrievalAggregateInDTO, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default)
         {
-            Gemina.Sdk.Client.ApiResponse<RetrievalAggregateOutDTO> localVarResponse = await RetrievalAggregateWithHttpInfoAsync(retrievalAggregateInDTO, xAPIKey, authorization, operationIndex, cancellationToken).ConfigureAwait(false);
+            Gemina.Sdk.Client.ApiResponse<RetrievalAggregateOutDTO> localVarResponse = await RetrievalAggregateWithHttpInfoAsync(retrievalAggregateInDTO, operationIndex, cancellationToken).ConfigureAwait(false);
             return localVarResponse.Data;
         }
 
@@ -417,12 +408,10 @@ namespace Gemina.Sdk.Api
         /// </summary>
         /// <exception cref="Gemina.Sdk.Client.ApiException">Thrown when fails to make API call</exception>
         /// <param name="retrievalAggregateInDTO"></param>
-        /// <param name="xAPIKey"> (optional)</param>
-        /// <param name="authorization"> (optional)</param>
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <param name="cancellationToken">Cancellation Token to cancel the request.</param>
         /// <returns>Task of ApiResponse (RetrievalAggregateOutDTO)</returns>
-        public async System.Threading.Tasks.Task<Gemina.Sdk.Client.ApiResponse<RetrievalAggregateOutDTO>> RetrievalAggregateWithHttpInfoAsync(RetrievalAggregateInDTO retrievalAggregateInDTO, string xAPIKey = default, string authorization = default, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default)
+        public async System.Threading.Tasks.Task<Gemina.Sdk.Client.ApiResponse<RetrievalAggregateOutDTO>> RetrievalAggregateWithHttpInfoAsync(RetrievalAggregateInDTO retrievalAggregateInDTO, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default)
         {
             // verify the required parameter 'retrievalAggregateInDTO' is set
             if (retrievalAggregateInDTO == null)
@@ -454,19 +443,32 @@ namespace Gemina.Sdk.Api
                 localVarRequestOptions.HeaderParameters.Add("Accept", localVarAccept);
             }
 
-            if (xAPIKey != null)
-            {
-                localVarRequestOptions.HeaderParameters.Add("X-API-Key", Gemina.Sdk.Client.ClientUtils.ParameterToString(xAPIKey)); // header parameter
-            }
-            if (authorization != null)
-            {
-                localVarRequestOptions.HeaderParameters.Add("authorization", Gemina.Sdk.Client.ClientUtils.ParameterToString(authorization)); // header parameter
-            }
             localVarRequestOptions.Data = retrievalAggregateInDTO;
 
             localVarRequestOptions.Operation = "RetrievalApi.RetrievalAggregate";
             localVarRequestOptions.OperationIndex = operationIndex;
 
+            // authentication (APIKeyHeader) required
+            if (!string.IsNullOrEmpty(this.Configuration.GetApiKeyWithPrefix("X-API-Key")))
+            {
+                localVarRequestOptions.HeaderParameters.Add("X-API-Key", this.Configuration.GetApiKeyWithPrefix("X-API-Key"));
+            }
+            // authentication (OAuth2PasswordBearer) required
+            // oauth required
+            if (!localVarRequestOptions.HeaderParameters.ContainsKey("Authorization"))
+            {
+                if (!string.IsNullOrEmpty(this.Configuration.AccessToken))
+                {
+                    localVarRequestOptions.HeaderParameters.Add("Authorization", "Bearer " + this.Configuration.AccessToken);
+                }
+                else if (!string.IsNullOrEmpty(this.Configuration.OAuthTokenUrl) &&
+                         !string.IsNullOrEmpty(this.Configuration.OAuthClientId) &&
+                         !string.IsNullOrEmpty(this.Configuration.OAuthClientSecret) &&
+                         this.Configuration.OAuthFlow != null)
+                {
+                    localVarRequestOptions.OAuth = true;
+                }
+            }
 
             // make the HTTP request
             var localVarResponse = await this.AsynchronousClient.PostAsync<RetrievalAggregateOutDTO>("/api/v1/retrieval/aggregate", localVarRequestOptions, this.Configuration, cancellationToken).ConfigureAwait(false);
@@ -488,13 +490,11 @@ namespace Gemina.Sdk.Api
         /// </summary>
         /// <exception cref="Gemina.Sdk.Client.ApiException">Thrown when fails to make API call</exception>
         /// <param name="retrievalQueryInDTO"></param>
-        /// <param name="xAPIKey"> (optional)</param>
-        /// <param name="authorization"> (optional)</param>
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <returns>RetrievalQueryOutDTO</returns>
-        public RetrievalQueryOutDTO RetrievalQuery(RetrievalQueryInDTO retrievalQueryInDTO, string xAPIKey = default, string authorization = default, int operationIndex = 0)
+        public RetrievalQueryOutDTO RetrievalQuery(RetrievalQueryInDTO retrievalQueryInDTO, int operationIndex = 0)
         {
-            Gemina.Sdk.Client.ApiResponse<RetrievalQueryOutDTO> localVarResponse = RetrievalQueryWithHttpInfo(retrievalQueryInDTO, xAPIKey, authorization);
+            Gemina.Sdk.Client.ApiResponse<RetrievalQueryOutDTO> localVarResponse = RetrievalQueryWithHttpInfo(retrievalQueryInDTO);
             return localVarResponse.Data;
         }
 
@@ -503,11 +503,9 @@ namespace Gemina.Sdk.Api
         /// </summary>
         /// <exception cref="Gemina.Sdk.Client.ApiException">Thrown when fails to make API call</exception>
         /// <param name="retrievalQueryInDTO"></param>
-        /// <param name="xAPIKey"> (optional)</param>
-        /// <param name="authorization"> (optional)</param>
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <returns>ApiResponse of RetrievalQueryOutDTO</returns>
-        public Gemina.Sdk.Client.ApiResponse<RetrievalQueryOutDTO> RetrievalQueryWithHttpInfo(RetrievalQueryInDTO retrievalQueryInDTO, string xAPIKey = default, string authorization = default, int operationIndex = 0)
+        public Gemina.Sdk.Client.ApiResponse<RetrievalQueryOutDTO> RetrievalQueryWithHttpInfo(RetrievalQueryInDTO retrievalQueryInDTO, int operationIndex = 0)
         {
             // verify the required parameter 'retrievalQueryInDTO' is set
             if (retrievalQueryInDTO == null)
@@ -539,19 +537,32 @@ namespace Gemina.Sdk.Api
                 localVarRequestOptions.HeaderParameters.Add("Accept", localVarAccept);
             }
 
-            if (xAPIKey != null)
-            {
-                localVarRequestOptions.HeaderParameters.Add("X-API-Key", Gemina.Sdk.Client.ClientUtils.ParameterToString(xAPIKey)); // header parameter
-            }
-            if (authorization != null)
-            {
-                localVarRequestOptions.HeaderParameters.Add("authorization", Gemina.Sdk.Client.ClientUtils.ParameterToString(authorization)); // header parameter
-            }
             localVarRequestOptions.Data = retrievalQueryInDTO;
 
             localVarRequestOptions.Operation = "RetrievalApi.RetrievalQuery";
             localVarRequestOptions.OperationIndex = operationIndex;
 
+            // authentication (APIKeyHeader) required
+            if (!string.IsNullOrEmpty(this.Configuration.GetApiKeyWithPrefix("X-API-Key")))
+            {
+                localVarRequestOptions.HeaderParameters.Add("X-API-Key", this.Configuration.GetApiKeyWithPrefix("X-API-Key"));
+            }
+            // authentication (OAuth2PasswordBearer) required
+            // oauth required
+            if (!localVarRequestOptions.HeaderParameters.ContainsKey("Authorization"))
+            {
+                if (!string.IsNullOrEmpty(this.Configuration.AccessToken))
+                {
+                    localVarRequestOptions.HeaderParameters.Add("Authorization", "Bearer " + this.Configuration.AccessToken);
+                }
+                else if (!string.IsNullOrEmpty(this.Configuration.OAuthTokenUrl) &&
+                         !string.IsNullOrEmpty(this.Configuration.OAuthClientId) &&
+                         !string.IsNullOrEmpty(this.Configuration.OAuthClientSecret) &&
+                         this.Configuration.OAuthFlow != null)
+                {
+                    localVarRequestOptions.OAuth = true;
+                }
+            }
 
             // make the HTTP request
             var localVarResponse = this.Client.Post<RetrievalQueryOutDTO>("/api/v1/retrieval/query", localVarRequestOptions, this.Configuration);
@@ -572,14 +583,12 @@ namespace Gemina.Sdk.Api
         /// </summary>
         /// <exception cref="Gemina.Sdk.Client.ApiException">Thrown when fails to make API call</exception>
         /// <param name="retrievalQueryInDTO"></param>
-        /// <param name="xAPIKey"> (optional)</param>
-        /// <param name="authorization"> (optional)</param>
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <param name="cancellationToken">Cancellation Token to cancel the request.</param>
         /// <returns>Task of RetrievalQueryOutDTO</returns>
-        public async System.Threading.Tasks.Task<RetrievalQueryOutDTO> RetrievalQueryAsync(RetrievalQueryInDTO retrievalQueryInDTO, string xAPIKey = default, string authorization = default, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default)
+        public async System.Threading.Tasks.Task<RetrievalQueryOutDTO> RetrievalQueryAsync(RetrievalQueryInDTO retrievalQueryInDTO, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default)
         {
-            Gemina.Sdk.Client.ApiResponse<RetrievalQueryOutDTO> localVarResponse = await RetrievalQueryWithHttpInfoAsync(retrievalQueryInDTO, xAPIKey, authorization, operationIndex, cancellationToken).ConfigureAwait(false);
+            Gemina.Sdk.Client.ApiResponse<RetrievalQueryOutDTO> localVarResponse = await RetrievalQueryWithHttpInfoAsync(retrievalQueryInDTO, operationIndex, cancellationToken).ConfigureAwait(false);
             return localVarResponse.Data;
         }
 
@@ -588,12 +597,10 @@ namespace Gemina.Sdk.Api
         /// </summary>
         /// <exception cref="Gemina.Sdk.Client.ApiException">Thrown when fails to make API call</exception>
         /// <param name="retrievalQueryInDTO"></param>
-        /// <param name="xAPIKey"> (optional)</param>
-        /// <param name="authorization"> (optional)</param>
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <param name="cancellationToken">Cancellation Token to cancel the request.</param>
         /// <returns>Task of ApiResponse (RetrievalQueryOutDTO)</returns>
-        public async System.Threading.Tasks.Task<Gemina.Sdk.Client.ApiResponse<RetrievalQueryOutDTO>> RetrievalQueryWithHttpInfoAsync(RetrievalQueryInDTO retrievalQueryInDTO, string xAPIKey = default, string authorization = default, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default)
+        public async System.Threading.Tasks.Task<Gemina.Sdk.Client.ApiResponse<RetrievalQueryOutDTO>> RetrievalQueryWithHttpInfoAsync(RetrievalQueryInDTO retrievalQueryInDTO, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default)
         {
             // verify the required parameter 'retrievalQueryInDTO' is set
             if (retrievalQueryInDTO == null)
@@ -625,19 +632,32 @@ namespace Gemina.Sdk.Api
                 localVarRequestOptions.HeaderParameters.Add("Accept", localVarAccept);
             }
 
-            if (xAPIKey != null)
-            {
-                localVarRequestOptions.HeaderParameters.Add("X-API-Key", Gemina.Sdk.Client.ClientUtils.ParameterToString(xAPIKey)); // header parameter
-            }
-            if (authorization != null)
-            {
-                localVarRequestOptions.HeaderParameters.Add("authorization", Gemina.Sdk.Client.ClientUtils.ParameterToString(authorization)); // header parameter
-            }
             localVarRequestOptions.Data = retrievalQueryInDTO;
 
             localVarRequestOptions.Operation = "RetrievalApi.RetrievalQuery";
             localVarRequestOptions.OperationIndex = operationIndex;
 
+            // authentication (APIKeyHeader) required
+            if (!string.IsNullOrEmpty(this.Configuration.GetApiKeyWithPrefix("X-API-Key")))
+            {
+                localVarRequestOptions.HeaderParameters.Add("X-API-Key", this.Configuration.GetApiKeyWithPrefix("X-API-Key"));
+            }
+            // authentication (OAuth2PasswordBearer) required
+            // oauth required
+            if (!localVarRequestOptions.HeaderParameters.ContainsKey("Authorization"))
+            {
+                if (!string.IsNullOrEmpty(this.Configuration.AccessToken))
+                {
+                    localVarRequestOptions.HeaderParameters.Add("Authorization", "Bearer " + this.Configuration.AccessToken);
+                }
+                else if (!string.IsNullOrEmpty(this.Configuration.OAuthTokenUrl) &&
+                         !string.IsNullOrEmpty(this.Configuration.OAuthClientId) &&
+                         !string.IsNullOrEmpty(this.Configuration.OAuthClientSecret) &&
+                         this.Configuration.OAuthFlow != null)
+                {
+                    localVarRequestOptions.OAuth = true;
+                }
+            }
 
             // make the HTTP request
             var localVarResponse = await this.AsynchronousClient.PostAsync<RetrievalQueryOutDTO>("/api/v1/retrieval/query", localVarRequestOptions, this.Configuration, cancellationToken).ConfigureAwait(false);

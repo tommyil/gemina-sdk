@@ -35,11 +35,9 @@ namespace Gemina.Sdk.Api
         /// </remarks>
         /// <exception cref="Gemina.Sdk.Client.ApiException">Thrown when fails to make API call</exception>
         /// <param name="chatQueryInDTO"></param>
-        /// <param name="xAPIKey"> (optional)</param>
-        /// <param name="authorization"> (optional)</param>
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <returns>ChatQueryOutDTO</returns>
-        ChatQueryOutDTO ChatQuery(ChatQueryInDTO chatQueryInDTO, string xAPIKey = default, string authorization = default, int operationIndex = 0);
+        ChatQueryOutDTO ChatQuery(ChatQueryInDTO chatQueryInDTO, int operationIndex = 0);
 
         /// <summary>
         /// Chat Query
@@ -49,11 +47,9 @@ namespace Gemina.Sdk.Api
         /// </remarks>
         /// <exception cref="Gemina.Sdk.Client.ApiException">Thrown when fails to make API call</exception>
         /// <param name="chatQueryInDTO"></param>
-        /// <param name="xAPIKey"> (optional)</param>
-        /// <param name="authorization"> (optional)</param>
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <returns>ApiResponse of ChatQueryOutDTO</returns>
-        ApiResponse<ChatQueryOutDTO> ChatQueryWithHttpInfo(ChatQueryInDTO chatQueryInDTO, string xAPIKey = default, string authorization = default, int operationIndex = 0);
+        ApiResponse<ChatQueryOutDTO> ChatQueryWithHttpInfo(ChatQueryInDTO chatQueryInDTO, int operationIndex = 0);
         #endregion Synchronous Operations
     }
 
@@ -71,12 +67,10 @@ namespace Gemina.Sdk.Api
         /// </remarks>
         /// <exception cref="Gemina.Sdk.Client.ApiException">Thrown when fails to make API call</exception>
         /// <param name="chatQueryInDTO"></param>
-        /// <param name="xAPIKey"> (optional)</param>
-        /// <param name="authorization"> (optional)</param>
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <param name="cancellationToken">Cancellation Token to cancel the request.</param>
         /// <returns>Task of ChatQueryOutDTO</returns>
-        System.Threading.Tasks.Task<ChatQueryOutDTO> ChatQueryAsync(ChatQueryInDTO chatQueryInDTO, string xAPIKey = default, string authorization = default, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default);
+        System.Threading.Tasks.Task<ChatQueryOutDTO> ChatQueryAsync(ChatQueryInDTO chatQueryInDTO, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default);
 
         /// <summary>
         /// Chat Query
@@ -86,12 +80,10 @@ namespace Gemina.Sdk.Api
         /// </remarks>
         /// <exception cref="Gemina.Sdk.Client.ApiException">Thrown when fails to make API call</exception>
         /// <param name="chatQueryInDTO"></param>
-        /// <param name="xAPIKey"> (optional)</param>
-        /// <param name="authorization"> (optional)</param>
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <param name="cancellationToken">Cancellation Token to cancel the request.</param>
         /// <returns>Task of ApiResponse (ChatQueryOutDTO)</returns>
-        System.Threading.Tasks.Task<ApiResponse<ChatQueryOutDTO>> ChatQueryWithHttpInfoAsync(ChatQueryInDTO chatQueryInDTO, string xAPIKey = default, string authorization = default, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default);
+        System.Threading.Tasks.Task<ApiResponse<ChatQueryOutDTO>> ChatQueryWithHttpInfoAsync(ChatQueryInDTO chatQueryInDTO, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default);
         #endregion Asynchronous Operations
     }
 
@@ -217,13 +209,11 @@ namespace Gemina.Sdk.Api
         /// </summary>
         /// <exception cref="Gemina.Sdk.Client.ApiException">Thrown when fails to make API call</exception>
         /// <param name="chatQueryInDTO"></param>
-        /// <param name="xAPIKey"> (optional)</param>
-        /// <param name="authorization"> (optional)</param>
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <returns>ChatQueryOutDTO</returns>
-        public ChatQueryOutDTO ChatQuery(ChatQueryInDTO chatQueryInDTO, string xAPIKey = default, string authorization = default, int operationIndex = 0)
+        public ChatQueryOutDTO ChatQuery(ChatQueryInDTO chatQueryInDTO, int operationIndex = 0)
         {
-            Gemina.Sdk.Client.ApiResponse<ChatQueryOutDTO> localVarResponse = ChatQueryWithHttpInfo(chatQueryInDTO, xAPIKey, authorization);
+            Gemina.Sdk.Client.ApiResponse<ChatQueryOutDTO> localVarResponse = ChatQueryWithHttpInfo(chatQueryInDTO);
             return localVarResponse.Data;
         }
 
@@ -232,11 +222,9 @@ namespace Gemina.Sdk.Api
         /// </summary>
         /// <exception cref="Gemina.Sdk.Client.ApiException">Thrown when fails to make API call</exception>
         /// <param name="chatQueryInDTO"></param>
-        /// <param name="xAPIKey"> (optional)</param>
-        /// <param name="authorization"> (optional)</param>
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <returns>ApiResponse of ChatQueryOutDTO</returns>
-        public Gemina.Sdk.Client.ApiResponse<ChatQueryOutDTO> ChatQueryWithHttpInfo(ChatQueryInDTO chatQueryInDTO, string xAPIKey = default, string authorization = default, int operationIndex = 0)
+        public Gemina.Sdk.Client.ApiResponse<ChatQueryOutDTO> ChatQueryWithHttpInfo(ChatQueryInDTO chatQueryInDTO, int operationIndex = 0)
         {
             // verify the required parameter 'chatQueryInDTO' is set
             if (chatQueryInDTO == null)
@@ -268,19 +256,32 @@ namespace Gemina.Sdk.Api
                 localVarRequestOptions.HeaderParameters.Add("Accept", localVarAccept);
             }
 
-            if (xAPIKey != null)
-            {
-                localVarRequestOptions.HeaderParameters.Add("X-API-Key", Gemina.Sdk.Client.ClientUtils.ParameterToString(xAPIKey)); // header parameter
-            }
-            if (authorization != null)
-            {
-                localVarRequestOptions.HeaderParameters.Add("authorization", Gemina.Sdk.Client.ClientUtils.ParameterToString(authorization)); // header parameter
-            }
             localVarRequestOptions.Data = chatQueryInDTO;
 
             localVarRequestOptions.Operation = "ChatApi.ChatQuery";
             localVarRequestOptions.OperationIndex = operationIndex;
 
+            // authentication (APIKeyHeader) required
+            if (!string.IsNullOrEmpty(this.Configuration.GetApiKeyWithPrefix("X-API-Key")))
+            {
+                localVarRequestOptions.HeaderParameters.Add("X-API-Key", this.Configuration.GetApiKeyWithPrefix("X-API-Key"));
+            }
+            // authentication (OAuth2PasswordBearer) required
+            // oauth required
+            if (!localVarRequestOptions.HeaderParameters.ContainsKey("Authorization"))
+            {
+                if (!string.IsNullOrEmpty(this.Configuration.AccessToken))
+                {
+                    localVarRequestOptions.HeaderParameters.Add("Authorization", "Bearer " + this.Configuration.AccessToken);
+                }
+                else if (!string.IsNullOrEmpty(this.Configuration.OAuthTokenUrl) &&
+                         !string.IsNullOrEmpty(this.Configuration.OAuthClientId) &&
+                         !string.IsNullOrEmpty(this.Configuration.OAuthClientSecret) &&
+                         this.Configuration.OAuthFlow != null)
+                {
+                    localVarRequestOptions.OAuth = true;
+                }
+            }
 
             // make the HTTP request
             var localVarResponse = this.Client.Post<ChatQueryOutDTO>("/api/v1/chat/query", localVarRequestOptions, this.Configuration);
@@ -301,14 +302,12 @@ namespace Gemina.Sdk.Api
         /// </summary>
         /// <exception cref="Gemina.Sdk.Client.ApiException">Thrown when fails to make API call</exception>
         /// <param name="chatQueryInDTO"></param>
-        /// <param name="xAPIKey"> (optional)</param>
-        /// <param name="authorization"> (optional)</param>
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <param name="cancellationToken">Cancellation Token to cancel the request.</param>
         /// <returns>Task of ChatQueryOutDTO</returns>
-        public async System.Threading.Tasks.Task<ChatQueryOutDTO> ChatQueryAsync(ChatQueryInDTO chatQueryInDTO, string xAPIKey = default, string authorization = default, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default)
+        public async System.Threading.Tasks.Task<ChatQueryOutDTO> ChatQueryAsync(ChatQueryInDTO chatQueryInDTO, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default)
         {
-            Gemina.Sdk.Client.ApiResponse<ChatQueryOutDTO> localVarResponse = await ChatQueryWithHttpInfoAsync(chatQueryInDTO, xAPIKey, authorization, operationIndex, cancellationToken).ConfigureAwait(false);
+            Gemina.Sdk.Client.ApiResponse<ChatQueryOutDTO> localVarResponse = await ChatQueryWithHttpInfoAsync(chatQueryInDTO, operationIndex, cancellationToken).ConfigureAwait(false);
             return localVarResponse.Data;
         }
 
@@ -317,12 +316,10 @@ namespace Gemina.Sdk.Api
         /// </summary>
         /// <exception cref="Gemina.Sdk.Client.ApiException">Thrown when fails to make API call</exception>
         /// <param name="chatQueryInDTO"></param>
-        /// <param name="xAPIKey"> (optional)</param>
-        /// <param name="authorization"> (optional)</param>
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <param name="cancellationToken">Cancellation Token to cancel the request.</param>
         /// <returns>Task of ApiResponse (ChatQueryOutDTO)</returns>
-        public async System.Threading.Tasks.Task<Gemina.Sdk.Client.ApiResponse<ChatQueryOutDTO>> ChatQueryWithHttpInfoAsync(ChatQueryInDTO chatQueryInDTO, string xAPIKey = default, string authorization = default, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default)
+        public async System.Threading.Tasks.Task<Gemina.Sdk.Client.ApiResponse<ChatQueryOutDTO>> ChatQueryWithHttpInfoAsync(ChatQueryInDTO chatQueryInDTO, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default)
         {
             // verify the required parameter 'chatQueryInDTO' is set
             if (chatQueryInDTO == null)
@@ -354,19 +351,32 @@ namespace Gemina.Sdk.Api
                 localVarRequestOptions.HeaderParameters.Add("Accept", localVarAccept);
             }
 
-            if (xAPIKey != null)
-            {
-                localVarRequestOptions.HeaderParameters.Add("X-API-Key", Gemina.Sdk.Client.ClientUtils.ParameterToString(xAPIKey)); // header parameter
-            }
-            if (authorization != null)
-            {
-                localVarRequestOptions.HeaderParameters.Add("authorization", Gemina.Sdk.Client.ClientUtils.ParameterToString(authorization)); // header parameter
-            }
             localVarRequestOptions.Data = chatQueryInDTO;
 
             localVarRequestOptions.Operation = "ChatApi.ChatQuery";
             localVarRequestOptions.OperationIndex = operationIndex;
 
+            // authentication (APIKeyHeader) required
+            if (!string.IsNullOrEmpty(this.Configuration.GetApiKeyWithPrefix("X-API-Key")))
+            {
+                localVarRequestOptions.HeaderParameters.Add("X-API-Key", this.Configuration.GetApiKeyWithPrefix("X-API-Key"));
+            }
+            // authentication (OAuth2PasswordBearer) required
+            // oauth required
+            if (!localVarRequestOptions.HeaderParameters.ContainsKey("Authorization"))
+            {
+                if (!string.IsNullOrEmpty(this.Configuration.AccessToken))
+                {
+                    localVarRequestOptions.HeaderParameters.Add("Authorization", "Bearer " + this.Configuration.AccessToken);
+                }
+                else if (!string.IsNullOrEmpty(this.Configuration.OAuthTokenUrl) &&
+                         !string.IsNullOrEmpty(this.Configuration.OAuthClientId) &&
+                         !string.IsNullOrEmpty(this.Configuration.OAuthClientSecret) &&
+                         this.Configuration.OAuthFlow != null)
+                {
+                    localVarRequestOptions.OAuth = true;
+                }
+            }
 
             // make the HTTP request
             var localVarResponse = await this.AsynchronousClient.PostAsync<ChatQueryOutDTO>("/api/v1/chat/query", localVarRequestOptions, this.Configuration, cancellationToken).ConfigureAwait(false);
