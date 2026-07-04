@@ -1,0 +1,25 @@
+# Tooling scratch
+.build/
+__pycache__/
+*.pyc
+
+# Per-language build output (sources are committed; artifacts are not)
+node_modules/
+dist/
+bin/
+obj/
+target/
+vendor/
+composer.lock
+package-lock.json.tmp
+*.egg-info/
+.venv/
+
+# IDE / OS
+.idea/
+.vscode/
+.DS_Store
+
+# Never commit credentials
+*.env
+!*.env.example
