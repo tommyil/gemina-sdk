@@ -107,6 +107,11 @@ def generate_language(name: str, lang_cfg: dict, image: str, spec: Path) -> None
             sys.exit(f"{name}: expected generator output {src} not found")
         shutil.rmtree(dst, ignore_errors=True)
         shutil.copytree(src, dst)
+        # e.g. the generator's own .csproj — our hand-written manifest owns
+        # packaging, so generator manifests must not leak into the tree.
+        for pattern in rule.get("exclude", []):
+            for path in sorted(dst.rglob(pattern)):
+                path.unlink()
         (dst / "GENERATED_DO_NOT_EDIT.md").write_text(BANNER.format(snapshot=snapshot))
         print(f"  {rule['from']} -> {rule['to']}")
 
