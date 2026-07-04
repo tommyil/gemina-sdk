@@ -1,7 +1,7 @@
 {
   "name": "@gemina/elements",
   "version": "0.1.0",
-  "description": "Embeddable browser UI for Gemina Document Intelligence — a drop-in React chat component plus a security-hardened session-token manager. The API key never enters the browser.",
+  "description": "Embeddable browser UI for Gemina Document Intelligence \u2014 a drop-in React chat component plus a security-hardened session-token manager. The API key never enters the browser.",
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -54,9 +54,8 @@
     "rag",
     "embeddable"
   ],
-  "//": "The 'file:' @gemina/sdk dependency is for local monorepo development only — the release coordinator flips it to ^0.1.0 at publish time.",
   "dependencies": {
-    "@gemina/sdk": "file:../../sdks/typescript"
+    "@gemina/sdk": "^0.1.0"
   },
   "peerDependencies": {
     "react": ">=18",
