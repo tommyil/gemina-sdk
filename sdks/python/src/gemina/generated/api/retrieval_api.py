@@ -15,8 +15,6 @@ from pydantic import validate_call, Field, StrictFloat, StrictStr, StrictInt
 from typing import Any, Dict, List, Optional, Tuple, Union
 from typing_extensions import Annotated
 
-from pydantic import StrictStr
-from typing import Optional
 from gemina.generated.models.retrieval_aggregate_in_dto import RetrievalAggregateInDTO
 from gemina.generated.models.retrieval_aggregate_out_dto import RetrievalAggregateOutDTO
 from gemina.generated.models.retrieval_query_in_dto import RetrievalQueryInDTO
@@ -45,8 +43,6 @@ class RetrievalApi:
     async def retrieval_aggregate(
         self,
         retrieval_aggregate_in_dto: RetrievalAggregateInDTO,
-        x_api_key: Optional[StrictStr] = None,
-        authorization: Optional[StrictStr] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -66,10 +62,6 @@ class RetrievalApi:
 
         :param retrieval_aggregate_in_dto: (required)
         :type retrieval_aggregate_in_dto: RetrievalAggregateInDTO
-        :param x_api_key:
-        :type x_api_key: str
-        :param authorization:
-        :type authorization: str
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -94,8 +86,6 @@ class RetrievalApi:
 
         _param = self._retrieval_aggregate_serialize(
             retrieval_aggregate_in_dto=retrieval_aggregate_in_dto,
-            x_api_key=x_api_key,
-            authorization=authorization,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -121,8 +111,6 @@ class RetrievalApi:
     async def retrieval_aggregate_with_http_info(
         self,
         retrieval_aggregate_in_dto: RetrievalAggregateInDTO,
-        x_api_key: Optional[StrictStr] = None,
-        authorization: Optional[StrictStr] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -142,10 +130,6 @@ class RetrievalApi:
 
         :param retrieval_aggregate_in_dto: (required)
         :type retrieval_aggregate_in_dto: RetrievalAggregateInDTO
-        :param x_api_key:
-        :type x_api_key: str
-        :param authorization:
-        :type authorization: str
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -170,8 +154,6 @@ class RetrievalApi:
 
         _param = self._retrieval_aggregate_serialize(
             retrieval_aggregate_in_dto=retrieval_aggregate_in_dto,
-            x_api_key=x_api_key,
-            authorization=authorization,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -197,8 +179,6 @@ class RetrievalApi:
     async def retrieval_aggregate_without_preload_content(
         self,
         retrieval_aggregate_in_dto: RetrievalAggregateInDTO,
-        x_api_key: Optional[StrictStr] = None,
-        authorization: Optional[StrictStr] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -218,10 +198,6 @@ class RetrievalApi:
 
         :param retrieval_aggregate_in_dto: (required)
         :type retrieval_aggregate_in_dto: RetrievalAggregateInDTO
-        :param x_api_key:
-        :type x_api_key: str
-        :param authorization:
-        :type authorization: str
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -246,8 +222,6 @@ class RetrievalApi:
 
         _param = self._retrieval_aggregate_serialize(
             retrieval_aggregate_in_dto=retrieval_aggregate_in_dto,
-            x_api_key=x_api_key,
-            authorization=authorization,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -268,8 +242,6 @@ class RetrievalApi:
     def _retrieval_aggregate_serialize(
         self,
         retrieval_aggregate_in_dto,
-        x_api_key,
-        authorization,
         _request_auth,
         _content_type,
         _headers,
@@ -293,10 +265,6 @@ class RetrievalApi:
         # process the path parameters
         # process the query parameters
         # process the header parameters
-        if x_api_key is not None:
-            _header_params['X-API-Key'] = x_api_key
-        if authorization is not None:
-            _header_params['authorization'] = authorization
         # process the form parameters
         # process the body parameter
         if retrieval_aggregate_in_dto is not None:
@@ -327,6 +295,8 @@ class RetrievalApi:
 
         # authentication setting
         _auth_settings: List[str] = [
+            'APIKeyHeader', 
+            'OAuth2PasswordBearer'
         ]
 
         return self.api_client.param_serialize(
@@ -351,8 +321,6 @@ class RetrievalApi:
     async def retrieval_query(
         self,
         retrieval_query_in_dto: RetrievalQueryInDTO,
-        x_api_key: Optional[StrictStr] = None,
-        authorization: Optional[StrictStr] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -372,10 +340,6 @@ class RetrievalApi:
 
         :param retrieval_query_in_dto: (required)
         :type retrieval_query_in_dto: RetrievalQueryInDTO
-        :param x_api_key:
-        :type x_api_key: str
-        :param authorization:
-        :type authorization: str
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -400,8 +364,6 @@ class RetrievalApi:
 
         _param = self._retrieval_query_serialize(
             retrieval_query_in_dto=retrieval_query_in_dto,
-            x_api_key=x_api_key,
-            authorization=authorization,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -427,8 +389,6 @@ class RetrievalApi:
     async def retrieval_query_with_http_info(
         self,
         retrieval_query_in_dto: RetrievalQueryInDTO,
-        x_api_key: Optional[StrictStr] = None,
-        authorization: Optional[StrictStr] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -448,10 +408,6 @@ class RetrievalApi:
 
         :param retrieval_query_in_dto: (required)
         :type retrieval_query_in_dto: RetrievalQueryInDTO
-        :param x_api_key:
-        :type x_api_key: str
-        :param authorization:
-        :type authorization: str
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -476,8 +432,6 @@ class RetrievalApi:
 
         _param = self._retrieval_query_serialize(
             retrieval_query_in_dto=retrieval_query_in_dto,
-            x_api_key=x_api_key,
-            authorization=authorization,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -503,8 +457,6 @@ class RetrievalApi:
     async def retrieval_query_without_preload_content(
         self,
         retrieval_query_in_dto: RetrievalQueryInDTO,
-        x_api_key: Optional[StrictStr] = None,
-        authorization: Optional[StrictStr] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -524,10 +476,6 @@ class RetrievalApi:
 
         :param retrieval_query_in_dto: (required)
         :type retrieval_query_in_dto: RetrievalQueryInDTO
-        :param x_api_key:
-        :type x_api_key: str
-        :param authorization:
-        :type authorization: str
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -552,8 +500,6 @@ class RetrievalApi:
 
         _param = self._retrieval_query_serialize(
             retrieval_query_in_dto=retrieval_query_in_dto,
-            x_api_key=x_api_key,
-            authorization=authorization,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -574,8 +520,6 @@ class RetrievalApi:
     def _retrieval_query_serialize(
         self,
         retrieval_query_in_dto,
-        x_api_key,
-        authorization,
         _request_auth,
         _content_type,
         _headers,
@@ -599,10 +543,6 @@ class RetrievalApi:
         # process the path parameters
         # process the query parameters
         # process the header parameters
-        if x_api_key is not None:
-            _header_params['X-API-Key'] = x_api_key
-        if authorization is not None:
-            _header_params['authorization'] = authorization
         # process the form parameters
         # process the body parameter
         if retrieval_query_in_dto is not None:
@@ -633,6 +573,8 @@ class RetrievalApi:
 
         # authentication setting
         _auth_settings: List[str] = [
+            'APIKeyHeader', 
+            'OAuth2PasswordBearer'
         ]
 
         return self.api_client.param_serialize(

@@ -49,7 +49,7 @@ import co.gemina.sdk.generated.JSON;
 /**
  * Body for &#x60;&#x60;POST /api/v1/files/{file_id}/tag&#x60;&#x60; -- file_id comes from the path.  Same shape as :class:&#x60;TagFileInDTO&#x60; minus &#x60;&#x60;file_id&#x60;&#x60; because the URL path provides it. The router constructs a full &#x60;&#x60;TagFileInDTO&#x60;&#x60; from &#x60;&#x60;(path_file_id, body.external_id, body.end_user_id)&#x60;&#x60; before handing off to :meth:&#x60;FilesService.tag_file&#x60;.
  */
-@javax.annotation.Generated(value = "org.openapitools.codegen.languages.JavaClientCodegen", date = "2026-07-04T16:49:43.032035406Z[Etc/UTC]", comments = "Generator version: 7.23.0")
+@javax.annotation.Generated(value = "org.openapitools.codegen.languages.JavaClientCodegen", comments = "Generator version: 7.23.0")
 public class TagFileBodyDTO {
   public static final String SERIALIZED_NAME_END_USER_ID = "end_user_id";
   @SerializedName(SERIALIZED_NAME_END_USER_ID)

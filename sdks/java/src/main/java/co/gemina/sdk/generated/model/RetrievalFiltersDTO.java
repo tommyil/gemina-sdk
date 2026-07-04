@@ -52,7 +52,7 @@ import co.gemina.sdk.generated.JSON;
 /**
  * Structured filters over promoted index columns.  Tenant scope is NOT part of this DTO by design: &#x60;&#x60;user_id&#x60;&#x60; always comes from the authenticated context, server-side. &#x60;&#x60;end_user_id&#x60;&#x60; is a trusted within-tenant filter on the server-to-server path (PRD §6.6).
  */
-@javax.annotation.Generated(value = "org.openapitools.codegen.languages.JavaClientCodegen", date = "2026-07-04T16:49:43.032035406Z[Etc/UTC]", comments = "Generator version: 7.23.0")
+@javax.annotation.Generated(value = "org.openapitools.codegen.languages.JavaClientCodegen", comments = "Generator version: 7.23.0")
 public class RetrievalFiltersDTO {
   public static final String SERIALIZED_NAME_BUYER_NAME = "buyerName";
   @SerializedName(SERIALIZED_NAME_BUYER_NAME)

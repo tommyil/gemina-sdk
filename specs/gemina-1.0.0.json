@@ -7237,40 +7237,6 @@
       "post": {
         "description": "Ask a natural-language question about the tenant's indexed documents.\n\nReturns a grounded answer with documentId citations; ``confident=false``\nmeans the underlying data could not support a reliable answer.",
         "operationId": "chat_query",
-        "parameters": [
-          {
-            "in": "header",
-            "name": "X-API-Key",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "X-Api-Key"
-            }
-          },
-          {
-            "in": "header",
-            "name": "authorization",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          }
-        ],
         "requestBody": {
           "content": {
             "application/json": {
@@ -7303,6 +7269,14 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "APIKeyHeader": []
+          },
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
         "summary": "Chat Query",
         "tags": [
           "Chat"
@@ -9927,40 +9901,6 @@
       "post": {
         "description": "Sums/averages/counts/group-bys over the tenant's document index.\n\nDeterministic DSL compiled server-side against whitelisted columns.\nWhen money metrics are requested without a currency filter/grouping, the\nserver groups by currency automatically (mixed-currency sums are wrong by\nconstruction) and flags it in ``meta.currencyGroupingAdded``. Same dual\nauth as /query (API key, or Bearer token with enforced end-user scope).",
         "operationId": "retrieval_aggregate",
-        "parameters": [
-          {
-            "in": "header",
-            "name": "X-API-Key",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "X-Api-Key"
-            }
-          },
-          {
-            "in": "header",
-            "name": "authorization",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          }
-        ],
         "requestBody": {
           "content": {
             "application/json": {
@@ -9993,6 +9933,14 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "APIKeyHeader": []
+          },
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
         "summary": "Retrieval Aggregate",
         "tags": [
           "Retrieval"
@@ -10003,40 +9951,6 @@
       "post": {
         "description": "Structured filters, semantic or hybrid search over the tenant's index.\n\nAuth: X-API-Key (server-to-server; ``filters.endUserId`` is a trusted\nfilter) OR a Bearer retrieval token (embedded SDK; a token-pinned\nend-user scope is ENFORCED server-side and cannot be widened by the\nrequest body). The tenant boundary always comes from the credential.",
         "operationId": "retrieval_query",
-        "parameters": [
-          {
-            "in": "header",
-            "name": "X-API-Key",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "X-Api-Key"
-            }
-          },
-          {
-            "in": "header",
-            "name": "authorization",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          }
-        ],
         "requestBody": {
           "content": {
             "application/json": {
@@ -10069,6 +9983,14 @@
             "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "APIKeyHeader": []
+          },
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
         "summary": "Retrieval Query",
         "tags": [
           "Retrieval"

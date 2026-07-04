@@ -80,8 +80,6 @@ public class RetrievalApi {
     /**
      * Build call for retrievalAggregate
      * @param retrievalAggregateInDTO  (required)
-     * @param xAPIKey  (optional)
-     * @param authorization  (optional)
      * @param _callback Callback for upload/download progress
      * @return Call to execute
      * @throws ApiException If fail to serialize the request body object
@@ -93,7 +91,7 @@ public class RetrievalApi {
         <tr><td> 422 </td><td> Validation Error </td><td>  -  </td></tr>
      </table>
      */
-    public okhttp3.Call retrievalAggregateCall(@javax.annotation.Nonnull RetrievalAggregateInDTO retrievalAggregateInDTO, @javax.annotation.Nullable String xAPIKey, @javax.annotation.Nullable String authorization, final ApiCallback _callback) throws ApiException {
+    public okhttp3.Call retrievalAggregateCall(@javax.annotation.Nonnull RetrievalAggregateInDTO retrievalAggregateInDTO, final ApiCallback _callback) throws ApiException {
         String basePath = null;
         // Operation Servers
         String[] localBasePaths = new String[] {  };
@@ -134,28 +132,18 @@ public class RetrievalApi {
             localVarHeaderParams.put("Content-Type", localVarContentType);
         }
 
-        if (xAPIKey != null) {
-            localVarHeaderParams.put("X-API-Key", localVarApiClient.parameterToString(xAPIKey));
-        }
-
-
-        if (authorization != null) {
-            localVarHeaderParams.put("authorization", localVarApiClient.parameterToString(authorization));
-        }
-
-
-        String[] localVarAuthNames = new String[] {  };
+        String[] localVarAuthNames = new String[] { "APIKeyHeader", "OAuth2PasswordBearer" };
         return localVarApiClient.buildCall(basePath, localVarPath, "POST", localVarQueryParams, localVarCollectionQueryParams, localVarPostBody, localVarHeaderParams, localVarCookieParams, localVarFormParams, localVarAuthNames, _callback);
     }
 
     @SuppressWarnings("rawtypes")
-    private okhttp3.Call retrievalAggregateValidateBeforeCall(@javax.annotation.Nonnull RetrievalAggregateInDTO retrievalAggregateInDTO, @javax.annotation.Nullable String xAPIKey, @javax.annotation.Nullable String authorization, final ApiCallback _callback) throws ApiException {
+    private okhttp3.Call retrievalAggregateValidateBeforeCall(@javax.annotation.Nonnull RetrievalAggregateInDTO retrievalAggregateInDTO, final ApiCallback _callback) throws ApiException {
         // verify the required parameter 'retrievalAggregateInDTO' is set
         if (retrievalAggregateInDTO == null) {
             throw new ApiException("Missing the required parameter 'retrievalAggregateInDTO' when calling retrievalAggregate(Async)");
         }
 
-        return retrievalAggregateCall(retrievalAggregateInDTO, xAPIKey, authorization, _callback);
+        return retrievalAggregateCall(retrievalAggregateInDTO, _callback);
 
     }
 
@@ -163,8 +151,6 @@ public class RetrievalApi {
      * Retrieval Aggregate
      * Sums/averages/counts/group-bys over the tenant&#39;s document index.  Deterministic DSL compiled server-side against whitelisted columns. When money metrics are requested without a currency filter/grouping, the server groups by currency automatically (mixed-currency sums are wrong by construction) and flags it in &#x60;&#x60;meta.currencyGroupingAdded&#x60;&#x60;. Same dual auth as /query (API key, or Bearer token with enforced end-user scope).
      * @param retrievalAggregateInDTO  (required)
-     * @param xAPIKey  (optional)
-     * @param authorization  (optional)
      * @return RetrievalAggregateOutDTO
      * @throws ApiException If fail to call the API, e.g. server error or cannot deserialize the response body
      * @http.response.details
@@ -175,8 +161,8 @@ public class RetrievalApi {
         <tr><td> 422 </td><td> Validation Error </td><td>  -  </td></tr>
      </table>
      */
-    public RetrievalAggregateOutDTO retrievalAggregate(@javax.annotation.Nonnull RetrievalAggregateInDTO retrievalAggregateInDTO, @javax.annotation.Nullable String xAPIKey, @javax.annotation.Nullable String authorization) throws ApiException {
-        ApiResponse<RetrievalAggregateOutDTO> localVarResp = retrievalAggregateWithHttpInfo(retrievalAggregateInDTO, xAPIKey, authorization);
+    public RetrievalAggregateOutDTO retrievalAggregate(@javax.annotation.Nonnull RetrievalAggregateInDTO retrievalAggregateInDTO) throws ApiException {
+        ApiResponse<RetrievalAggregateOutDTO> localVarResp = retrievalAggregateWithHttpInfo(retrievalAggregateInDTO);
         return localVarResp.getData();
     }
 
@@ -184,8 +170,6 @@ public class RetrievalApi {
      * Retrieval Aggregate
      * Sums/averages/counts/group-bys over the tenant&#39;s document index.  Deterministic DSL compiled server-side against whitelisted columns. When money metrics are requested without a currency filter/grouping, the server groups by currency automatically (mixed-currency sums are wrong by construction) and flags it in &#x60;&#x60;meta.currencyGroupingAdded&#x60;&#x60;. Same dual auth as /query (API key, or Bearer token with enforced end-user scope).
      * @param retrievalAggregateInDTO  (required)
-     * @param xAPIKey  (optional)
-     * @param authorization  (optional)
      * @return ApiResponse&lt;RetrievalAggregateOutDTO&gt;
      * @throws ApiException If fail to call the API, e.g. server error or cannot deserialize the response body
      * @http.response.details
@@ -196,8 +180,8 @@ public class RetrievalApi {
         <tr><td> 422 </td><td> Validation Error </td><td>  -  </td></tr>
      </table>
      */
-    public ApiResponse<RetrievalAggregateOutDTO> retrievalAggregateWithHttpInfo(@javax.annotation.Nonnull RetrievalAggregateInDTO retrievalAggregateInDTO, @javax.annotation.Nullable String xAPIKey, @javax.annotation.Nullable String authorization) throws ApiException {
-        okhttp3.Call localVarCall = retrievalAggregateValidateBeforeCall(retrievalAggregateInDTO, xAPIKey, authorization, null);
+    public ApiResponse<RetrievalAggregateOutDTO> retrievalAggregateWithHttpInfo(@javax.annotation.Nonnull RetrievalAggregateInDTO retrievalAggregateInDTO) throws ApiException {
+        okhttp3.Call localVarCall = retrievalAggregateValidateBeforeCall(retrievalAggregateInDTO, null);
         Type localVarReturnType = new TypeToken<RetrievalAggregateOutDTO>(){}.getType();
         return localVarApiClient.execute(localVarCall, localVarReturnType);
     }
@@ -206,8 +190,6 @@ public class RetrievalApi {
      * Retrieval Aggregate (asynchronously)
      * Sums/averages/counts/group-bys over the tenant&#39;s document index.  Deterministic DSL compiled server-side against whitelisted columns. When money metrics are requested without a currency filter/grouping, the server groups by currency automatically (mixed-currency sums are wrong by construction) and flags it in &#x60;&#x60;meta.currencyGroupingAdded&#x60;&#x60;. Same dual auth as /query (API key, or Bearer token with enforced end-user scope).
      * @param retrievalAggregateInDTO  (required)
-     * @param xAPIKey  (optional)
-     * @param authorization  (optional)
      * @param _callback The callback to be executed when the API call finishes
      * @return The request call
      * @throws ApiException If fail to process the API call, e.g. serializing the request body object
@@ -219,9 +201,9 @@ public class RetrievalApi {
         <tr><td> 422 </td><td> Validation Error </td><td>  -  </td></tr>
      </table>
      */
-    public okhttp3.Call retrievalAggregateAsync(@javax.annotation.Nonnull RetrievalAggregateInDTO retrievalAggregateInDTO, @javax.annotation.Nullable String xAPIKey, @javax.annotation.Nullable String authorization, final ApiCallback<RetrievalAggregateOutDTO> _callback) throws ApiException {
+    public okhttp3.Call retrievalAggregateAsync(@javax.annotation.Nonnull RetrievalAggregateInDTO retrievalAggregateInDTO, final ApiCallback<RetrievalAggregateOutDTO> _callback) throws ApiException {
 
-        okhttp3.Call localVarCall = retrievalAggregateValidateBeforeCall(retrievalAggregateInDTO, xAPIKey, authorization, _callback);
+        okhttp3.Call localVarCall = retrievalAggregateValidateBeforeCall(retrievalAggregateInDTO, _callback);
         Type localVarReturnType = new TypeToken<RetrievalAggregateOutDTO>(){}.getType();
         localVarApiClient.executeAsync(localVarCall, localVarReturnType, _callback);
         return localVarCall;
@@ -229,8 +211,6 @@ public class RetrievalApi {
     /**
      * Build call for retrievalQuery
      * @param retrievalQueryInDTO  (required)
-     * @param xAPIKey  (optional)
-     * @param authorization  (optional)
      * @param _callback Callback for upload/download progress
      * @return Call to execute
      * @throws ApiException If fail to serialize the request body object
@@ -242,7 +222,7 @@ public class RetrievalApi {
         <tr><td> 422 </td><td> Validation Error </td><td>  -  </td></tr>
      </table>
      */
-    public okhttp3.Call retrievalQueryCall(@javax.annotation.Nonnull RetrievalQueryInDTO retrievalQueryInDTO, @javax.annotation.Nullable String xAPIKey, @javax.annotation.Nullable String authorization, final ApiCallback _callback) throws ApiException {
+    public okhttp3.Call retrievalQueryCall(@javax.annotation.Nonnull RetrievalQueryInDTO retrievalQueryInDTO, final ApiCallback _callback) throws ApiException {
         String basePath = null;
         // Operation Servers
         String[] localBasePaths = new String[] {  };
@@ -283,28 +263,18 @@ public class RetrievalApi {
             localVarHeaderParams.put("Content-Type", localVarContentType);
         }
 
-        if (xAPIKey != null) {
-            localVarHeaderParams.put("X-API-Key", localVarApiClient.parameterToString(xAPIKey));
-        }
-
-
-        if (authorization != null) {
-            localVarHeaderParams.put("authorization", localVarApiClient.parameterToString(authorization));
-        }
-
-
-        String[] localVarAuthNames = new String[] {  };
+        String[] localVarAuthNames = new String[] { "APIKeyHeader", "OAuth2PasswordBearer" };
         return localVarApiClient.buildCall(basePath, localVarPath, "POST", localVarQueryParams, localVarCollectionQueryParams, localVarPostBody, localVarHeaderParams, localVarCookieParams, localVarFormParams, localVarAuthNames, _callback);
     }
 
     @SuppressWarnings("rawtypes")
-    private okhttp3.Call retrievalQueryValidateBeforeCall(@javax.annotation.Nonnull RetrievalQueryInDTO retrievalQueryInDTO, @javax.annotation.Nullable String xAPIKey, @javax.annotation.Nullable String authorization, final ApiCallback _callback) throws ApiException {
+    private okhttp3.Call retrievalQueryValidateBeforeCall(@javax.annotation.Nonnull RetrievalQueryInDTO retrievalQueryInDTO, final ApiCallback _callback) throws ApiException {
         // verify the required parameter 'retrievalQueryInDTO' is set
         if (retrievalQueryInDTO == null) {
             throw new ApiException("Missing the required parameter 'retrievalQueryInDTO' when calling retrievalQuery(Async)");
         }
 
-        return retrievalQueryCall(retrievalQueryInDTO, xAPIKey, authorization, _callback);
+        return retrievalQueryCall(retrievalQueryInDTO, _callback);
 
     }
 
@@ -312,8 +282,6 @@ public class RetrievalApi {
      * Retrieval Query
      * Structured filters, semantic or hybrid search over the tenant&#39;s index.  Auth: X-API-Key (server-to-server; &#x60;&#x60;filters.endUserId&#x60;&#x60; is a trusted filter) OR a Bearer retrieval token (embedded SDK; a token-pinned end-user scope is ENFORCED server-side and cannot be widened by the request body). The tenant boundary always comes from the credential.
      * @param retrievalQueryInDTO  (required)
-     * @param xAPIKey  (optional)
-     * @param authorization  (optional)
      * @return RetrievalQueryOutDTO
      * @throws ApiException If fail to call the API, e.g. server error or cannot deserialize the response body
      * @http.response.details
@@ -324,8 +292,8 @@ public class RetrievalApi {
         <tr><td> 422 </td><td> Validation Error </td><td>  -  </td></tr>
      </table>
      */
-    public RetrievalQueryOutDTO retrievalQuery(@javax.annotation.Nonnull RetrievalQueryInDTO retrievalQueryInDTO, @javax.annotation.Nullable String xAPIKey, @javax.annotation.Nullable String authorization) throws ApiException {
-        ApiResponse<RetrievalQueryOutDTO> localVarResp = retrievalQueryWithHttpInfo(retrievalQueryInDTO, xAPIKey, authorization);
+    public RetrievalQueryOutDTO retrievalQuery(@javax.annotation.Nonnull RetrievalQueryInDTO retrievalQueryInDTO) throws ApiException {
+        ApiResponse<RetrievalQueryOutDTO> localVarResp = retrievalQueryWithHttpInfo(retrievalQueryInDTO);
         return localVarResp.getData();
     }
 
@@ -333,8 +301,6 @@ public class RetrievalApi {
      * Retrieval Query
      * Structured filters, semantic or hybrid search over the tenant&#39;s index.  Auth: X-API-Key (server-to-server; &#x60;&#x60;filters.endUserId&#x60;&#x60; is a trusted filter) OR a Bearer retrieval token (embedded SDK; a token-pinned end-user scope is ENFORCED server-side and cannot be widened by the request body). The tenant boundary always comes from the credential.
      * @param retrievalQueryInDTO  (required)
-     * @param xAPIKey  (optional)
-     * @param authorization  (optional)
      * @return ApiResponse&lt;RetrievalQueryOutDTO&gt;
      * @throws ApiException If fail to call the API, e.g. server error or cannot deserialize the response body
      * @http.response.details
@@ -345,8 +311,8 @@ public class RetrievalApi {
         <tr><td> 422 </td><td> Validation Error </td><td>  -  </td></tr>
      </table>
      */
-    public ApiResponse<RetrievalQueryOutDTO> retrievalQueryWithHttpInfo(@javax.annotation.Nonnull RetrievalQueryInDTO retrievalQueryInDTO, @javax.annotation.Nullable String xAPIKey, @javax.annotation.Nullable String authorization) throws ApiException {
-        okhttp3.Call localVarCall = retrievalQueryValidateBeforeCall(retrievalQueryInDTO, xAPIKey, authorization, null);
+    public ApiResponse<RetrievalQueryOutDTO> retrievalQueryWithHttpInfo(@javax.annotation.Nonnull RetrievalQueryInDTO retrievalQueryInDTO) throws ApiException {
+        okhttp3.Call localVarCall = retrievalQueryValidateBeforeCall(retrievalQueryInDTO, null);
         Type localVarReturnType = new TypeToken<RetrievalQueryOutDTO>(){}.getType();
         return localVarApiClient.execute(localVarCall, localVarReturnType);
     }
@@ -355,8 +321,6 @@ public class RetrievalApi {
      * Retrieval Query (asynchronously)
      * Structured filters, semantic or hybrid search over the tenant&#39;s index.  Auth: X-API-Key (server-to-server; &#x60;&#x60;filters.endUserId&#x60;&#x60; is a trusted filter) OR a Bearer retrieval token (embedded SDK; a token-pinned end-user scope is ENFORCED server-side and cannot be widened by the request body). The tenant boundary always comes from the credential.
      * @param retrievalQueryInDTO  (required)
-     * @param xAPIKey  (optional)
-     * @param authorization  (optional)
      * @param _callback The callback to be executed when the API call finishes
      * @return The request call
      * @throws ApiException If fail to process the API call, e.g. serializing the request body object
@@ -368,9 +332,9 @@ public class RetrievalApi {
         <tr><td> 422 </td><td> Validation Error </td><td>  -  </td></tr>
      </table>
      */
-    public okhttp3.Call retrievalQueryAsync(@javax.annotation.Nonnull RetrievalQueryInDTO retrievalQueryInDTO, @javax.annotation.Nullable String xAPIKey, @javax.annotation.Nullable String authorization, final ApiCallback<RetrievalQueryOutDTO> _callback) throws ApiException {
+    public okhttp3.Call retrievalQueryAsync(@javax.annotation.Nonnull RetrievalQueryInDTO retrievalQueryInDTO, final ApiCallback<RetrievalQueryOutDTO> _callback) throws ApiException {
 
-        okhttp3.Call localVarCall = retrievalQueryValidateBeforeCall(retrievalQueryInDTO, xAPIKey, authorization, _callback);
+        okhttp3.Call localVarCall = retrievalQueryValidateBeforeCall(retrievalQueryInDTO, _callback);
         Type localVarReturnType = new TypeToken<RetrievalQueryOutDTO>(){}.getType();
         localVarApiClient.executeAsync(localVarCall, localVarReturnType, _callback);
         return localVarCall;

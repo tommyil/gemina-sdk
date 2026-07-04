@@ -77,8 +77,6 @@ public class ChatApi {
     /**
      * Build call for chatQuery
      * @param chatQueryInDTO  (required)
-     * @param xAPIKey  (optional)
-     * @param authorization  (optional)
      * @param _callback Callback for upload/download progress
      * @return Call to execute
      * @throws ApiException If fail to serialize the request body object
@@ -90,7 +88,7 @@ public class ChatApi {
         <tr><td> 422 </td><td> Validation Error </td><td>  -  </td></tr>
      </table>
      */
-    public okhttp3.Call chatQueryCall(@javax.annotation.Nonnull ChatQueryInDTO chatQueryInDTO, @javax.annotation.Nullable String xAPIKey, @javax.annotation.Nullable String authorization, final ApiCallback _callback) throws ApiException {
+    public okhttp3.Call chatQueryCall(@javax.annotation.Nonnull ChatQueryInDTO chatQueryInDTO, final ApiCallback _callback) throws ApiException {
         String basePath = null;
         // Operation Servers
         String[] localBasePaths = new String[] {  };
@@ -131,28 +129,18 @@ public class ChatApi {
             localVarHeaderParams.put("Content-Type", localVarContentType);
         }
 
-        if (xAPIKey != null) {
-            localVarHeaderParams.put("X-API-Key", localVarApiClient.parameterToString(xAPIKey));
-        }
-
-
-        if (authorization != null) {
-            localVarHeaderParams.put("authorization", localVarApiClient.parameterToString(authorization));
-        }
-
-
-        String[] localVarAuthNames = new String[] {  };
+        String[] localVarAuthNames = new String[] { "APIKeyHeader", "OAuth2PasswordBearer" };
         return localVarApiClient.buildCall(basePath, localVarPath, "POST", localVarQueryParams, localVarCollectionQueryParams, localVarPostBody, localVarHeaderParams, localVarCookieParams, localVarFormParams, localVarAuthNames, _callback);
     }
 
     @SuppressWarnings("rawtypes")
-    private okhttp3.Call chatQueryValidateBeforeCall(@javax.annotation.Nonnull ChatQueryInDTO chatQueryInDTO, @javax.annotation.Nullable String xAPIKey, @javax.annotation.Nullable String authorization, final ApiCallback _callback) throws ApiException {
+    private okhttp3.Call chatQueryValidateBeforeCall(@javax.annotation.Nonnull ChatQueryInDTO chatQueryInDTO, final ApiCallback _callback) throws ApiException {
         // verify the required parameter 'chatQueryInDTO' is set
         if (chatQueryInDTO == null) {
             throw new ApiException("Missing the required parameter 'chatQueryInDTO' when calling chatQuery(Async)");
         }
 
-        return chatQueryCall(chatQueryInDTO, xAPIKey, authorization, _callback);
+        return chatQueryCall(chatQueryInDTO, _callback);
 
     }
 
@@ -160,8 +148,6 @@ public class ChatApi {
      * Chat Query
      * Ask a natural-language question about the tenant&#39;s indexed documents.  Returns a grounded answer with documentId citations; &#x60;&#x60;confident&#x3D;false&#x60;&#x60; means the underlying data could not support a reliable answer.
      * @param chatQueryInDTO  (required)
-     * @param xAPIKey  (optional)
-     * @param authorization  (optional)
      * @return ChatQueryOutDTO
      * @throws ApiException If fail to call the API, e.g. server error or cannot deserialize the response body
      * @http.response.details
@@ -172,8 +158,8 @@ public class ChatApi {
         <tr><td> 422 </td><td> Validation Error </td><td>  -  </td></tr>
      </table>
      */
-    public ChatQueryOutDTO chatQuery(@javax.annotation.Nonnull ChatQueryInDTO chatQueryInDTO, @javax.annotation.Nullable String xAPIKey, @javax.annotation.Nullable String authorization) throws ApiException {
-        ApiResponse<ChatQueryOutDTO> localVarResp = chatQueryWithHttpInfo(chatQueryInDTO, xAPIKey, authorization);
+    public ChatQueryOutDTO chatQuery(@javax.annotation.Nonnull ChatQueryInDTO chatQueryInDTO) throws ApiException {
+        ApiResponse<ChatQueryOutDTO> localVarResp = chatQueryWithHttpInfo(chatQueryInDTO);
         return localVarResp.getData();
     }
 
@@ -181,8 +167,6 @@ public class ChatApi {
      * Chat Query
      * Ask a natural-language question about the tenant&#39;s indexed documents.  Returns a grounded answer with documentId citations; &#x60;&#x60;confident&#x3D;false&#x60;&#x60; means the underlying data could not support a reliable answer.
      * @param chatQueryInDTO  (required)
-     * @param xAPIKey  (optional)
-     * @param authorization  (optional)
      * @return ApiResponse&lt;ChatQueryOutDTO&gt;
      * @throws ApiException If fail to call the API, e.g. server error or cannot deserialize the response body
      * @http.response.details
@@ -193,8 +177,8 @@ public class ChatApi {
         <tr><td> 422 </td><td> Validation Error </td><td>  -  </td></tr>
      </table>
      */
-    public ApiResponse<ChatQueryOutDTO> chatQueryWithHttpInfo(@javax.annotation.Nonnull ChatQueryInDTO chatQueryInDTO, @javax.annotation.Nullable String xAPIKey, @javax.annotation.Nullable String authorization) throws ApiException {
-        okhttp3.Call localVarCall = chatQueryValidateBeforeCall(chatQueryInDTO, xAPIKey, authorization, null);
+    public ApiResponse<ChatQueryOutDTO> chatQueryWithHttpInfo(@javax.annotation.Nonnull ChatQueryInDTO chatQueryInDTO) throws ApiException {
+        okhttp3.Call localVarCall = chatQueryValidateBeforeCall(chatQueryInDTO, null);
         Type localVarReturnType = new TypeToken<ChatQueryOutDTO>(){}.getType();
         return localVarApiClient.execute(localVarCall, localVarReturnType);
     }
@@ -203,8 +187,6 @@ public class ChatApi {
      * Chat Query (asynchronously)
      * Ask a natural-language question about the tenant&#39;s indexed documents.  Returns a grounded answer with documentId citations; &#x60;&#x60;confident&#x3D;false&#x60;&#x60; means the underlying data could not support a reliable answer.
      * @param chatQueryInDTO  (required)
-     * @param xAPIKey  (optional)
-     * @param authorization  (optional)
      * @param _callback The callback to be executed when the API call finishes
      * @return The request call
      * @throws ApiException If fail to process the API call, e.g. serializing the request body object
@@ -216,9 +198,9 @@ public class ChatApi {
         <tr><td> 422 </td><td> Validation Error </td><td>  -  </td></tr>
      </table>
      */
-    public okhttp3.Call chatQueryAsync(@javax.annotation.Nonnull ChatQueryInDTO chatQueryInDTO, @javax.annotation.Nullable String xAPIKey, @javax.annotation.Nullable String authorization, final ApiCallback<ChatQueryOutDTO> _callback) throws ApiException {
+    public okhttp3.Call chatQueryAsync(@javax.annotation.Nonnull ChatQueryInDTO chatQueryInDTO, final ApiCallback<ChatQueryOutDTO> _callback) throws ApiException {
 
-        okhttp3.Call localVarCall = chatQueryValidateBeforeCall(chatQueryInDTO, xAPIKey, authorization, _callback);
+        okhttp3.Call localVarCall = chatQueryValidateBeforeCall(chatQueryInDTO, _callback);
         Type localVarReturnType = new TypeToken<ChatQueryOutDTO>(){}.getType();
         localVarApiClient.executeAsync(localVarCall, localVarReturnType, _callback);
         return localVarCall;

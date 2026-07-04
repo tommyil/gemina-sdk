@@ -46,14 +46,10 @@ import {
 
 export interface RetrievalAggregateRequest {
     retrievalAggregateInDTO: RetrievalAggregateInDTO;
-    xAPIKey?: string | null;
-    authorization?: string | null;
 }
 
 export interface RetrievalQueryRequest {
     retrievalQueryInDTO: RetrievalQueryInDTO;
-    xAPIKey?: string | null;
-    authorization?: string | null;
 }
 
 /**
@@ -78,12 +74,13 @@ export class RetrievalApi extends runtime.BaseAPI {
 
         headerParameters['Content-Type'] = 'application/json';
 
-        if (requestParameters['xAPIKey'] != null) {
-            headerParameters['X-API-Key'] = String(requestParameters['xAPIKey']);
+        if (this.configuration && this.configuration.apiKey) {
+            headerParameters["X-API-Key"] = await this.configuration.apiKey("X-API-Key"); // APIKeyHeader authentication
         }
 
-        if (requestParameters['authorization'] != null) {
-            headerParameters['authorization'] = String(requestParameters['authorization']);
+        if (this.configuration && this.configuration.accessToken) {
+            // oauth required
+            headerParameters["Authorization"] = await this.configuration.accessToken("OAuth2PasswordBearer", []);
         }
 
 
@@ -135,12 +132,13 @@ export class RetrievalApi extends runtime.BaseAPI {
 
         headerParameters['Content-Type'] = 'application/json';
 
-        if (requestParameters['xAPIKey'] != null) {
-            headerParameters['X-API-Key'] = String(requestParameters['xAPIKey']);
+        if (this.configuration && this.configuration.apiKey) {
+            headerParameters["X-API-Key"] = await this.configuration.apiKey("X-API-Key"); // APIKeyHeader authentication
         }
 
-        if (requestParameters['authorization'] != null) {
-            headerParameters['authorization'] = String(requestParameters['authorization']);
+        if (this.configuration && this.configuration.accessToken) {
+            // oauth required
+            headerParameters["Authorization"] = await this.configuration.accessToken("OAuth2PasswordBearer", []);
         }
 
 

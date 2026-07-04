@@ -50,7 +50,7 @@ import com.google.gson.JsonParseException;
 
 import co.gemina.sdk.generated.JSON;
 
-@javax.annotation.Generated(value = "org.openapitools.codegen.languages.JavaClientCodegen", date = "2026-07-04T16:49:43.032035406Z[Etc/UTC]", comments = "Generator version: 7.23.0")
+@javax.annotation.Generated(value = "org.openapitools.codegen.languages.JavaClientCodegen", comments = "Generator version: 7.23.0")
 public class LocationInner extends AbstractOpenApiSchema {
     private static final Logger log = Logger.getLogger(LocationInner.class.getName());
 

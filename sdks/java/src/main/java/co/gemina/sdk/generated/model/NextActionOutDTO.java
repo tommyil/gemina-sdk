@@ -48,7 +48,7 @@ import co.gemina.sdk.generated.JSON;
 /**
  * Structured follow-up recipe for an agent capability (not an MCP tool).  Sister pattern to :class:&#x60;app.components.files.dtos.FilesNextToolCallOutDTO&#x60;: that one names a specific MCP tool by literal name (&#x60;&#x60;tag_file&#x60;&#x60;); this one names a generic *capability* (&#x60;&#x60;http_get_and_save&#x60;&#x60;) the agent maps to whatever local mechanism it has -- &#x60;&#x60;WebFetch&#x60;&#x60;, &#x60;&#x60;curl&#x60;&#x60; via shell, a filesystem write tool, etc. We can&#39;t bind a specific tool name here because the right one varies per agent host (Claude / GPT / OpenClaw / raw HTTP client all differ).  Keeping the field structured (not just a description) defeats the \&quot;scratchpad volatility\&quot; failure mode where an agent forgets to act on the enriched-file URL after the metadata response satisfies the immediate ask.
  */
-@javax.annotation.Generated(value = "org.openapitools.codegen.languages.JavaClientCodegen", date = "2026-07-04T16:49:43.032035406Z[Etc/UTC]", comments = "Generator version: 7.23.0")
+@javax.annotation.Generated(value = "org.openapitools.codegen.languages.JavaClientCodegen", comments = "Generator version: 7.23.0")
 public class NextActionOutDTO {
   /**
    * Gets or Sets action

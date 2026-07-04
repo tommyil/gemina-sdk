@@ -5,5 +5,6 @@
   "apiPackage": "co.gemina.sdk.generated.api",
   "modelPackage": "co.gemina.sdk.generated.model",
   "library": "okhttp-gson",
-  "httpUserAgent": "gemina-sdk-java"
+  "httpUserAgent": "gemina-sdk-java",
+  "hideGenerationTimestamp": true
 }

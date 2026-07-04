@@ -1,0 +1,47 @@
+{
+  "typescript": {
+    "cwd": "sdks/typescript",
+    "steps": [
+      {
+        "cmd": ["sh", "-c", "npm install --no-audit --no-fund && npm run build && node smoke/smoke.mjs"],
+        "docker_image": "node:22-slim"
+      }
+    ]
+  },
+  "python": {
+    "cwd": "sdks/python",
+    "steps": [
+      {
+        "cmd": ["sh", "-c", "pip install --user -q . && python smoke/smoke.py"],
+        "docker_image": "python:3.12-slim"
+      }
+    ]
+  },
+  "csharp": {
+    "cwd": "sdks/csharp",
+    "steps": [
+      {
+        "cmd": ["sh", "-c", "dotnet run --project smoke"],
+        "docker_image": "mcr.microsoft.com/dotnet/sdk:8.0"
+      }
+    ]
+  },
+  "java": {
+    "cwd": "sdks/java",
+    "steps": [
+      {
+        "cmd": ["mvn", "-B", "-Dmaven.repo.local=/work/.build/m2", "-Psmoke", "-DskipTests", "test-compile", "exec:java"],
+        "docker_image": "maven:3.9-eclipse-temurin-17"
+      }
+    ]
+  },
+  "php": {
+    "cwd": "sdks/php",
+    "steps": [
+      {
+        "cmd": ["sh", "-c", "composer install --no-interaction --quiet && php smoke/smoke.php"],
+        "docker_image": "composer:2"
+      }
+    ]
+  }
+}

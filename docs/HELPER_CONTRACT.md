@@ -64,11 +64,29 @@ processDocument(source, extractionTypes, options?) -> DocumentProcessingResultOu
    `timeoutSeconds` (default **300**) exceeded → throw
    `GeminaTimeoutError` carrying `correlationId` and the last seen result
    (callers may resume polling themselves).
+
+   **Transient poll failures are retried** (the document is already
+   submitted; a load-balancer blip must not orphan it): an HTTP-level
+   error from the poll call whose body is NOT a terminal `failed` result
+   (see step 4a) — connection errors, 5xx with non-result bodies —
+   counts as a failed attempt but the loop continues (same backoff,
+   same overall deadline). After **3 consecutive** such failures,
+   rethrow the last error unchanged. Any successful poll resets the
+   counter. Submit errors are NOT retried (nothing was accepted yet) —
+   they pass through unwrapped.
 4. Terminal handling:
    - `success`, `partial`, `empty` → **return** the result (callers check
      `status`; `partial`/`empty` still carry usable data/meta).
    - `failed` → throw `GeminaProcessingError` carrying the full result
      (its `errors` list has the details).
+
+   4a. **`failed` usually arrives as HTTP 500** whose body IS the
+   `DocumentProcessingResultOutDTO` (live-verified): when the generated
+   client throws on a poll (or submit) response, try to parse the error
+   body as the result model; `status = failed` → `GeminaProcessingError`
+   carrying it. Unparseable / non-`failed` bodies keep the original
+   transport error (subject to the transient-poll-retry rule above).
+   Handle `failed`-in-200-body too (defensive).
 
 ### Error types (hand-written, exported)
 

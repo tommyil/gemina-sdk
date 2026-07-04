@@ -15,8 +15,6 @@ from pydantic import validate_call, Field, StrictFloat, StrictStr, StrictInt
 from typing import Any, Dict, List, Optional, Tuple, Union
 from typing_extensions import Annotated
 
-from pydantic import StrictStr
-from typing import Optional
 from gemina.generated.models.chat_query_in_dto import ChatQueryInDTO
 from gemina.generated.models.chat_query_out_dto import ChatQueryOutDTO
 
@@ -42,8 +40,6 @@ class ChatApi:
     async def chat_query(
         self,
         chat_query_in_dto: ChatQueryInDTO,
-        x_api_key: Optional[StrictStr] = None,
-        authorization: Optional[StrictStr] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -63,10 +59,6 @@ class ChatApi:
 
         :param chat_query_in_dto: (required)
         :type chat_query_in_dto: ChatQueryInDTO
-        :param x_api_key:
-        :type x_api_key: str
-        :param authorization:
-        :type authorization: str
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -91,8 +83,6 @@ class ChatApi:
 
         _param = self._chat_query_serialize(
             chat_query_in_dto=chat_query_in_dto,
-            x_api_key=x_api_key,
-            authorization=authorization,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -118,8 +108,6 @@ class ChatApi:
     async def chat_query_with_http_info(
         self,
         chat_query_in_dto: ChatQueryInDTO,
-        x_api_key: Optional[StrictStr] = None,
-        authorization: Optional[StrictStr] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -139,10 +127,6 @@ class ChatApi:
 
         :param chat_query_in_dto: (required)
         :type chat_query_in_dto: ChatQueryInDTO
-        :param x_api_key:
-        :type x_api_key: str
-        :param authorization:
-        :type authorization: str
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -167,8 +151,6 @@ class ChatApi:
 
         _param = self._chat_query_serialize(
             chat_query_in_dto=chat_query_in_dto,
-            x_api_key=x_api_key,
-            authorization=authorization,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -194,8 +176,6 @@ class ChatApi:
     async def chat_query_without_preload_content(
         self,
         chat_query_in_dto: ChatQueryInDTO,
-        x_api_key: Optional[StrictStr] = None,
-        authorization: Optional[StrictStr] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -215,10 +195,6 @@ class ChatApi:
 
         :param chat_query_in_dto: (required)
         :type chat_query_in_dto: ChatQueryInDTO
-        :param x_api_key:
-        :type x_api_key: str
-        :param authorization:
-        :type authorization: str
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -243,8 +219,6 @@ class ChatApi:
 
         _param = self._chat_query_serialize(
             chat_query_in_dto=chat_query_in_dto,
-            x_api_key=x_api_key,
-            authorization=authorization,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -265,8 +239,6 @@ class ChatApi:
     def _chat_query_serialize(
         self,
         chat_query_in_dto,
-        x_api_key,
-        authorization,
         _request_auth,
         _content_type,
         _headers,
@@ -290,10 +262,6 @@ class ChatApi:
         # process the path parameters
         # process the query parameters
         # process the header parameters
-        if x_api_key is not None:
-            _header_params['X-API-Key'] = x_api_key
-        if authorization is not None:
-            _header_params['authorization'] = authorization
         # process the form parameters
         # process the body parameter
         if chat_query_in_dto is not None:
@@ -324,6 +292,8 @@ class ChatApi:
 
         # authentication setting
         _auth_settings: List[str] = [
+            'APIKeyHeader', 
+            'OAuth2PasswordBearer'
         ]
 
         return self.api_client.param_serialize(

@@ -50,7 +50,7 @@ import co.gemina.sdk.generated.JSON;
 /**
  * ValidationSchemaModel
  */
-@javax.annotation.Generated(value = "org.openapitools.codegen.languages.JavaClientCodegen", date = "2026-07-04T16:49:43.032035406Z[Etc/UTC]", comments = "Generator version: 7.23.0")
+@javax.annotation.Generated(value = "org.openapitools.codegen.languages.JavaClientCodegen", comments = "Generator version: 7.23.0")
 public class ValidationSchemaModel {
   public static final String SERIALIZED_NAME_VALIDATION_SCHEMA = "validationSchema";
   @SerializedName(SERIALIZED_NAME_VALIDATION_SCHEMA)

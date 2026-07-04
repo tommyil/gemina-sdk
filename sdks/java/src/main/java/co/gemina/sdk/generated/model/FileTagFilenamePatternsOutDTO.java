@@ -48,7 +48,7 @@ import co.gemina.sdk.generated.JSON;
 /**
  * Suggested filename patterns produced by &#x60;&#x60;generate_filename_patterns&#x60;&#x60;.  Six variants are surfaced so the caller can pick the layout that best matches their downstream filing system. Long forms (&#x60;&#x60;*_full&#x60;&#x60;) preserve the full extracted metadata; short forms truncate to a sensible length.
  */
-@javax.annotation.Generated(value = "org.openapitools.codegen.languages.JavaClientCodegen", date = "2026-07-04T16:49:43.032035406Z[Etc/UTC]", comments = "Generator version: 7.23.0")
+@javax.annotation.Generated(value = "org.openapitools.codegen.languages.JavaClientCodegen", comments = "Generator version: 7.23.0")
 public class FileTagFilenamePatternsOutDTO {
   public static final String SERIALIZED_NAME_DATE_FIRST = "date_first";
   @SerializedName(SERIALIZED_NAME_DATE_FIRST)
