@@ -34,7 +34,7 @@ jobs:
           check sdks/python/pyproject.toml "version = \"$VERSION\""
           check sdks/csharp/src/Gemina.Sdk/Gemina.Sdk.csproj "<Version>$VERSION</Version>"
           check sdks/java/pom.xml "<version>$VERSION</version>"
-          grep -q "VERSION = \"$VERSION\"" sdks/typescript/src/version.ts || fail=1
+          grep -Eq "VERSION = ['\"]$VERSION['\"]" sdks/typescript/src/version.ts || fail=1
           exit $fail
 
   npm:
