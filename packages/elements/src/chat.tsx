@@ -82,28 +82,178 @@ type ChatMessageInput = DistributiveOmit<ChatMessage, 'id'>;
 const HEBREW_RE = /[\u0590-\u05FF]/;
 
 /**
- * Extract an HTTP status from a thrown value by shape rather than
- * `instanceof ResponseError` — robust against duplicated `@gemina/sdk`
- * copies in a bundle (class identity is not shared across copies).
+ * The response-like object carried by a thrown transport error. We pull it off
+ * by shape rather than `instanceof ResponseError` — robust against duplicated
+ * `@gemina/sdk` copies in a bundle (class identity is not shared across
+ * copies). On the fetch transport this is the raw `Response`, so `status`,
+ * `headers`, and the JSON body are all reachable from here.
  */
-function httpStatus(error: unknown): number | undefined {
+interface ResponseLike {
+  status?: number;
+  headers?: { get?: (name: string) => string | null };
+  json?: () => Promise<unknown>;
+  clone?: () => ResponseLike;
+}
+
+function getResponseLike(error: unknown): ResponseLike | undefined {
   if (error !== null && typeof error === 'object' && 'response' in error) {
     const response = (error as { response?: unknown }).response;
-    if (
-      response !== null &&
-      typeof response === 'object' &&
-      typeof (response as { status?: unknown }).status === 'number'
-    ) {
-      return (response as { status: number }).status;
+    if (response !== null && typeof response === 'object') {
+      return response as ResponseLike;
     }
   }
   return undefined;
 }
 
+/** Extract an HTTP status from a thrown value, or `undefined`. */
+function httpStatus(error: unknown): number | undefined {
+  const status = getResponseLike(error)?.status;
+  return typeof status === 'number' ? status : undefined;
+}
+
+// Stable backend error codes. These survive production's `detail`-stripping
+// (see the chat-pricing handoff); we switch on HTTP status first and refine
+// with these where the same status can mean two different things.
+const ERR_CHAT_QUOTA_EXCEEDED = 'CHAT_QUOTA_EXCEEDED';
+const ERR_DI_NOT_IN_PLAN = 'DOCUMENT_INTELLIGENCE_NOT_IN_PLAN';
+const ERR_UNPROCESSABLE = 'UNPROCESSABLE_ERROR';
+const ERR_BAD_GATEWAY = 'BAD_GATEWAY_ERROR';
+
+interface ChatErrorInfo {
+  status: number | undefined;
+  errorCode: string | undefined;
+  /** Human-readable server fallback (`errors[0].description`). */
+  description: string | undefined;
+  /** Whole seconds until reset, from the `Retry-After` header (429). */
+  retryAfterSeconds: number | undefined;
+}
+
+/**
+ * Read what the backend actually sent on an error. Only the HTTP status, the
+ * stable `errors[0].error_code` / `description`, and the `Retry-After` header
+ * are reliable across environments — production strips `errors[0].detail`, so
+ * we never touch it. The fetch body can be read once, so we clone defensively;
+ * if that fails (non-JSON, empty, or already consumed) the status still stands.
+ */
+async function readChatError(error: unknown): Promise<ChatErrorInfo> {
+  const response = getResponseLike(error);
+  const info: ChatErrorInfo = {
+    status: typeof response?.status === 'number' ? response.status : undefined,
+    errorCode: undefined,
+    description: undefined,
+    retryAfterSeconds: undefined,
+  };
+  if (response === undefined) {
+    return info;
+  }
+
+  const rawRetryAfter = response.headers?.get?.('retry-after');
+  if (rawRetryAfter !== null && rawRetryAfter !== undefined) {
+    const seconds = Number(rawRetryAfter);
+    if (Number.isFinite(seconds) && seconds > 0) {
+      info.retryAfterSeconds = seconds;
+    }
+  }
+
+  let body: unknown;
+  try {
+    const source = typeof response.clone === 'function' ? response.clone() : response;
+    body = typeof source.json === 'function' ? await source.json() : undefined;
+  } catch {
+    body = undefined;
+  }
+  if (body !== null && typeof body === 'object') {
+    const errors = (body as { errors?: unknown }).errors;
+    if (
+      Array.isArray(errors) &&
+      errors.length > 0 &&
+      errors[0] !== null &&
+      typeof errors[0] === 'object'
+    ) {
+      const first = errors[0] as { error_code?: unknown; description?: unknown };
+      if (typeof first.error_code === 'string') {
+        info.errorCode = first.error_code;
+      }
+      if (typeof first.description === 'string') {
+        info.description = first.description;
+      }
+    }
+  }
+  return info;
+}
+
 const SESSION_EXPIRED_TEXT = 'Session expired — please reload the page or sign in again.';
 const RATE_LIMIT_TEXT = "You're sending messages too quickly — try again shortly.";
-const PLAN_GATE_TEXT = "Document Intelligence isn't enabled on this plan.";
+const PLAN_GATE_TEXT = "Chat isn't included in your plan.";
+const UNANSWERABLE_TEXT = "We couldn't answer that. Try rephrasing your question.";
+const SERVICE_UNAVAILABLE_TEXT = 'The chat service is temporarily unavailable. Please try again.';
 const GENERIC_ERROR_TEXT = "Something went wrong and your message wasn't answered.";
+
+/** Friendly "resets in about N days/hours/minutes" from Retry-After seconds. */
+function formatResetHint(seconds: number | undefined): string {
+  if (seconds === undefined || !Number.isFinite(seconds) || seconds <= 0) {
+    return 'at the next billing cycle';
+  }
+  const days = Math.round(seconds / 86400);
+  if (days >= 1) {
+    return `in about ${days} day${days === 1 ? '' : 's'}`;
+  }
+  const hours = Math.round(seconds / 3600);
+  if (hours >= 1) {
+    return `in about ${hours} hour${hours === 1 ? '' : 's'}`;
+  }
+  const minutes = Math.max(1, Math.round(seconds / 60));
+  return `in about ${minutes} minute${minutes === 1 ? '' : 's'}`;
+}
+
+/**
+ * Map a chat error to the bubble we render. Switches on HTTP status, refined by
+ * the stable backend `error_code`. `retryText` is set only when resending the
+ * same text could plausibly succeed — never for quota / plan / validation
+ * outcomes, where an identical retry would just fail the same way.
+ */
+function describeChatError(info: ChatErrorInfo, originalText: string): ChatMessageInput {
+  const { status, errorCode } = info;
+
+  // Over the included cap AND out of credits — the chat is blocked. Retrying
+  // won't help; point at the reset time from the Retry-After header.
+  if (status === 429 && errorCode === ERR_CHAT_QUOTA_EXCEEDED) {
+    return {
+      role: 'error',
+      text: `You've used your included chats and are out of credits. Included chats reset ${formatResetHint(
+        info.retryAfterSeconds,
+      )}.`,
+    };
+  }
+  // Any other 429 is a transient rate limit — a retry after a moment is fine.
+  if (status === 429) {
+    return { role: 'error', text: RATE_LIMIT_TEXT, retryText: originalText };
+  }
+  // Document Intelligence not in the plan/contract. NOT an auth failure.
+  if (status === 402 || status === 403 || errorCode === ERR_DI_NOT_IN_PLAN) {
+    return { role: 'error', text: PLAN_GATE_TEXT };
+  }
+  // Session expired — only surfaces after the 401-invalidate-retry-once path
+  // has already failed a second time.
+  if (status === 401) {
+    return { role: 'error', text: SESSION_EXPIRED_TEXT };
+  }
+  // The question couldn't be answered (e.g. no searchable text). Expected, not
+  // a server error — invite a rephrase rather than a blind retry.
+  if (status === 422 || errorCode === ERR_UNPROCESSABLE) {
+    return { role: 'error', text: UNANSWERABLE_TEXT };
+  }
+  // Chat backend timed out / unreachable — transient, offer retry.
+  if (status === 502 || errorCode === ERR_BAD_GATEWAY) {
+    return { role: 'error', text: SERVICE_UNAVAILABLE_TEXT, retryText: originalText };
+  }
+  // Anything else (incl. 500): prefer the server's description if it sent one.
+  return {
+    role: 'error',
+    text: info.description ?? GENERIC_ERROR_TEXT,
+    retryText: originalText,
+  };
+}
 
 /**
  * The API reports citations as an array of `documentId` strings; normalize
@@ -408,16 +558,12 @@ export function GeminaChat(props: GeminaChatProps): React.JSX.Element {
         if (!mountedRef.current) {
           return;
         }
-        const status = httpStatus(error);
-        if (status === 401) {
-          appendMessage({ role: 'error', text: SESSION_EXPIRED_TEXT });
-        } else if (status === 429) {
-          appendMessage({ role: 'error', text: RATE_LIMIT_TEXT });
-        } else if (status === 402 || status === 403) {
-          appendMessage({ role: 'error', text: PLAN_GATE_TEXT });
-        } else {
-          appendMessage({ role: 'error', text: GENERIC_ERROR_TEXT, retryText: text });
+        // Reading the error body is async (fetch), so re-check mount after.
+        const info = await readChatError(error);
+        if (!mountedRef.current) {
+          return;
         }
+        appendMessage(describeChatError(info, text));
       } finally {
         if (mountedRef.current) {
           setBusy(false);

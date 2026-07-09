@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "gemina"
-version = "0.1.1"
+version = "0.1.2"
 description = "Official Python SDK for the Gemina API - invoice OCR and document intelligence: upload documents, get typed structured data back, then search, aggregate, and chat over everything you've processed."
 readme = "README.md"
 license = "MIT"

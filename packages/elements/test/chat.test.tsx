@@ -18,10 +18,44 @@ vi.mock('@gemina/sdk', () => ({
   GeminaClient: { withSessionToken },
 }));
 
-/** A ResponseError-shaped rejection (public `response.status`, like the SDK's). */
-function httpError(status: number): Error {
+/**
+ * A ResponseError-shaped rejection whose `.response` behaves like the raw fetch
+ * Response the SDK throws: a `status`, a `Retry-After` header, and a JSON body
+ * carrying the standard `{ errors: [{ error_code, description }] }` envelope.
+ */
+function httpError(
+  status: number,
+  opts: { errorCode?: string; description?: string; retryAfter?: number } = {},
+): Error {
   const error = new Error(`Response returned an error code (${status})`);
-  (error as unknown as { response: { status: number } }).response = { status };
+  const body =
+    opts.errorCode !== undefined || opts.description !== undefined
+      ? {
+          status: 'failed',
+          errors: [{ error_code: opts.errorCode, description: opts.description }],
+        }
+      : undefined;
+  const response = {
+    status,
+    headers: {
+      get(name: string): string | null {
+        if (opts.retryAfter !== undefined && name.toLowerCase() === 'retry-after') {
+          return String(opts.retryAfter);
+        }
+        return null;
+      },
+    },
+    clone() {
+      return this;
+    },
+    async json(): Promise<unknown> {
+      if (body === undefined) {
+        throw new Error('no body'); // mirrors an empty / non-JSON error body
+      }
+      return body;
+    },
+  };
+  (error as unknown as { response: unknown }).response = response;
   return error;
 }
 
@@ -193,15 +227,80 @@ describe('GeminaChat — error states', () => {
     ).toBeTruthy();
   });
 
-  it.each([402, 403])('%i → plan-gate message', async (status) => {
+  it.each([402, 403])('%i → plan-gate message, no Retry', async (status) => {
     chatQuery.mockRejectedValueOnce(httpError(status));
     renderChat();
 
     await sendMessage('am I entitled?');
 
+    expect(await screen.findByText(/Chat isn't included in your plan/i)).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Retry' })).toBeNull();
+  });
+
+  it('403 DOCUMENT_INTELLIGENCE_NOT_IN_PLAN → plan-gate message', async () => {
+    chatQuery.mockRejectedValueOnce(
+      httpError(403, { errorCode: 'DOCUMENT_INTELLIGENCE_NOT_IN_PLAN' }),
+    );
+    renderChat();
+
+    await sendMessage('chat?');
+
+    expect(await screen.findByText(/Chat isn't included in your plan/i)).toBeTruthy();
+  });
+
+  it('429 CHAT_QUOTA_EXCEEDED → out-of-credits message with the reset hint, no Retry', async () => {
+    // Retry-After: 172800s = 2 days.
+    chatQuery.mockRejectedValueOnce(
+      httpError(429, { errorCode: 'CHAT_QUOTA_EXCEEDED', retryAfter: 172800 }),
+    );
+    renderChat();
+
+    await sendMessage('one more question');
+
+    expect(await screen.findByText(/out of credits/i)).toBeTruthy();
+    expect(screen.getByText(/in about 2 days/i)).toBeTruthy();
+    // A blind retry can't succeed here, so no Retry affordance.
+    expect(screen.queryByRole('button', { name: 'Retry' })).toBeNull();
+    // And it must NOT read as the transient "sending too quickly" rate limit.
+    expect(screen.queryByText(/sending messages too quickly/i)).toBeNull();
+  });
+
+  it.each([
+    ['with error_code', { errorCode: 'UNPROCESSABLE_ERROR' }],
+    ['on bare status', {}],
+  ])('422 %s → rephrase message, no Retry (not a server error)', async (_label, opts) => {
+    chatQuery.mockRejectedValueOnce(httpError(422, opts));
+    renderChat();
+
+    await sendMessage('hi');
+
+    expect(await screen.findByText(/try rephrasing your question/i)).toBeTruthy();
+    // The reported bug: a 422 must NOT render as a generic server error.
+    expect(screen.queryByText(/something went wrong/i)).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Retry' })).toBeNull();
+  });
+
+  it('502 BAD_GATEWAY_ERROR → service-unavailable message with a Retry', async () => {
+    chatQuery.mockRejectedValueOnce(httpError(502, { errorCode: 'BAD_GATEWAY_ERROR' }));
+    renderChat();
+
+    await sendMessage('are you there?');
+
     expect(
-      await screen.findByText(/Document Intelligence isn't enabled on this plan/i),
+      await screen.findByText(/chat service is temporarily unavailable/i),
     ).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Retry' })).toBeTruthy();
+  });
+
+  it("falls back to the server's description for an unmapped status", async () => {
+    chatQuery.mockRejectedValueOnce(
+      httpError(418, { description: 'The kettle refused the brew.' }),
+    );
+    renderChat();
+
+    await sendMessage('coffee?');
+
+    expect(await screen.findByText(/the kettle refused the brew/i)).toBeTruthy();
   });
 
   it('other failures → generic message with a Retry that resends the last message', async () => {

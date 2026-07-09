@@ -6,7 +6,7 @@
     <RootNamespace>Gemina.Sdk</RootNamespace>
     <OutputType>Library</OutputType>
     <PackageId>Gemina.Sdk</PackageId>
-    <Version>0.1.1</Version>
+    <Version>0.1.2</Version>
     <Authors>Gemina</Authors>
     <Company>Gemina</Company>
     <Description>Official C# client for the Gemina API — invoice OCR and document intelligence: upload documents, get typed structured data back, then search, aggregate, and chat over everything you've processed.</Description>
