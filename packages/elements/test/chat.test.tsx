@@ -1,17 +1,18 @@
 /**
  * <GeminaChat> — offline component tests with a mocked @gemina/sdk.
  */
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { GeminaChat } from '../src/chat';
 import { GeminaTokenManager } from '../src/token-manager';
 
-const { chatQuery, withSessionToken } = vi.hoisted(() => {
+const { chatQuery, deleteChatSession, withSessionToken } = vi.hoisted(() => {
   const chatQuery = vi.fn();
+  const deleteChatSession = vi.fn();
   const withSessionToken = vi.fn((_token: string, _baseUrl?: string) => ({
-    chat: { chatQuery },
+    chat: { chatQuery, deleteChatSession },
   }));
-  return { chatQuery, withSessionToken };
+  return { chatQuery, deleteChatSession, withSessionToken };
 });
 
 vi.mock('@gemina/sdk', () => ({
@@ -60,7 +61,8 @@ function httpError(
 }
 
 function answer(text: string, overrides: Record<string, unknown> = {}) {
-  return { answer: text, citations: [], confident: true, ...overrides };
+  // The API always returns a sessionId; default one so responses are realistic.
+  return { answer: text, citations: [], confident: true, sessionId: 'sess-1', ...overrides };
 }
 
 function makeManager() {
@@ -86,6 +88,7 @@ async function sendMessage(text: string) {
 afterEach(() => {
   cleanup();
   chatQuery.mockReset();
+  deleteChatSession.mockReset();
   withSessionToken.mockClear();
 });
 
@@ -182,6 +185,87 @@ describe('GeminaChat — sending a message', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /doc-obj-1/ }));
     expect(onCitationClick).toHaveBeenCalledWith('doc-obj-1');
+  });
+});
+
+describe('GeminaChat — conversation sessions', () => {
+  it('omits sessionId on the first turn and threads it back on the next', async () => {
+    chatQuery
+      .mockResolvedValueOnce(answer('first', { sessionId: 'sess-abc' }))
+      .mockResolvedValueOnce(answer('second', { sessionId: 'sess-abc' }));
+    renderChat({ endUserId: 'eu-1' });
+
+    await sendMessage('turn one');
+    await screen.findByText('first');
+    // First turn starts fresh: no sessionId sent.
+    expect(chatQuery).toHaveBeenNthCalledWith(1, {
+      chatQueryInDTO: { message: 'turn one', endUserId: 'eu-1' },
+    });
+
+    await sendMessage('turn two');
+    await screen.findByText('second');
+    // Follow-up carries the id returned by turn one — memory.
+    expect(chatQuery).toHaveBeenNthCalledWith(2, {
+      chatQueryInDTO: { message: 'turn two', endUserId: 'eu-1', sessionId: 'sess-abc' },
+    });
+  });
+
+  it('on a 404 for a turn that carried a session: drops it and retries fresh (transparent)', async () => {
+    chatQuery
+      .mockResolvedValueOnce(answer('first', { sessionId: 'sess-old' })) // establishes a session
+      .mockRejectedValueOnce(httpError(404, { errorCode: 'CHAT_SESSION_NOT_FOUND' })) // expired
+      .mockResolvedValueOnce(answer('recovered', { sessionId: 'sess-new' })); // fresh retry
+    renderChat();
+
+    await sendMessage('one');
+    await screen.findByText('first');
+
+    await sendMessage('two');
+    // The 404 is invisible: the answer shows and no error bubble appears.
+    expect(await screen.findByText('recovered')).toBeTruthy();
+    expect(screen.queryByRole('alert')).toBeNull();
+    // The retry after the 404 carried NO sessionId (a brand-new conversation).
+    expect(chatQuery).toHaveBeenNthCalledWith(3, {
+      chatQueryInDTO: { message: 'two', endUserId: undefined },
+    });
+
+    // And the following turn threads the NEW id from the recovery.
+    chatQuery.mockResolvedValueOnce(answer('third', { sessionId: 'sess-new' }));
+    await sendMessage('three');
+    await screen.findByText('third');
+    expect(chatQuery).toHaveBeenNthCalledWith(4, {
+      chatQueryInDTO: { message: 'three', endUserId: undefined, sessionId: 'sess-new' },
+    });
+  });
+
+  it('"New chat" clears the transcript, deletes the old session, and starts fresh', async () => {
+    chatQuery.mockResolvedValueOnce(answer('hi there', { sessionId: 'sess-xyz' }));
+    deleteChatSession.mockResolvedValue(undefined);
+    renderChat();
+
+    // No New-chat control until a conversation exists.
+    expect(screen.queryByRole('button', { name: 'New chat' })).toBeNull();
+
+    await sendMessage('hello');
+    await screen.findByText('hi there');
+
+    fireEvent.click(screen.getByRole('button', { name: 'New chat' }));
+
+    // Transcript cleared; the control disappears with the (now empty) log.
+    expect(screen.queryByText('hi there')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'New chat' })).toBeNull();
+    // Old session deleted server-side (best-effort).
+    await waitFor(() =>
+      expect(deleteChatSession).toHaveBeenCalledWith({ sessionId: 'sess-xyz' }),
+    );
+
+    // Next message starts a brand-new conversation: no sessionId threaded.
+    chatQuery.mockResolvedValueOnce(answer('fresh start', { sessionId: 'sess-2' }));
+    await sendMessage('again');
+    await screen.findByText('fresh start');
+    expect(chatQuery).toHaveBeenLastCalledWith({
+      chatQueryInDTO: { message: 'again', endUserId: undefined },
+    });
   });
 });
 

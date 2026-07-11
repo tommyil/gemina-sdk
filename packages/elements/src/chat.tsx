@@ -118,6 +118,11 @@ const ERR_CHAT_QUOTA_EXCEEDED = 'CHAT_QUOTA_EXCEEDED';
 const ERR_DI_NOT_IN_PLAN = 'DOCUMENT_INTELLIGENCE_NOT_IN_PLAN';
 const ERR_UNPROCESSABLE = 'UNPROCESSABLE_ERROR';
 const ERR_BAD_GATEWAY = 'BAD_GATEWAY_ERROR';
+// A conversation id that the server no longer knows (24h idle TTL, explicit
+// reset, or end-user scope drift). A turn that CARRIED a session and 404s is
+// this by construction — the chat/query handler raises 404 for nothing else —
+// so the component drops the id and restarts the conversation transparently.
+const ERR_CHAT_SESSION_NOT_FOUND = 'CHAT_SESSION_NOT_FOUND';
 
 interface ChatErrorInfo {
   status: number | undefined;
@@ -183,6 +188,8 @@ async function readChatError(error: unknown): Promise<ChatErrorInfo> {
 }
 
 const SESSION_EXPIRED_TEXT = 'Session expired — please reload the page or sign in again.';
+const CONVERSATION_RESET_TEXT =
+  'This conversation is no longer available — send your message again to start a new one.';
 const RATE_LIMIT_TEXT = "You're sending messages too quickly — try again shortly.";
 const PLAN_GATE_TEXT = "Chat isn't included in your plan.";
 const UNANSWERABLE_TEXT = "We couldn't answer that. Try rephrasing your question.";
@@ -237,6 +244,12 @@ function describeChatError(info: ChatErrorInfo, originalText: string): ChatMessa
   // has already failed a second time.
   if (status === 401) {
     return { role: 'error', text: SESSION_EXPIRED_TEXT };
+  }
+  // A stale conversation id that slipped past the transparent restart (the
+  // restart only fires for a turn that carried a session). Resending starts a
+  // fresh conversation, so offer a Retry rather than a dead-end error.
+  if (status === 404 || errorCode === ERR_CHAT_SESSION_NOT_FOUND) {
+    return { role: 'error', text: CONVERSATION_RESET_TEXT, retryText: originalText };
   }
   // The question couldn't be answered (e.g. no searchable text). Expected, not
   // a server error — invite a rephrase rather than a blind retry.
@@ -328,6 +341,26 @@ const CHAT_CSS = `
 @media (prefers-color-scheme: dark) {
   .gemina-chat--auto { ${DARK_VARS} }
 }
+.gemina-chat__header {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  flex: 0 0 auto;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--gemina-chat-border);
+}
+.gemina-chat__newchat {
+  font: inherit;
+  font-size: 12px;
+  padding: 3px 10px;
+  border-radius: var(--gemina-chat-radius);
+  border: 1px solid var(--gemina-chat-border);
+  background: transparent;
+  color: var(--gemina-chat-accent);
+  cursor: pointer;
+}
+.gemina-chat__newchat:hover:not(:disabled) { border-color: var(--gemina-chat-accent); }
+.gemina-chat__newchat:disabled { opacity: 0.5; cursor: default; }
 .gemina-chat__log {
   flex: 1;
   overflow-y: auto;
@@ -490,6 +523,11 @@ export function GeminaChat(props: GeminaChatProps): React.JSX.Element {
   const nextIdRef = useRef(0);
   const mountedRef = useRef(false);
   const logRef = useRef<HTMLDivElement | null>(null);
+  // The conversation id (server-issued) that gives the chat memory across
+  // turns. Held in a ref, not state: it changes per turn but must never
+  // trigger a re-render, and the send flow reads its latest value directly.
+  // Distinct from the auth session TOKEN the token manager holds.
+  const sessionIdRef = useRef<string | undefined>(undefined);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -515,7 +553,12 @@ export function GeminaChat(props: GeminaChatProps): React.JSX.Element {
   const chatOnce = useCallback(
     (token: string, message: string): Promise<ChatQueryOutDTO> => {
       const client = GeminaClient.withSessionToken(token, baseUrl);
-      return client.chat.chatQuery({ chatQueryInDTO: { message, endUserId } });
+      const sessionId = sessionIdRef.current;
+      return client.chat.chatQuery({
+        // Thread the conversation id when we have one so follow-ups resolve
+        // referents ("what about the total?"); omit it to start a new one.
+        chatQueryInDTO: { message, endUserId, ...(sessionId ? { sessionId } : {}) },
+      });
     },
     [baseUrl, endUserId],
   );
@@ -544,10 +587,28 @@ export function GeminaChat(props: GeminaChatProps): React.JSX.Element {
     async (text: string) => {
       setBusy(true);
       try {
-        const result = await queryWithRetry(text);
+        let result: ChatQueryOutDTO;
+        const hadSession = sessionIdRef.current !== undefined;
+        try {
+          result = await queryWithRetry(text);
+        } catch (error) {
+          // A turn that CARRIED a session and 404s means the conversation is
+          // gone (24h idle TTL, an explicit reset, or end-user scope drift).
+          // Drop the stale id and retry once as a fresh conversation, so the
+          // expiry is transparent — the user just gets an answer, no memory.
+          if (hadSession && httpStatus(error) === 404) {
+            sessionIdRef.current = undefined;
+            result = await queryWithRetry(text);
+          } else {
+            throw error;
+          }
+        }
         if (!mountedRef.current) {
           return;
         }
+        // The response always returns the (possibly newly created) conversation
+        // id — store it so the next turn continues this thread.
+        sessionIdRef.current = result.sessionId ?? sessionIdRef.current;
         appendMessage({
           role: 'assistant',
           text: result.answer,
@@ -572,6 +633,34 @@ export function GeminaChat(props: GeminaChatProps): React.JSX.Element {
     },
     [queryWithRetry, appendMessage],
   );
+
+  /**
+   * Reset to a brand-new conversation: clear the transcript and forget the
+   * session id so the next message starts fresh. The old session is deleted
+   * server-side best-effort — the local reset is authoritative, and a failed
+   * delete just leaves the session to lapse on its idle TTL.
+   */
+  const startNewChat = useCallback(() => {
+    if (busy) {
+      return;
+    }
+    const staleSession = sessionIdRef.current;
+    sessionIdRef.current = undefined;
+    setMessages([]);
+    setDraft('');
+    if (staleSession !== undefined) {
+      void (async () => {
+        try {
+          const token = await tokenManager.getToken();
+          await GeminaClient.withSessionToken(token, baseUrl).chat.deleteChatSession({
+            sessionId: staleSession,
+          });
+        } catch {
+          // Unreachable/expired session: nothing to clean up client-side.
+        }
+      })();
+    }
+  }, [busy, tokenManager, baseUrl]);
 
   const submitDraft = useCallback(() => {
     const text = draft.trim();
@@ -643,6 +732,18 @@ export function GeminaChat(props: GeminaChatProps): React.JSX.Element {
 
   return (
     <div className={rootClassName} dir={effectiveDir}>
+      {messages.length > 0 && (
+        <div className="gemina-chat__header">
+          <button
+            type="button"
+            className="gemina-chat__newchat"
+            onClick={startNewChat}
+            disabled={busy}
+          >
+            New chat
+          </button>
+        </div>
+      )}
       <div
         ref={logRef}
         role="log"
