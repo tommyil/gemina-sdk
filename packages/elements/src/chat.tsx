@@ -245,11 +245,15 @@ function describeChatError(info: ChatErrorInfo, originalText: string): ChatMessa
   if (status === 401) {
     return { role: 'error', text: SESSION_EXPIRED_TEXT };
   }
-  // A stale conversation id that slipped past the transparent restart (the
-  // restart only fires for a turn that carried a session). Resending starts a
-  // fresh conversation, so offer a Retry rather than a dead-end error.
-  if (status === 404 || errorCode === ERR_CHAT_SESSION_NOT_FOUND) {
+  // A stale conversation id that slipped past the transparent restart — only
+  // the stable error_code reliably means "the conversation is gone". A bare 404
+  // is a routing/gateway miss (e.g. the endpoint isn't deployed), which reads
+  // better as a transient service error than a confusing "conversation reset".
+  if (errorCode === ERR_CHAT_SESSION_NOT_FOUND) {
     return { role: 'error', text: CONVERSATION_RESET_TEXT, retryText: originalText };
+  }
+  if (status === 404) {
+    return { role: 'error', text: SERVICE_UNAVAILABLE_TEXT, retryText: originalText };
   }
   // The question couldn't be answered (e.g. no searchable text). Expected, not
   // a server error — invite a rephrase rather than a blind retry.

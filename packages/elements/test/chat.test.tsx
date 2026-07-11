@@ -376,6 +376,28 @@ describe('GeminaChat — error states', () => {
     expect(screen.getByRole('button', { name: 'Retry' })).toBeTruthy();
   });
 
+  it('404 CHAT_SESSION_NOT_FOUND on a sessionless turn → conversation-reset message, with Retry', async () => {
+    chatQuery.mockRejectedValueOnce(httpError(404, { errorCode: 'CHAT_SESSION_NOT_FOUND' }));
+    renderChat();
+
+    await sendMessage('hi');
+
+    expect(await screen.findByText(/no longer available/i)).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Retry' })).toBeTruthy();
+  });
+
+  it('a bare 404 (routing / endpoint not deployed) → service-unavailable, NOT conversation-reset', async () => {
+    chatQuery.mockRejectedValueOnce(httpError(404));
+    renderChat();
+
+    await sendMessage('hi');
+
+    // A first-turn 404 with no session in play is an endpoint miss, not a
+    // stale conversation — must not read as "conversation no longer available".
+    expect(await screen.findByText(/temporarily unavailable/i)).toBeTruthy();
+    expect(screen.queryByText(/no longer available/i)).toBeNull();
+  });
+
   it("falls back to the server's description for an unmapped status", async () => {
     chatQuery.mockRejectedValueOnce(
       httpError(418, { description: 'The kettle refused the brew.' }),
