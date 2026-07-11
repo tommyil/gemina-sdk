@@ -1,6 +1,6 @@
 {
   "name": "@gemina/elements",
-  "version": "0.1.2",
+  "version": "0.2.0",
   "description": "Embeddable browser UI for Gemina Document Intelligence — a drop-in React chat component plus a security-hardened session-token manager. The API key never enters the browser.",
   "license": "MIT",
   "repository": {

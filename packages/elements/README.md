@@ -165,6 +165,29 @@ treatment. Enter sends, Shift+Enter inserts a newline. The message list is
 a `role="log"` live region with `aria-busy` while a reply is in flight, and
 the input and send button are ARIA-labelled.
 
+### Conversation memory
+
+The widget keeps conversation memory automatically. The first message starts
+a new server-side conversation; the response carries a `sessionId`, which the
+component threads back into every following turn so the assistant can resolve
+referents ("what about the total?", "and last year?") against what came
+before. The id is held in memory for the life of the component — nothing is
+persisted, and it's never surfaced as a prop or exposed to your app.
+
+Once a conversation has any messages, a **New chat** button appears in the
+widget header. Clicking it clears the transcript and forgets the current
+`sessionId`, so the next message opens a fresh conversation; the previous
+server-side session is deleted best-effort at the same time. The local reset
+is authoritative — if the delete can't be reached, that session simply lapses
+on its own idle TTL.
+
+Server conversations expire after **24 hours of inactivity**. If you send a
+message on a conversation the server has since forgotten (idle expiry, an
+explicit reset, or end-user scope drift), the widget notices, drops the stale
+id, and transparently retries as a new conversation — you just get your answer
+back, with the prior memory gone. (A stale id that slips past this restart
+falls back to the reset error below.)
+
 ### Error behavior
 
 | API response | What the widget does |
@@ -172,6 +195,7 @@ the input and send button are ARIA-labelled.
 | `401` | `tokenManager.invalidate()` + one automatic retry with a fresh token; if the retry also 401s → "Session expired — please reload the page or sign in again." |
 | `429` | "You're sending messages too quickly — try again shortly." |
 | `402` / `403` | "Document Intelligence isn't enabled on this plan." |
+| `404` (a conversation the server forgot, past the transparent restart) | "This conversation is no longer available — send your message again to start a new one." with a **Retry** button. |
 | anything else | Generic failure with a **Retry** button that resends the last message. |
 
 ### Theming

@@ -5,4 +5,4 @@ re-exported as ``gemina.__version__``. The version in the generated client's
 metadata is irrelevant and intentionally ignored.
 """
 
-__version__ = "0.1.2"
+__version__ = "0.2.0"

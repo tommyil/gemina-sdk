@@ -53,11 +53,26 @@ extraction types (`ocr`, `invoice_headers`, `invoice_line_items`,
 `retrieval_aggregate`, `retrieval_status`. One runnable sample each for
 query + aggregate; mention results carry citations back to documents.
 
+Advanced filtering + match highlights: beyond the promoted `filters`,
+`structured_filters` filters on *any* structured field (`op` ∈
+eq/neq/gt/lt/contains/exists, max 8), and each result exposes the line-item
+snippet that made it match via `matchedChunks`. `retrieval_fields` lists the
+filterable structured field names per document type (names only, never
+values) for building a field picker from real data. One short sample.
+
 ## Chat with your documents
 
 `chat` group: `chat_query` sample, `answer` + `confident` + citations.
 Note: requires a plan with Document Intelligence enabled — link to pricing,
 mention 402/403 otherwise.
+
+Multi-turn conversations (memory): a `conversation()` helper threads the
+server-issued `sessionId` across turns so follow-ups keep context — `send`
+per turn, a `sessionId` accessor, `reset` (forget locally), `delete` (end
+server-side). Mention a conversation expires after 24h idle: the next `send`
+then surfaces the API's `404 CHAT_SESSION_NOT_FOUND` (no auto-retry — call
+`reset` and resend). One-shot `chat_query` with an explicit `sessionId`
+stays available. One short sample.
 
 ## Session tokens (browser embedding)
 

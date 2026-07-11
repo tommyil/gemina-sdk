@@ -137,6 +137,43 @@ foreach (var row in aggregate.Rows)
 }
 ```
 
+**Advanced filters & match highlights.** Beyond the promoted `Filters`, filter on
+*any* structured field a document has with `StructuredFilters` (each is a
+`path` / `op` / `value`, where `op` is one of `Eq` / `Neq` / `Gt` / `Lt` /
+`Contains` / `Exists`, max 8), and read back the line-item snippet that made a
+document match via each result's `MatchedChunks`:
+
+```csharp
+var matches = await client.Retrieval.RetrievalQueryAsync(new RetrievalQueryInDTO(
+    text: "27-inch monitors",
+    mode: RetrievalQueryInDTO.ModeEnum.Hybrid,
+    structuredFilters: new List<StructuredFilterDTO>
+    {
+        new StructuredFilterDTO(StructuredFilterDTO.OpEnum.Contains, "position", new Value("engineer")),
+    }));
+
+foreach (var item in matches.Items)
+{
+    foreach (var chunk in item.MatchedChunks ?? new List<MatchedChunkDTO>())
+    {
+        Console.WriteLine($"{item.DocumentId} matched on: {chunk.Text}");
+    }
+}
+```
+
+Discover which fields you can filter on with `RetrievalFieldsAsync` — it returns
+the structured field names per document type (names only, never values), so you
+can build a field picker from real data:
+
+```csharp
+var fields = await client.Retrieval.RetrievalFieldsAsync();
+
+foreach (var f in fields.Fields)
+{
+    Console.WriteLine($"{f.DocumentType}.{f.Field} ({f.Count} documents)");
+}
+```
+
 ## Chat with your documents
 
 Ask questions in natural language; answers come back with citations to the
@@ -154,6 +191,26 @@ Console.WriteLine($"Citations: {string.Join(", ", chat.Citations ?? new List<str
 Chat requires a plan with Document Intelligence enabled — see pricing at
 [gemina.co](https://gemina.co). Without it the API responds with `402`/`403`
 (surfaced as an `ApiException`).
+
+**Multi-turn conversations (memory).** For a back-and-forth where follow-ups
+keep context, use a **conversation** — it threads the server-issued `SessionId`
+for you:
+
+```csharp
+var chat = client.Conversation();
+await chat.SendAsync("How much did we spend on cleaning in 2020?");
+var follow = await chat.SendAsync("And which vendor was most expensive?"); // remembers 2020 / cleaning
+Console.WriteLine($"{follow.Answer} · session: {chat.SessionId}");
+
+await chat.DeleteAsync(); // end it server-side (or chat.Reset() to just forget it locally)
+```
+
+A conversation expires after 24h of inactivity; the next `SendAsync` then throws
+the API's `404 CHAT_SESSION_NOT_FOUND` (an `ApiException`) — call `chat.Reset()`
+and resend to continue in a fresh one. One-shot
+`client.Chat.ChatQueryAsync(new ChatQueryInDTO(message: ..., sessionId: ...))` is
+still available if you'd rather hold the id yourself; every response returns a
+`SessionId`.
 
 ## Session tokens (browser embedding)
 

@@ -112,6 +112,30 @@ for (const row of rows ?? []) {
 
 Check how many of your documents are indexed with `client.retrieval.retrievalStatus()` (returns `{ indexedDocuments }`).
 
+**Advanced filters & match highlights.** Beyond the promoted `filters`, filter on *any* structured field a document has with `structuredFilters` (`op` is one of `eq` / `neq` / `gt` / `lt` / `contains` / `exists`, max 8), and read back the line-item snippet that made a document match via `matchedChunks`:
+
+```ts
+const { items } = await client.retrieval.retrievalQuery({
+  retrievalQueryInDTO: {
+    mode: "hybrid",
+    text: "27-inch monitors",
+    structuredFilters: [{ path: "position", op: "contains", value: "engineer" }],
+  },
+});
+for (const item of items ?? []) {
+  for (const chunk of item.matchedChunks ?? []) {
+    console.log(item.documentId, "matched on:", chunk.text);
+  }
+}
+```
+
+Discover which fields you can filter on with `client.retrieval.retrievalFields()` — it returns the structured field names per document type (names only, never values), so you can build a field picker from real data:
+
+```ts
+const { fields } = await client.retrieval.retrievalFields();
+// -> [{ documentType: "invoice", field: "vendor_name", count: 42 }, ...]
+```
+
 ## Chat with your documents
 
 Ask free-form questions over everything you've processed. Answers come back with a confidence signal and citations to the source documents:
@@ -127,6 +151,19 @@ console.log("citations:", reply.citations);
 ```
 
 Chat requires a plan with Document Intelligence enabled — see [pricing](https://gemina.co/pricing). Without it the API responds `402`/`403`.
+
+**Multi-turn conversations (memory).** For a back-and-forth where follow-ups keep context, use a **conversation** — it threads the server-issued `sessionId` for you:
+
+```ts
+const chat = client.conversation();
+await chat.send("How much did we spend on cleaning in 2020?");
+const follow = await chat.send("And which vendor was most expensive?"); // remembers 2020 / cleaning
+console.log(follow.answer, "· session:", chat.sessionId);
+
+await chat.delete(); // end it server-side (or chat.reset() to just forget it locally)
+```
+
+A conversation expires after 24h of inactivity; the next `send` then throws the API's `404 CHAT_SESSION_NOT_FOUND` — call `chat.reset()` and resend to continue in a fresh one. One-shot `client.chat.chatQuery({ chatQueryInDTO: { message, sessionId } })` is still available if you'd rather hold the id yourself; every response returns a `sessionId`.
 
 ## Session tokens (browser embedding)
 

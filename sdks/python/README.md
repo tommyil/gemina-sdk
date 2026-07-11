@@ -152,6 +152,43 @@ async def totals_by_vendor():
 `client.retrieval.retrieval_status()` tells you how many of your documents
 are currently indexed.
 
+**Advanced filters & match highlights.** Beyond the promoted `filters`, filter
+on *any* structured field a document has with `structured_filters` (`op` is one
+of `eq` / `neq` / `gt` / `lt` / `contains` / `exists`, max 8), and read back the
+line-item snippet that made a document match via `matched_chunks`:
+
+```python
+from gemina import GeminaClient, RetrievalQueryInDTO
+from gemina.generated.models.structured_filter_dto import StructuredFilterDTO
+
+async def advanced_search():
+    async with GeminaClient("YOUR_API_KEY") as client:
+        page = await client.retrieval.retrieval_query(RetrievalQueryInDTO(
+            mode="hybrid",
+            text="27-inch monitors",
+            structured_filters=[
+                StructuredFilterDTO(path="position", op="contains", value="engineer"),
+            ],
+        ))
+        for item in page.items:
+            for chunk in item.matched_chunks or []:
+                print(item.document_id, "matched on:", chunk.text)
+```
+
+Discover which fields you can filter on with
+`client.retrieval.retrieval_fields()` — it returns the structured field names
+per document type (names only, never values), so you can build a field picker
+from real data:
+
+```python
+async def list_fields():
+    async with GeminaClient("YOUR_API_KEY") as client:
+        catalog = await client.retrieval.retrieval_fields()
+        for f in catalog.fields:
+            print(f.document_type, f.var_field, f.count)
+            # e.g. invoice  vendor_name  42
+```
+
 ## Chat with your documents
 
 Ask questions in natural language; answers come back with a `confident` flag
@@ -172,6 +209,27 @@ async def ask():
 
 Chat requires a plan with Document Intelligence enabled — see
 [pricing](https://gemina.co); without it these calls return 402/403.
+
+**Multi-turn conversations (memory).** For a back-and-forth where follow-ups
+keep context, use a **conversation** — it threads the server-issued
+`session_id` for you, so you never touch the id:
+
+```python
+async def conversation():
+    async with GeminaClient("YOUR_API_KEY") as client:
+        chat = client.conversation()
+        await chat.send("How much did we spend on cleaning in 2020?")
+        follow = await chat.send("And which vendor was most expensive?")  # remembers 2020 / cleaning
+        print(follow.answer, "· session:", chat.session_id)
+
+        await chat.delete()   # end it server-side (or chat.reset() to just forget it locally)
+```
+
+A conversation expires after 24h of inactivity; the next `send` then raises the
+API's `404 CHAT_SESSION_NOT_FOUND` — call `chat.reset()` and resend to continue
+in a fresh one. One-shot `client.chat.chat_query(ChatQueryInDTO(message=...,
+session_id=...))` is still available if you'd rather hold the id yourself; every
+response returns a `session_id`.
 
 ## Session tokens (browser embedding)
 

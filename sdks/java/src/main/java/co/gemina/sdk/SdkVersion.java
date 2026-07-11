@@ -9,7 +9,7 @@ package co.gemina.sdk;
 public final class SdkVersion {
 
     /** The gemina-sdk package version. Keep in sync with {@code pom.xml}. */
-    public static final String VERSION = "0.1.2";
+    public static final String VERSION = "0.2.0";
 
     private SdkVersion() {
     }

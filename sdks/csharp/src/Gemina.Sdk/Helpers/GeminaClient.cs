@@ -11,6 +11,91 @@ using Gemina.Sdk.Model;
 namespace Gemina.Sdk
 {
     /// <summary>
+    /// A stateful chat conversation that threads the server-issued
+    /// <c>sessionId</c> across turns, so follow-up questions keep context — you
+    /// never touch the id. Create one with
+    /// <see cref="GeminaClient.Conversation(string)"/>.
+    /// </summary>
+    /// <remarks>
+    /// <code>
+    /// var chat = client.Conversation();
+    /// await chat.SendAsync("How much did I spend at Acme in Q1?");
+    /// await chat.SendAsync("And the biggest invoice?"); // remembers Acme / Q1
+    /// await chat.DeleteAsync();                          // end it server-side
+    /// </code>
+    /// A turn that carries a stale session (24h idle TTL, or after
+    /// <see cref="Reset"/>) fails with the API's 404
+    /// <c>CHAT_SESSION_NOT_FOUND</c>; catch it, call <see cref="Reset"/>, and
+    /// resend to continue in a fresh conversation.
+    /// </remarks>
+    public class GeminaChatConversation
+    {
+        private readonly IChatApi _chat;
+        private readonly string _endUserId;
+        private Guid? _currentSessionId;
+
+        internal GeminaChatConversation(IChatApi chat, string endUserId = null)
+        {
+            _chat = chat;
+            _endUserId = endUserId;
+        }
+
+        /// <summary>
+        /// The current conversation id — <c>null</c> before the first turn or
+        /// after a <see cref="Reset"/>.
+        /// </summary>
+        public Guid? SessionId => _currentSessionId;
+
+        /// <summary>Sends one turn; its answer continues this conversation.</summary>
+        /// <param name="message">The natural-language question to ask.</param>
+        /// <param name="cancellationToken">Cancels the request.</param>
+        public async Task<ChatQueryOutDTO> SendAsync(
+            string message,
+            CancellationToken cancellationToken = default)
+        {
+            // sessionId is null on the first turn (a new conversation) and the
+            // threaded id thereafter; a null value is omitted from the request.
+            var request = new ChatQueryInDTO(
+                endUserId: _endUserId,
+                message: message,
+                sessionId: _currentSessionId);
+
+            var result = await _chat
+                .ChatQueryAsync(request, cancellationToken: cancellationToken)
+                .ConfigureAwait(false);
+
+            _currentSessionId = result.SessionId;
+            return result;
+        }
+
+        /// <summary>
+        /// Forgets the conversation locally; the next <see cref="SendAsync"/>
+        /// starts a new one.
+        /// </summary>
+        public void Reset()
+        {
+            _currentSessionId = null;
+        }
+
+        /// <summary>
+        /// Ends the conversation: deletes it server-side (mirrors a "New chat"
+        /// action) and forgets it locally. No-op if no turn has been sent yet.
+        /// </summary>
+        /// <param name="cancellationToken">Cancels the request.</param>
+        public async Task DeleteAsync(CancellationToken cancellationToken = default)
+        {
+            var sessionId = _currentSessionId;
+            _currentSessionId = null;
+            if (sessionId.HasValue)
+            {
+                await _chat
+                    .DeleteChatSessionAsync(sessionId.Value, cancellationToken: cancellationToken)
+                    .ConfigureAwait(false);
+            }
+        }
+    }
+
+    /// <summary>
     /// Facade over the generated Gemina API client: one-line construction
     /// with an API key, lazily-built accessors for every API group, and the
     /// <see cref="ProcessDocumentAsync(GeminaDocumentSource, List{ExtractionTypeModel}, ProcessDocumentOptions, CancellationToken)"/>
@@ -157,6 +242,23 @@ namespace Gemina.Sdk
         {
             get => _billing ?? (_billing = new BillingApi(Configuration));
             internal set => _billing = value;
+        }
+
+        // ---- Stateful chat convenience ----
+
+        /// <summary>
+        /// Starts a stateful <see cref="GeminaChatConversation"/> that threads
+        /// the server-issued <c>sessionId</c> across turns for you, so follow-up
+        /// questions keep context. The full one-shot surface stays on
+        /// <see cref="Chat"/>.
+        /// </summary>
+        /// <param name="endUserId">
+        /// End-user id forwarded with each turn (API-key path only; on the
+        /// session-token path the token's signed scope wins server-side).
+        /// </param>
+        public GeminaChatConversation Conversation(string endUserId = null)
+        {
+            return new GeminaChatConversation(Chat, endUserId);
         }
 
         /// <summary>

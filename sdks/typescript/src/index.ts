@@ -2,8 +2,9 @@
 export * from './generated';
 
 // Hand-written convenience layer.
-export { GeminaClient, DEFAULT_BASE_URL } from './helpers';
+export { GeminaClient, GeminaChatConversation, DEFAULT_BASE_URL } from './helpers';
 export type {
+  ConversationOptions,
   DocumentSource,
   GeminaClientApis,
   GeminaClientOptions,
