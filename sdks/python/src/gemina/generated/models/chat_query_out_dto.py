@@ -20,6 +20,7 @@ import json
 from datetime import datetime
 from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictFloat, StrictInt, StrictStr
 from typing import Any, ClassVar, Dict, List, Optional, Union
+from uuid import UUID
 from typing import Optional, Set
 from typing_extensions import Self
 from pydantic_core import to_jsonable_python
@@ -36,7 +37,8 @@ class ChatQueryOutDTO(BaseModel):
     intent: Optional[StrictStr] = Field(default=None, description="structured | semantic | hybrid | aggregation")
     served_at: Optional[datetime] = Field(default=None, alias="servedAt")
     served_at_timestamp: Optional[Union[StrictFloat, StrictInt]] = Field(default=None, alias="servedAtTimestamp")
-    __properties: ClassVar[List[str]] = ["answer", "citations", "confident", "createdAt", "createdAtTimestamp", "intent", "servedAt", "servedAtTimestamp"]
+    session_id: UUID = Field(description="Conversation id — send back to continue this chat", alias="sessionId")
+    __properties: ClassVar[List[str]] = ["answer", "citations", "confident", "createdAt", "createdAtTimestamp", "intent", "servedAt", "servedAtTimestamp", "sessionId"]
 
     model_config = ConfigDict(
         validate_by_name=True,
@@ -111,7 +113,8 @@ class ChatQueryOutDTO(BaseModel):
             "createdAtTimestamp": obj.get("createdAtTimestamp"),
             "intent": obj.get("intent"),
             "servedAt": obj.get("servedAt"),
-            "servedAtTimestamp": obj.get("servedAtTimestamp")
+            "servedAtTimestamp": obj.get("servedAtTimestamp"),
+            "sessionId": obj.get("sessionId")
         })
         return _obj
 

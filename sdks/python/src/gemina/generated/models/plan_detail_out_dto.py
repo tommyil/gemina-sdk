@@ -33,6 +33,7 @@ class PlanDetailOutDTO(BaseModel):
     PlanDetailOutDTO
     """ # noqa: E501
     bonus_percentage: StrictInt = Field(alias="bonusPercentage")
+    chat_credit_cost: Optional[StrictStr] = Field(default='0', alias="chatCreditCost")
     chat_included_per_cycle: Optional[StrictInt] = Field(default=0, alias="chatIncludedPerCycle")
     created_at: Optional[datetime] = Field(default=None, alias="createdAt")
     created_at_timestamp: Optional[Union[StrictFloat, StrictInt]] = Field(default=None, alias="createdAtTimestamp")
@@ -43,6 +44,7 @@ class PlanDetailOutDTO(BaseModel):
     document_intelligence_enabled: Optional[StrictBool] = Field(default=False, alias="documentIntelligenceEnabled")
     enhanced_privacy_enabled: StrictBool = Field(alias="enhancedPrivacyEnabled")
     id: UUID
+    index_credit_cost: Optional[StrictStr] = Field(default='0', alias="indexCreditCost")
     ip_allowlist_enabled: StrictBool = Field(alias="ipAllowlistEnabled")
     is_active: StrictBool = Field(alias="isActive")
     max_data_retention_period: DataRetentionPeriodModel = Field(alias="maxDataRetentionPeriod")
@@ -55,9 +57,10 @@ class PlanDetailOutDTO(BaseModel):
     retrieval_rate_limit_per_second: Optional[StrictInt] = Field(default=20, alias="retrievalRateLimitPerSecond")
     slug: StrictStr
     storage_credit_cost_per_gb_month: Optional[StrictStr] = Field(default='0', alias="storageCreditCostPerGbMonth")
+    storage_included_gb: Optional[StrictStr] = Field(default='0', alias="storageIncludedGb")
     support_level: SupportLevel = Field(alias="supportLevel")
     webhooks_enabled: StrictBool = Field(alias="webhooksEnabled")
-    __properties: ClassVar[List[str]] = ["bonusPercentage", "chatIncludedPerCycle", "createdAt", "createdAtTimestamp", "creditCosts", "credits", "dataResidencyEnabled", "description", "documentIntelligenceEnabled", "enhancedPrivacyEnabled", "id", "ipAllowlistEnabled", "isActive", "maxDataRetentionPeriod", "maxTemplates", "monthlyFiletagCredits", "name", "paddlePriceId", "paddleProductId", "priceCents", "retrievalRateLimitPerSecond", "slug", "storageCreditCostPerGbMonth", "supportLevel", "webhooksEnabled"]
+    __properties: ClassVar[List[str]] = ["bonusPercentage", "chatCreditCost", "chatIncludedPerCycle", "createdAt", "createdAtTimestamp", "creditCosts", "credits", "dataResidencyEnabled", "description", "documentIntelligenceEnabled", "enhancedPrivacyEnabled", "id", "indexCreditCost", "ipAllowlistEnabled", "isActive", "maxDataRetentionPeriod", "maxTemplates", "monthlyFiletagCredits", "name", "paddlePriceId", "paddleProductId", "priceCents", "retrievalRateLimitPerSecond", "slug", "storageCreditCostPerGbMonth", "storageIncludedGb", "supportLevel", "webhooksEnabled"]
 
     model_config = ConfigDict(
         validate_by_name=True,
@@ -143,6 +146,7 @@ class PlanDetailOutDTO(BaseModel):
 
         _obj = cls.model_validate({
             "bonusPercentage": obj.get("bonusPercentage"),
+            "chatCreditCost": obj.get("chatCreditCost") if obj.get("chatCreditCost") is not None else '0',
             "chatIncludedPerCycle": obj.get("chatIncludedPerCycle") if obj.get("chatIncludedPerCycle") is not None else 0,
             "createdAt": obj.get("createdAt"),
             "createdAtTimestamp": obj.get("createdAtTimestamp"),
@@ -153,6 +157,7 @@ class PlanDetailOutDTO(BaseModel):
             "documentIntelligenceEnabled": obj.get("documentIntelligenceEnabled") if obj.get("documentIntelligenceEnabled") is not None else False,
             "enhancedPrivacyEnabled": obj.get("enhancedPrivacyEnabled"),
             "id": obj.get("id"),
+            "indexCreditCost": obj.get("indexCreditCost") if obj.get("indexCreditCost") is not None else '0',
             "ipAllowlistEnabled": obj.get("ipAllowlistEnabled"),
             "isActive": obj.get("isActive"),
             "maxDataRetentionPeriod": obj.get("maxDataRetentionPeriod"),
@@ -165,6 +170,7 @@ class PlanDetailOutDTO(BaseModel):
             "retrievalRateLimitPerSecond": obj.get("retrievalRateLimitPerSecond") if obj.get("retrievalRateLimitPerSecond") is not None else 20,
             "slug": obj.get("slug"),
             "storageCreditCostPerGbMonth": obj.get("storageCreditCostPerGbMonth") if obj.get("storageCreditCostPerGbMonth") is not None else '0',
+            "storageIncludedGb": obj.get("storageIncludedGb") if obj.get("storageIncludedGb") is not None else '0',
             "supportLevel": obj.get("supportLevel"),
             "webhooksEnabled": obj.get("webhooksEnabled")
         })

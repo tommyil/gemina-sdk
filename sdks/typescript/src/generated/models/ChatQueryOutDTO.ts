@@ -67,6 +67,12 @@ export interface ChatQueryOutDTO {
      * @memberof ChatQueryOutDTO
      */
     servedAtTimestamp?: number;
+    /**
+     * Conversation id — send back to continue this chat
+     * @type {string}
+     * @memberof ChatQueryOutDTO
+     */
+    sessionId: string;
 }
 
 /**
@@ -74,6 +80,7 @@ export interface ChatQueryOutDTO {
  */
 export function instanceOfChatQueryOutDTO(value: object): value is ChatQueryOutDTO {
     if (!('answer' in value) || value['answer'] === undefined) return false;
+    if (!('sessionId' in value) || value['sessionId'] === undefined) return false;
     return true;
 }
 
@@ -95,6 +102,7 @@ export function ChatQueryOutDTOFromJSONTyped(json: any, ignoreDiscriminator: boo
         'intent': json['intent'] == null ? undefined : json['intent'],
         'servedAt': json['servedAt'] == null ? undefined : (new Date(json['servedAt'])),
         'servedAtTimestamp': json['servedAtTimestamp'] == null ? undefined : json['servedAtTimestamp'],
+        'sessionId': json['sessionId'],
     };
 }
 
@@ -117,6 +125,7 @@ export function ChatQueryOutDTOToJSONTyped(value?: ChatQueryOutDTO | null, ignor
         'intent': value['intent'],
         'servedAt': value['servedAt'] == null ? value['servedAt'] : value['servedAt'].toISOString(),
         'servedAtTimestamp': value['servedAtTimestamp'],
+        'sessionId': value['sessionId'],
     };
 }
 

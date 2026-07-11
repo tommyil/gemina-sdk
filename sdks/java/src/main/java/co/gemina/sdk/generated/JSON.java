@@ -150,6 +150,7 @@ public class JSON {
         gsonBuilder.registerTypeAdapterFactory(new co.gemina.sdk.generated.model.InvoiceOutDTO.CustomTypeAdapterFactory());
         gsonBuilder.registerTypeAdapterFactory(new co.gemina.sdk.generated.model.InvoicePdfOutDTO.CustomTypeAdapterFactory());
         gsonBuilder.registerTypeAdapterFactory(new co.gemina.sdk.generated.model.LocationInner.CustomTypeAdapterFactory());
+        gsonBuilder.registerTypeAdapterFactory(new co.gemina.sdk.generated.model.MatchedChunkDTO.CustomTypeAdapterFactory());
         gsonBuilder.registerTypeAdapterFactory(new co.gemina.sdk.generated.model.NextActionOutDTO.CustomTypeAdapterFactory());
         gsonBuilder.registerTypeAdapterFactory(new co.gemina.sdk.generated.model.NumberOfStoredDocumentsOutDTO.CustomTypeAdapterFactory());
         gsonBuilder.registerTypeAdapterFactory(new co.gemina.sdk.generated.model.PlanCreditCostOutDTO.CustomTypeAdapterFactory());
@@ -163,12 +164,16 @@ public class JSON {
         gsonBuilder.registerTypeAdapterFactory(new co.gemina.sdk.generated.model.ResponseChangePlan.CustomTypeAdapterFactory());
         gsonBuilder.registerTypeAdapterFactory(new co.gemina.sdk.generated.model.RetrievalAggregateInDTO.CustomTypeAdapterFactory());
         gsonBuilder.registerTypeAdapterFactory(new co.gemina.sdk.generated.model.RetrievalAggregateOutDTO.CustomTypeAdapterFactory());
+        gsonBuilder.registerTypeAdapterFactory(new co.gemina.sdk.generated.model.RetrievalFieldItemDTO.CustomTypeAdapterFactory());
+        gsonBuilder.registerTypeAdapterFactory(new co.gemina.sdk.generated.model.RetrievalFieldsOutDTO.CustomTypeAdapterFactory());
         gsonBuilder.registerTypeAdapterFactory(new co.gemina.sdk.generated.model.RetrievalFiltersDTO.CustomTypeAdapterFactory());
         gsonBuilder.registerTypeAdapterFactory(new co.gemina.sdk.generated.model.RetrievalQueryInDTO.CustomTypeAdapterFactory());
         gsonBuilder.registerTypeAdapterFactory(new co.gemina.sdk.generated.model.RetrievalQueryOutDTO.CustomTypeAdapterFactory());
         gsonBuilder.registerTypeAdapterFactory(new co.gemina.sdk.generated.model.RetrievalStatusOutDTO.CustomTypeAdapterFactory());
         gsonBuilder.registerTypeAdapterFactory(new co.gemina.sdk.generated.model.SessionTokenInDTO.CustomTypeAdapterFactory());
         gsonBuilder.registerTypeAdapterFactory(new co.gemina.sdk.generated.model.SessionTokenOutDTO.CustomTypeAdapterFactory());
+        gsonBuilder.registerTypeAdapterFactory(new co.gemina.sdk.generated.model.StorageUsageOutDTO.CustomTypeAdapterFactory());
+        gsonBuilder.registerTypeAdapterFactory(new co.gemina.sdk.generated.model.StructuredFilterDTO.CustomTypeAdapterFactory());
         gsonBuilder.registerTypeAdapterFactory(new co.gemina.sdk.generated.model.SubscribeInDTO.CustomTypeAdapterFactory());
         gsonBuilder.registerTypeAdapterFactory(new co.gemina.sdk.generated.model.SubscriptionOutDTO.CustomTypeAdapterFactory());
         gsonBuilder.registerTypeAdapterFactory(new co.gemina.sdk.generated.model.TOSOutDTO.CustomTypeAdapterFactory());
@@ -190,6 +195,7 @@ public class JSON {
         gsonBuilder.registerTypeAdapterFactory(new co.gemina.sdk.generated.model.UsageSummaryOutDTO.CustomTypeAdapterFactory());
         gsonBuilder.registerTypeAdapterFactory(new co.gemina.sdk.generated.model.ValidationError.CustomTypeAdapterFactory());
         gsonBuilder.registerTypeAdapterFactory(new co.gemina.sdk.generated.model.ValidationSchemaModel.CustomTypeAdapterFactory());
+        gsonBuilder.registerTypeAdapterFactory(new co.gemina.sdk.generated.model.Value.CustomTypeAdapterFactory());
         gsonBuilder.registerTypeAdapterFactory(new co.gemina.sdk.generated.model.ValuesValue.CustomTypeAdapterFactory());
         gsonBuilder.registerTypeAdapterFactory(new co.gemina.sdk.generated.model.ViewMetaOutDTO.CustomTypeAdapterFactory());
         gsonBuilder.registerTypeAdapterFactory(new co.gemina.sdk.generated.model.VolumeDiscountTierOutDTO.CustomTypeAdapterFactory());

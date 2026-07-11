@@ -20,6 +20,13 @@ import {
     RetrievalFiltersDTOToJSON,
     RetrievalFiltersDTOToJSONTyped,
 } from './RetrievalFiltersDTO';
+import type { StructuredFilterDTO } from './StructuredFilterDTO';
+import {
+    StructuredFilterDTOFromJSON,
+    StructuredFilterDTOFromJSONTyped,
+    StructuredFilterDTOToJSON,
+    StructuredFilterDTOToJSONTyped,
+} from './StructuredFilterDTO';
 
 /**
  * 
@@ -63,6 +70,12 @@ export interface RetrievalQueryInDTO {
      * @memberof RetrievalQueryInDTO
      */
     sortMethod?: RetrievalQueryInDTOSortMethodEnum;
+    /**
+     * Self-query conditions over any structured field (whitelisted ops)
+     * @type {Array<StructuredFilterDTO>}
+     * @memberof RetrievalQueryInDTO
+     */
+    structuredFilters?: Array<StructuredFilterDTO>;
     /**
      * Natural-language query (semantic/hybrid modes)
      * @type {string}
@@ -133,6 +146,7 @@ export function RetrievalQueryInDTOFromJSONTyped(json: any, ignoreDiscriminator:
         'skip': json['skip'] == null ? undefined : json['skip'],
         'sortField': json['sortField'] == null ? undefined : json['sortField'],
         'sortMethod': json['sortMethod'] == null ? undefined : json['sortMethod'],
+        'structuredFilters': json['structuredFilters'] == null ? undefined : ((json['structuredFilters'] as Array<any>).map(StructuredFilterDTOFromJSON)),
         'text': json['text'] == null ? undefined : json['text'],
         'topK': json['topK'] == null ? undefined : json['topK'],
     };
@@ -155,6 +169,7 @@ export function RetrievalQueryInDTOToJSONTyped(value?: RetrievalQueryInDTO | nul
         'skip': value['skip'],
         'sortField': value['sortField'],
         'sortMethod': value['sortMethod'],
+        'structuredFilters': value['structuredFilters'] == null ? undefined : ((value['structuredFilters'] as Array<any>).map(StructuredFilterDTOToJSON)),
         'text': value['text'],
         'topK': value['topK'],
     };

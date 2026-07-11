@@ -15,13 +15,16 @@ package co.gemina.sdk.generated.model;
 
 import java.util.Objects;
 import co.gemina.sdk.generated.model.RetrievalFiltersDTO;
+import co.gemina.sdk.generated.model.StructuredFilterDTO;
 import com.google.gson.TypeAdapter;
 import com.google.gson.annotations.JsonAdapter;
 import com.google.gson.annotations.SerializedName;
 import com.google.gson.stream.JsonReader;
 import com.google.gson.stream.JsonWriter;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 import org.openapitools.jackson.nullable.JsonNullable;
 
 import com.google.gson.Gson;
@@ -246,6 +249,11 @@ public class RetrievalQueryInDTO {
   @javax.annotation.Nullable
   private SortMethodEnum sortMethod = SortMethodEnum.DESC;
 
+  public static final String SERIALIZED_NAME_STRUCTURED_FILTERS = "structuredFilters";
+  @SerializedName(SERIALIZED_NAME_STRUCTURED_FILTERS)
+  @javax.annotation.Nullable
+  private List<StructuredFilterDTO> structuredFilters = new ArrayList<>();
+
   public static final String SERIALIZED_NAME_TEXT = "text";
   @SerializedName(SERIALIZED_NAME_TEXT)
   @javax.annotation.Nullable
@@ -376,6 +384,33 @@ public class RetrievalQueryInDTO {
   }
 
 
+  public RetrievalQueryInDTO structuredFilters(@javax.annotation.Nullable List<StructuredFilterDTO> structuredFilters) {
+    this.structuredFilters = structuredFilters;
+    return this;
+  }
+
+  public RetrievalQueryInDTO addStructuredFiltersItem(StructuredFilterDTO structuredFiltersItem) {
+    if (this.structuredFilters == null) {
+      this.structuredFilters = new ArrayList<>();
+    }
+    this.structuredFilters.add(structuredFiltersItem);
+    return this;
+  }
+
+  /**
+   * Self-query conditions over any structured field (whitelisted ops)
+   * @return structuredFilters
+   */
+  @javax.annotation.Nullable
+  public List<StructuredFilterDTO> getStructuredFilters() {
+    return structuredFilters;
+  }
+
+  public void setStructuredFilters(@javax.annotation.Nullable List<StructuredFilterDTO> structuredFilters) {
+    this.structuredFilters = structuredFilters;
+  }
+
+
   public RetrievalQueryInDTO text(@javax.annotation.Nullable String text) {
     this.text = text;
     return this;
@@ -432,6 +467,7 @@ public class RetrievalQueryInDTO {
         Objects.equals(this.skip, retrievalQueryInDTO.skip) &&
         Objects.equals(this.sortField, retrievalQueryInDTO.sortField) &&
         Objects.equals(this.sortMethod, retrievalQueryInDTO.sortMethod) &&
+        Objects.equals(this.structuredFilters, retrievalQueryInDTO.structuredFilters) &&
         Objects.equals(this.text, retrievalQueryInDTO.text) &&
         Objects.equals(this.topK, retrievalQueryInDTO.topK);
   }
@@ -442,7 +478,7 @@ public class RetrievalQueryInDTO {
 
   @Override
   public int hashCode() {
-    return Objects.hash(filters, limit, mode, skip, sortField, sortMethod, text, topK);
+    return Objects.hash(filters, limit, mode, skip, sortField, sortMethod, structuredFilters, text, topK);
   }
 
   private static <T> int hashCodeNullable(JsonNullable<T> a) {
@@ -462,6 +498,7 @@ public class RetrievalQueryInDTO {
     sb.append("    skip: ").append(toIndentedString(skip)).append("\n");
     sb.append("    sortField: ").append(toIndentedString(sortField)).append("\n");
     sb.append("    sortMethod: ").append(toIndentedString(sortMethod)).append("\n");
+    sb.append("    structuredFilters: ").append(toIndentedString(structuredFilters)).append("\n");
     sb.append("    text: ").append(toIndentedString(text)).append("\n");
     sb.append("    topK: ").append(toIndentedString(topK)).append("\n");
     sb.append("}");
@@ -482,7 +519,7 @@ public class RetrievalQueryInDTO {
 
   static {
     // a set of all properties/fields (JSON key names)
-    openapiFields = new HashSet<String>(Arrays.asList("filters", "limit", "mode", "skip", "sortField", "sortMethod", "text", "topK"));
+    openapiFields = new HashSet<String>(Arrays.asList("filters", "limit", "mode", "skip", "sortField", "sortMethod", "structuredFilters", "text", "topK"));
 
     // a set of required properties/fields (JSON key names)
     openapiRequiredFields = new HashSet<String>(0);
@@ -533,6 +570,20 @@ public class RetrievalQueryInDTO {
       // validate the optional field `sortMethod`
       if (jsonObj.get("sortMethod") != null && !jsonObj.get("sortMethod").isJsonNull()) {
         SortMethodEnum.validateJsonElement(jsonObj.get("sortMethod"));
+      }
+      if (jsonObj.get("structuredFilters") != null && !jsonObj.get("structuredFilters").isJsonNull()) {
+        JsonArray jsonArraystructuredFilters = jsonObj.getAsJsonArray("structuredFilters");
+        if (jsonArraystructuredFilters != null) {
+          // ensure the json data is an array
+          if (!jsonObj.get("structuredFilters").isJsonArray()) {
+            throw new IllegalArgumentException(String.format(java.util.Locale.ROOT, "Expected the field `structuredFilters` to be an array in the JSON string but got `%s`", jsonObj.get("structuredFilters").toString()));
+          }
+
+          // validate the optional field `structuredFilters` (array)
+          for (int i = 0; i < jsonArraystructuredFilters.size(); i++) {
+            StructuredFilterDTO.validateJsonElement(jsonArraystructuredFilters.get(i));
+          };
+        }
       }
       if ((jsonObj.get("text") != null && !jsonObj.get("text").isJsonNull()) && !jsonObj.get("text").isJsonPrimitive()) {
         throw new IllegalArgumentException(String.format(java.util.Locale.ROOT, "Expected the field `text` to be a primitive type in the JSON string but got `%s`", jsonObj.get("text").toString()));

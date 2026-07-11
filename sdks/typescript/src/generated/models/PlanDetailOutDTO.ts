@@ -49,6 +49,12 @@ export interface PlanDetailOutDTO {
     bonusPercentage: number;
     /**
      * 
+     * @type {string}
+     * @memberof PlanDetailOutDTO
+     */
+    chatCreditCost?: string;
+    /**
+     * 
      * @type {number}
      * @memberof PlanDetailOutDTO
      */
@@ -107,6 +113,12 @@ export interface PlanDetailOutDTO {
      * @memberof PlanDetailOutDTO
      */
     id: string;
+    /**
+     * 
+     * @type {string}
+     * @memberof PlanDetailOutDTO
+     */
+    indexCreditCost?: string;
     /**
      * 
      * @type {boolean}
@@ -181,6 +193,12 @@ export interface PlanDetailOutDTO {
     storageCreditCostPerGbMonth?: string;
     /**
      * 
+     * @type {string}
+     * @memberof PlanDetailOutDTO
+     */
+    storageIncludedGb?: string;
+    /**
+     * 
      * @type {SupportLevel}
      * @memberof PlanDetailOutDTO
      */
@@ -228,6 +246,7 @@ export function PlanDetailOutDTOFromJSONTyped(json: any, ignoreDiscriminator: bo
     return {
         
         'bonusPercentage': json['bonusPercentage'],
+        'chatCreditCost': json['chatCreditCost'] == null ? undefined : json['chatCreditCost'],
         'chatIncludedPerCycle': json['chatIncludedPerCycle'] == null ? undefined : json['chatIncludedPerCycle'],
         'createdAt': json['createdAt'] == null ? undefined : (new Date(json['createdAt'])),
         'createdAtTimestamp': json['createdAtTimestamp'] == null ? undefined : json['createdAtTimestamp'],
@@ -238,6 +257,7 @@ export function PlanDetailOutDTOFromJSONTyped(json: any, ignoreDiscriminator: bo
         'documentIntelligenceEnabled': json['documentIntelligenceEnabled'] == null ? undefined : json['documentIntelligenceEnabled'],
         'enhancedPrivacyEnabled': json['enhancedPrivacyEnabled'],
         'id': json['id'],
+        'indexCreditCost': json['indexCreditCost'] == null ? undefined : json['indexCreditCost'],
         'ipAllowlistEnabled': json['ipAllowlistEnabled'],
         'isActive': json['isActive'],
         'maxDataRetentionPeriod': DataRetentionPeriodModelFromJSON(json['maxDataRetentionPeriod']),
@@ -250,6 +270,7 @@ export function PlanDetailOutDTOFromJSONTyped(json: any, ignoreDiscriminator: bo
         'retrievalRateLimitPerSecond': json['retrievalRateLimitPerSecond'] == null ? undefined : json['retrievalRateLimitPerSecond'],
         'slug': json['slug'],
         'storageCreditCostPerGbMonth': json['storageCreditCostPerGbMonth'] == null ? undefined : json['storageCreditCostPerGbMonth'],
+        'storageIncludedGb': json['storageIncludedGb'] == null ? undefined : json['storageIncludedGb'],
         'supportLevel': SupportLevelFromJSON(json['supportLevel']),
         'webhooksEnabled': json['webhooksEnabled'],
     };
@@ -267,6 +288,7 @@ export function PlanDetailOutDTOToJSONTyped(value?: PlanDetailOutDTO | null, ign
     return {
         
         'bonusPercentage': value['bonusPercentage'],
+        'chatCreditCost': value['chatCreditCost'],
         'chatIncludedPerCycle': value['chatIncludedPerCycle'],
         'createdAt': value['createdAt'] == null ? value['createdAt'] : value['createdAt'].toISOString(),
         'createdAtTimestamp': value['createdAtTimestamp'],
@@ -277,6 +299,7 @@ export function PlanDetailOutDTOToJSONTyped(value?: PlanDetailOutDTO | null, ign
         'documentIntelligenceEnabled': value['documentIntelligenceEnabled'],
         'enhancedPrivacyEnabled': value['enhancedPrivacyEnabled'],
         'id': value['id'],
+        'indexCreditCost': value['indexCreditCost'],
         'ipAllowlistEnabled': value['ipAllowlistEnabled'],
         'isActive': value['isActive'],
         'maxDataRetentionPeriod': DataRetentionPeriodModelToJSON(value['maxDataRetentionPeriod']),
@@ -289,6 +312,7 @@ export function PlanDetailOutDTOToJSONTyped(value?: PlanDetailOutDTO | null, ign
         'retrievalRateLimitPerSecond': value['retrievalRateLimitPerSecond'],
         'slug': value['slug'],
         'storageCreditCostPerGbMonth': value['storageCreditCostPerGbMonth'],
+        'storageIncludedGb': value['storageIncludedGb'],
         'supportLevel': SupportLevelToJSON(value['supportLevel']),
         'webhooksEnabled': value['webhooksEnabled'],
     };

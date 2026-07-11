@@ -51,6 +51,27 @@ namespace Gemina.Sdk.Api
         /// <returns>ApiResponse of RetrievalAggregateOutDTO</returns>
         ApiResponse<RetrievalAggregateOutDTO> RetrievalAggregateWithHttpInfo(RetrievalAggregateInDTO retrievalAggregateInDTO, int operationIndex = 0);
         /// <summary>
+        /// Retrieval Fields
+        /// </summary>
+        /// <remarks>
+        /// Observed structured field NAMES per document type (self-query catalog).  Names only — no values; tenant-scoped like every retrieval path.
+        /// </remarks>
+        /// <exception cref="Gemina.Sdk.Client.ApiException">Thrown when fails to make API call</exception>
+        /// <param name="operationIndex">Index associated with the operation.</param>
+        /// <returns>RetrievalFieldsOutDTO</returns>
+        RetrievalFieldsOutDTO RetrievalFields(int operationIndex = 0);
+
+        /// <summary>
+        /// Retrieval Fields
+        /// </summary>
+        /// <remarks>
+        /// Observed structured field NAMES per document type (self-query catalog).  Names only — no values; tenant-scoped like every retrieval path.
+        /// </remarks>
+        /// <exception cref="Gemina.Sdk.Client.ApiException">Thrown when fails to make API call</exception>
+        /// <param name="operationIndex">Index associated with the operation.</param>
+        /// <returns>ApiResponse of RetrievalFieldsOutDTO</returns>
+        ApiResponse<RetrievalFieldsOutDTO> RetrievalFieldsWithHttpInfo(int operationIndex = 0);
+        /// <summary>
         /// Retrieval Query
         /// </summary>
         /// <remarks>
@@ -77,7 +98,7 @@ namespace Gemina.Sdk.Api
         /// Retrieval Status
         /// </summary>
         /// <remarks>
-        /// How many of the tenant&#39;s documents are currently indexed.
+        /// How many of the tenant&#39;s documents are currently indexed.  Same dual auth as /query: X-API-Key OR a Bearer retrieval token — but only an *unpinned* (whole-account) token is accepted. An end-user-pinned token gets 403: the account-wide index size must not leak into a single end-user&#39;s browser session.
         /// </remarks>
         /// <exception cref="Gemina.Sdk.Client.ApiException">Thrown when fails to make API call</exception>
         /// <param name="operationIndex">Index associated with the operation.</param>
@@ -88,7 +109,7 @@ namespace Gemina.Sdk.Api
         /// Retrieval Status
         /// </summary>
         /// <remarks>
-        /// How many of the tenant&#39;s documents are currently indexed.
+        /// How many of the tenant&#39;s documents are currently indexed.  Same dual auth as /query: X-API-Key OR a Bearer retrieval token — but only an *unpinned* (whole-account) token is accepted. An end-user-pinned token gets 403: the account-wide index size must not leak into a single end-user&#39;s browser session.
         /// </remarks>
         /// <exception cref="Gemina.Sdk.Client.ApiException">Thrown when fails to make API call</exception>
         /// <param name="operationIndex">Index associated with the operation.</param>
@@ -129,6 +150,29 @@ namespace Gemina.Sdk.Api
         /// <returns>Task of ApiResponse (RetrievalAggregateOutDTO)</returns>
         System.Threading.Tasks.Task<ApiResponse<RetrievalAggregateOutDTO>> RetrievalAggregateWithHttpInfoAsync(RetrievalAggregateInDTO retrievalAggregateInDTO, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default);
         /// <summary>
+        /// Retrieval Fields
+        /// </summary>
+        /// <remarks>
+        /// Observed structured field NAMES per document type (self-query catalog).  Names only — no values; tenant-scoped like every retrieval path.
+        /// </remarks>
+        /// <exception cref="Gemina.Sdk.Client.ApiException">Thrown when fails to make API call</exception>
+        /// <param name="operationIndex">Index associated with the operation.</param>
+        /// <param name="cancellationToken">Cancellation Token to cancel the request.</param>
+        /// <returns>Task of RetrievalFieldsOutDTO</returns>
+        System.Threading.Tasks.Task<RetrievalFieldsOutDTO> RetrievalFieldsAsync(int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Retrieval Fields
+        /// </summary>
+        /// <remarks>
+        /// Observed structured field NAMES per document type (self-query catalog).  Names only — no values; tenant-scoped like every retrieval path.
+        /// </remarks>
+        /// <exception cref="Gemina.Sdk.Client.ApiException">Thrown when fails to make API call</exception>
+        /// <param name="operationIndex">Index associated with the operation.</param>
+        /// <param name="cancellationToken">Cancellation Token to cancel the request.</param>
+        /// <returns>Task of ApiResponse (RetrievalFieldsOutDTO)</returns>
+        System.Threading.Tasks.Task<ApiResponse<RetrievalFieldsOutDTO>> RetrievalFieldsWithHttpInfoAsync(int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default);
+        /// <summary>
         /// Retrieval Query
         /// </summary>
         /// <remarks>
@@ -157,7 +201,7 @@ namespace Gemina.Sdk.Api
         /// Retrieval Status
         /// </summary>
         /// <remarks>
-        /// How many of the tenant&#39;s documents are currently indexed.
+        /// How many of the tenant&#39;s documents are currently indexed.  Same dual auth as /query: X-API-Key OR a Bearer retrieval token — but only an *unpinned* (whole-account) token is accepted. An end-user-pinned token gets 403: the account-wide index size must not leak into a single end-user&#39;s browser session.
         /// </remarks>
         /// <exception cref="Gemina.Sdk.Client.ApiException">Thrown when fails to make API call</exception>
         /// <param name="operationIndex">Index associated with the operation.</param>
@@ -169,7 +213,7 @@ namespace Gemina.Sdk.Api
         /// Retrieval Status
         /// </summary>
         /// <remarks>
-        /// How many of the tenant&#39;s documents are currently indexed.
+        /// How many of the tenant&#39;s documents are currently indexed.  Same dual auth as /query: X-API-Key OR a Bearer retrieval token — but only an *unpinned* (whole-account) token is accepted. An end-user-pinned token gets 403: the account-wide index size must not leak into a single end-user&#39;s browser session.
         /// </remarks>
         /// <exception cref="Gemina.Sdk.Client.ApiException">Thrown when fails to make API call</exception>
         /// <param name="operationIndex">Index associated with the operation.</param>
@@ -486,6 +530,175 @@ namespace Gemina.Sdk.Api
         }
 
         /// <summary>
+        /// Retrieval Fields Observed structured field NAMES per document type (self-query catalog).  Names only — no values; tenant-scoped like every retrieval path.
+        /// </summary>
+        /// <exception cref="Gemina.Sdk.Client.ApiException">Thrown when fails to make API call</exception>
+        /// <param name="operationIndex">Index associated with the operation.</param>
+        /// <returns>RetrievalFieldsOutDTO</returns>
+        public RetrievalFieldsOutDTO RetrievalFields(int operationIndex = 0)
+        {
+            Gemina.Sdk.Client.ApiResponse<RetrievalFieldsOutDTO> localVarResponse = RetrievalFieldsWithHttpInfo();
+            return localVarResponse.Data;
+        }
+
+        /// <summary>
+        /// Retrieval Fields Observed structured field NAMES per document type (self-query catalog).  Names only — no values; tenant-scoped like every retrieval path.
+        /// </summary>
+        /// <exception cref="Gemina.Sdk.Client.ApiException">Thrown when fails to make API call</exception>
+        /// <param name="operationIndex">Index associated with the operation.</param>
+        /// <returns>ApiResponse of RetrievalFieldsOutDTO</returns>
+        public Gemina.Sdk.Client.ApiResponse<RetrievalFieldsOutDTO> RetrievalFieldsWithHttpInfo(int operationIndex = 0)
+        {
+            Gemina.Sdk.Client.RequestOptions localVarRequestOptions = new Gemina.Sdk.Client.RequestOptions();
+
+            string[] _contentTypes = new string[] {
+            };
+
+            // to determine the Accept header
+            string[] _accepts = new string[] {
+                "application/json"
+            };
+
+            var localVarContentType = Gemina.Sdk.Client.ClientUtils.SelectHeaderContentType(_contentTypes);
+            var localVarMultipartFormData = localVarContentType == "multipart/form-data";
+            if (localVarContentType != null)
+            {
+                localVarRequestOptions.HeaderParameters.Add("Content-Type", localVarContentType);
+            }
+
+            var localVarAccept = Gemina.Sdk.Client.ClientUtils.SelectHeaderAccept(_accepts);
+            if (localVarAccept != null)
+            {
+                localVarRequestOptions.HeaderParameters.Add("Accept", localVarAccept);
+            }
+
+
+            localVarRequestOptions.Operation = "RetrievalApi.RetrievalFields";
+            localVarRequestOptions.OperationIndex = operationIndex;
+
+            // authentication (APIKeyHeader) required
+            if (!string.IsNullOrEmpty(this.Configuration.GetApiKeyWithPrefix("X-API-Key")))
+            {
+                localVarRequestOptions.HeaderParameters.Add("X-API-Key", this.Configuration.GetApiKeyWithPrefix("X-API-Key"));
+            }
+            // authentication (OAuth2PasswordBearer) required
+            // oauth required
+            if (!localVarRequestOptions.HeaderParameters.ContainsKey("Authorization"))
+            {
+                if (!string.IsNullOrEmpty(this.Configuration.AccessToken))
+                {
+                    localVarRequestOptions.HeaderParameters.Add("Authorization", "Bearer " + this.Configuration.AccessToken);
+                }
+                else if (!string.IsNullOrEmpty(this.Configuration.OAuthTokenUrl) &&
+                         !string.IsNullOrEmpty(this.Configuration.OAuthClientId) &&
+                         !string.IsNullOrEmpty(this.Configuration.OAuthClientSecret) &&
+                         this.Configuration.OAuthFlow != null)
+                {
+                    localVarRequestOptions.OAuth = true;
+                }
+            }
+
+            // make the HTTP request
+            var localVarResponse = this.Client.Get<RetrievalFieldsOutDTO>("/api/v1/retrieval/fields", localVarRequestOptions, this.Configuration);
+            if (this.ExceptionFactory != null)
+            {
+                Exception _exception = this.ExceptionFactory("RetrievalFields", localVarResponse);
+                if (_exception != null)
+                {
+                    throw _exception;
+                }
+            }
+
+            return localVarResponse;
+        }
+
+        /// <summary>
+        /// Retrieval Fields Observed structured field NAMES per document type (self-query catalog).  Names only — no values; tenant-scoped like every retrieval path.
+        /// </summary>
+        /// <exception cref="Gemina.Sdk.Client.ApiException">Thrown when fails to make API call</exception>
+        /// <param name="operationIndex">Index associated with the operation.</param>
+        /// <param name="cancellationToken">Cancellation Token to cancel the request.</param>
+        /// <returns>Task of RetrievalFieldsOutDTO</returns>
+        public async System.Threading.Tasks.Task<RetrievalFieldsOutDTO> RetrievalFieldsAsync(int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default)
+        {
+            Gemina.Sdk.Client.ApiResponse<RetrievalFieldsOutDTO> localVarResponse = await RetrievalFieldsWithHttpInfoAsync(operationIndex, cancellationToken).ConfigureAwait(false);
+            return localVarResponse.Data;
+        }
+
+        /// <summary>
+        /// Retrieval Fields Observed structured field NAMES per document type (self-query catalog).  Names only — no values; tenant-scoped like every retrieval path.
+        /// </summary>
+        /// <exception cref="Gemina.Sdk.Client.ApiException">Thrown when fails to make API call</exception>
+        /// <param name="operationIndex">Index associated with the operation.</param>
+        /// <param name="cancellationToken">Cancellation Token to cancel the request.</param>
+        /// <returns>Task of ApiResponse (RetrievalFieldsOutDTO)</returns>
+        public async System.Threading.Tasks.Task<Gemina.Sdk.Client.ApiResponse<RetrievalFieldsOutDTO>> RetrievalFieldsWithHttpInfoAsync(int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default)
+        {
+
+            Gemina.Sdk.Client.RequestOptions localVarRequestOptions = new Gemina.Sdk.Client.RequestOptions();
+
+            string[] _contentTypes = new string[] {
+            };
+
+            // to determine the Accept header
+            string[] _accepts = new string[] {
+                "application/json"
+            };
+
+            var localVarContentType = Gemina.Sdk.Client.ClientUtils.SelectHeaderContentType(_contentTypes);
+            if (localVarContentType != null)
+            {
+                localVarRequestOptions.HeaderParameters.Add("Content-Type", localVarContentType);
+            }
+
+            var localVarAccept = Gemina.Sdk.Client.ClientUtils.SelectHeaderAccept(_accepts);
+            if (localVarAccept != null)
+            {
+                localVarRequestOptions.HeaderParameters.Add("Accept", localVarAccept);
+            }
+
+
+            localVarRequestOptions.Operation = "RetrievalApi.RetrievalFields";
+            localVarRequestOptions.OperationIndex = operationIndex;
+
+            // authentication (APIKeyHeader) required
+            if (!string.IsNullOrEmpty(this.Configuration.GetApiKeyWithPrefix("X-API-Key")))
+            {
+                localVarRequestOptions.HeaderParameters.Add("X-API-Key", this.Configuration.GetApiKeyWithPrefix("X-API-Key"));
+            }
+            // authentication (OAuth2PasswordBearer) required
+            // oauth required
+            if (!localVarRequestOptions.HeaderParameters.ContainsKey("Authorization"))
+            {
+                if (!string.IsNullOrEmpty(this.Configuration.AccessToken))
+                {
+                    localVarRequestOptions.HeaderParameters.Add("Authorization", "Bearer " + this.Configuration.AccessToken);
+                }
+                else if (!string.IsNullOrEmpty(this.Configuration.OAuthTokenUrl) &&
+                         !string.IsNullOrEmpty(this.Configuration.OAuthClientId) &&
+                         !string.IsNullOrEmpty(this.Configuration.OAuthClientSecret) &&
+                         this.Configuration.OAuthFlow != null)
+                {
+                    localVarRequestOptions.OAuth = true;
+                }
+            }
+
+            // make the HTTP request
+            var localVarResponse = await this.AsynchronousClient.GetAsync<RetrievalFieldsOutDTO>("/api/v1/retrieval/fields", localVarRequestOptions, this.Configuration, cancellationToken).ConfigureAwait(false);
+
+            if (this.ExceptionFactory != null)
+            {
+                Exception _exception = this.ExceptionFactory("RetrievalFields", localVarResponse);
+                if (_exception != null)
+                {
+                    throw _exception;
+                }
+            }
+
+            return localVarResponse;
+        }
+
+        /// <summary>
         /// Retrieval Query Structured filters, semantic or hybrid search over the tenant&#39;s index.  Auth: X-API-Key (server-to-server; &#x60;&#x60;filters.endUserId&#x60;&#x60; is a trusted filter) OR a Bearer retrieval token (embedded SDK; a token-pinned end-user scope is ENFORCED server-side and cannot be widened by the request body). The tenant boundary always comes from the credential.
         /// </summary>
         /// <exception cref="Gemina.Sdk.Client.ApiException">Thrown when fails to make API call</exception>
@@ -675,7 +888,7 @@ namespace Gemina.Sdk.Api
         }
 
         /// <summary>
-        /// Retrieval Status How many of the tenant&#39;s documents are currently indexed.
+        /// Retrieval Status How many of the tenant&#39;s documents are currently indexed.  Same dual auth as /query: X-API-Key OR a Bearer retrieval token — but only an *unpinned* (whole-account) token is accepted. An end-user-pinned token gets 403: the account-wide index size must not leak into a single end-user&#39;s browser session.
         /// </summary>
         /// <exception cref="Gemina.Sdk.Client.ApiException">Thrown when fails to make API call</exception>
         /// <param name="operationIndex">Index associated with the operation.</param>
@@ -687,7 +900,7 @@ namespace Gemina.Sdk.Api
         }
 
         /// <summary>
-        /// Retrieval Status How many of the tenant&#39;s documents are currently indexed.
+        /// Retrieval Status How many of the tenant&#39;s documents are currently indexed.  Same dual auth as /query: X-API-Key OR a Bearer retrieval token — but only an *unpinned* (whole-account) token is accepted. An end-user-pinned token gets 403: the account-wide index size must not leak into a single end-user&#39;s browser session.
         /// </summary>
         /// <exception cref="Gemina.Sdk.Client.ApiException">Thrown when fails to make API call</exception>
         /// <param name="operationIndex">Index associated with the operation.</param>
@@ -726,6 +939,22 @@ namespace Gemina.Sdk.Api
             {
                 localVarRequestOptions.HeaderParameters.Add("X-API-Key", this.Configuration.GetApiKeyWithPrefix("X-API-Key"));
             }
+            // authentication (OAuth2PasswordBearer) required
+            // oauth required
+            if (!localVarRequestOptions.HeaderParameters.ContainsKey("Authorization"))
+            {
+                if (!string.IsNullOrEmpty(this.Configuration.AccessToken))
+                {
+                    localVarRequestOptions.HeaderParameters.Add("Authorization", "Bearer " + this.Configuration.AccessToken);
+                }
+                else if (!string.IsNullOrEmpty(this.Configuration.OAuthTokenUrl) &&
+                         !string.IsNullOrEmpty(this.Configuration.OAuthClientId) &&
+                         !string.IsNullOrEmpty(this.Configuration.OAuthClientSecret) &&
+                         this.Configuration.OAuthFlow != null)
+                {
+                    localVarRequestOptions.OAuth = true;
+                }
+            }
 
             // make the HTTP request
             var localVarResponse = this.Client.Get<RetrievalStatusOutDTO>("/api/v1/retrieval/status", localVarRequestOptions, this.Configuration);
@@ -742,7 +971,7 @@ namespace Gemina.Sdk.Api
         }
 
         /// <summary>
-        /// Retrieval Status How many of the tenant&#39;s documents are currently indexed.
+        /// Retrieval Status How many of the tenant&#39;s documents are currently indexed.  Same dual auth as /query: X-API-Key OR a Bearer retrieval token — but only an *unpinned* (whole-account) token is accepted. An end-user-pinned token gets 403: the account-wide index size must not leak into a single end-user&#39;s browser session.
         /// </summary>
         /// <exception cref="Gemina.Sdk.Client.ApiException">Thrown when fails to make API call</exception>
         /// <param name="operationIndex">Index associated with the operation.</param>
@@ -755,7 +984,7 @@ namespace Gemina.Sdk.Api
         }
 
         /// <summary>
-        /// Retrieval Status How many of the tenant&#39;s documents are currently indexed.
+        /// Retrieval Status How many of the tenant&#39;s documents are currently indexed.  Same dual auth as /query: X-API-Key OR a Bearer retrieval token — but only an *unpinned* (whole-account) token is accepted. An end-user-pinned token gets 403: the account-wide index size must not leak into a single end-user&#39;s browser session.
         /// </summary>
         /// <exception cref="Gemina.Sdk.Client.ApiException">Thrown when fails to make API call</exception>
         /// <param name="operationIndex">Index associated with the operation.</param>
@@ -794,6 +1023,22 @@ namespace Gemina.Sdk.Api
             if (!string.IsNullOrEmpty(this.Configuration.GetApiKeyWithPrefix("X-API-Key")))
             {
                 localVarRequestOptions.HeaderParameters.Add("X-API-Key", this.Configuration.GetApiKeyWithPrefix("X-API-Key"));
+            }
+            // authentication (OAuth2PasswordBearer) required
+            // oauth required
+            if (!localVarRequestOptions.HeaderParameters.ContainsKey("Authorization"))
+            {
+                if (!string.IsNullOrEmpty(this.Configuration.AccessToken))
+                {
+                    localVarRequestOptions.HeaderParameters.Add("Authorization", "Bearer " + this.Configuration.AccessToken);
+                }
+                else if (!string.IsNullOrEmpty(this.Configuration.OAuthTokenUrl) &&
+                         !string.IsNullOrEmpty(this.Configuration.OAuthClientId) &&
+                         !string.IsNullOrEmpty(this.Configuration.OAuthClientSecret) &&
+                         this.Configuration.OAuthFlow != null)
+                {
+                    localVarRequestOptions.OAuth = true;
+                }
             }
 
             // make the HTTP request

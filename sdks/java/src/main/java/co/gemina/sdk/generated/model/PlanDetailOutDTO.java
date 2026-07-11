@@ -64,6 +64,11 @@ public class PlanDetailOutDTO {
   @javax.annotation.Nonnull
   private Integer bonusPercentage;
 
+  public static final String SERIALIZED_NAME_CHAT_CREDIT_COST = "chatCreditCost";
+  @SerializedName(SERIALIZED_NAME_CHAT_CREDIT_COST)
+  @javax.annotation.Nullable
+  private String chatCreditCost = "0";
+
   public static final String SERIALIZED_NAME_CHAT_INCLUDED_PER_CYCLE = "chatIncludedPerCycle";
   @SerializedName(SERIALIZED_NAME_CHAT_INCLUDED_PER_CYCLE)
   @javax.annotation.Nullable
@@ -113,6 +118,11 @@ public class PlanDetailOutDTO {
   @SerializedName(SERIALIZED_NAME_ID)
   @javax.annotation.Nonnull
   private UUID id;
+
+  public static final String SERIALIZED_NAME_INDEX_CREDIT_COST = "indexCreditCost";
+  @SerializedName(SERIALIZED_NAME_INDEX_CREDIT_COST)
+  @javax.annotation.Nullable
+  private String indexCreditCost = "0";
 
   public static final String SERIALIZED_NAME_IP_ALLOWLIST_ENABLED = "ipAllowlistEnabled";
   @SerializedName(SERIALIZED_NAME_IP_ALLOWLIST_ENABLED)
@@ -174,6 +184,11 @@ public class PlanDetailOutDTO {
   @javax.annotation.Nullable
   private String storageCreditCostPerGbMonth = "0";
 
+  public static final String SERIALIZED_NAME_STORAGE_INCLUDED_GB = "storageIncludedGb";
+  @SerializedName(SERIALIZED_NAME_STORAGE_INCLUDED_GB)
+  @javax.annotation.Nullable
+  private String storageIncludedGb = "0";
+
   public static final String SERIALIZED_NAME_SUPPORT_LEVEL = "supportLevel";
   @SerializedName(SERIALIZED_NAME_SUPPORT_LEVEL)
   @javax.annotation.Nonnull
@@ -203,6 +218,25 @@ public class PlanDetailOutDTO {
 
   public void setBonusPercentage(@javax.annotation.Nonnull Integer bonusPercentage) {
     this.bonusPercentage = bonusPercentage;
+  }
+
+
+  public PlanDetailOutDTO chatCreditCost(@javax.annotation.Nullable String chatCreditCost) {
+    this.chatCreditCost = chatCreditCost;
+    return this;
+  }
+
+  /**
+   * Get chatCreditCost
+   * @return chatCreditCost
+   */
+  @javax.annotation.Nullable
+  public String getChatCreditCost() {
+    return chatCreditCost;
+  }
+
+  public void setChatCreditCost(@javax.annotation.Nullable String chatCreditCost) {
+    this.chatCreditCost = chatCreditCost;
   }
 
 
@@ -401,6 +435,25 @@ public class PlanDetailOutDTO {
 
   public void setId(@javax.annotation.Nonnull UUID id) {
     this.id = id;
+  }
+
+
+  public PlanDetailOutDTO indexCreditCost(@javax.annotation.Nullable String indexCreditCost) {
+    this.indexCreditCost = indexCreditCost;
+    return this;
+  }
+
+  /**
+   * Get indexCreditCost
+   * @return indexCreditCost
+   */
+  @javax.annotation.Nullable
+  public String getIndexCreditCost() {
+    return indexCreditCost;
+  }
+
+  public void setIndexCreditCost(@javax.annotation.Nullable String indexCreditCost) {
+    this.indexCreditCost = indexCreditCost;
   }
 
 
@@ -632,6 +685,25 @@ public class PlanDetailOutDTO {
   }
 
 
+  public PlanDetailOutDTO storageIncludedGb(@javax.annotation.Nullable String storageIncludedGb) {
+    this.storageIncludedGb = storageIncludedGb;
+    return this;
+  }
+
+  /**
+   * Get storageIncludedGb
+   * @return storageIncludedGb
+   */
+  @javax.annotation.Nullable
+  public String getStorageIncludedGb() {
+    return storageIncludedGb;
+  }
+
+  public void setStorageIncludedGb(@javax.annotation.Nullable String storageIncludedGb) {
+    this.storageIncludedGb = storageIncludedGb;
+  }
+
+
   public PlanDetailOutDTO supportLevel(@javax.annotation.Nonnull SupportLevel supportLevel) {
     this.supportLevel = supportLevel;
     return this;
@@ -681,6 +753,7 @@ public class PlanDetailOutDTO {
     }
     PlanDetailOutDTO planDetailOutDTO = (PlanDetailOutDTO) o;
     return Objects.equals(this.bonusPercentage, planDetailOutDTO.bonusPercentage) &&
+        Objects.equals(this.chatCreditCost, planDetailOutDTO.chatCreditCost) &&
         Objects.equals(this.chatIncludedPerCycle, planDetailOutDTO.chatIncludedPerCycle) &&
         Objects.equals(this.createdAt, planDetailOutDTO.createdAt) &&
         Objects.equals(this.createdAtTimestamp, planDetailOutDTO.createdAtTimestamp) &&
@@ -691,6 +764,7 @@ public class PlanDetailOutDTO {
         Objects.equals(this.documentIntelligenceEnabled, planDetailOutDTO.documentIntelligenceEnabled) &&
         Objects.equals(this.enhancedPrivacyEnabled, planDetailOutDTO.enhancedPrivacyEnabled) &&
         Objects.equals(this.id, planDetailOutDTO.id) &&
+        Objects.equals(this.indexCreditCost, planDetailOutDTO.indexCreditCost) &&
         Objects.equals(this.ipAllowlistEnabled, planDetailOutDTO.ipAllowlistEnabled) &&
         Objects.equals(this.isActive, planDetailOutDTO.isActive) &&
         Objects.equals(this.maxDataRetentionPeriod, planDetailOutDTO.maxDataRetentionPeriod) &&
@@ -703,6 +777,7 @@ public class PlanDetailOutDTO {
         Objects.equals(this.retrievalRateLimitPerSecond, planDetailOutDTO.retrievalRateLimitPerSecond) &&
         Objects.equals(this.slug, planDetailOutDTO.slug) &&
         Objects.equals(this.storageCreditCostPerGbMonth, planDetailOutDTO.storageCreditCostPerGbMonth) &&
+        Objects.equals(this.storageIncludedGb, planDetailOutDTO.storageIncludedGb) &&
         Objects.equals(this.supportLevel, planDetailOutDTO.supportLevel) &&
         Objects.equals(this.webhooksEnabled, planDetailOutDTO.webhooksEnabled);
   }
@@ -713,7 +788,7 @@ public class PlanDetailOutDTO {
 
   @Override
   public int hashCode() {
-    return Objects.hash(bonusPercentage, chatIncludedPerCycle, createdAt, createdAtTimestamp, creditCosts, credits, dataResidencyEnabled, description, documentIntelligenceEnabled, enhancedPrivacyEnabled, id, ipAllowlistEnabled, isActive, maxDataRetentionPeriod, maxTemplates, monthlyFiletagCredits, name, paddlePriceId, paddleProductId, priceCents, retrievalRateLimitPerSecond, slug, storageCreditCostPerGbMonth, supportLevel, webhooksEnabled);
+    return Objects.hash(bonusPercentage, chatCreditCost, chatIncludedPerCycle, createdAt, createdAtTimestamp, creditCosts, credits, dataResidencyEnabled, description, documentIntelligenceEnabled, enhancedPrivacyEnabled, id, indexCreditCost, ipAllowlistEnabled, isActive, maxDataRetentionPeriod, maxTemplates, monthlyFiletagCredits, name, paddlePriceId, paddleProductId, priceCents, retrievalRateLimitPerSecond, slug, storageCreditCostPerGbMonth, storageIncludedGb, supportLevel, webhooksEnabled);
   }
 
   private static <T> int hashCodeNullable(JsonNullable<T> a) {
@@ -728,6 +803,7 @@ public class PlanDetailOutDTO {
     StringBuilder sb = new StringBuilder();
     sb.append("class PlanDetailOutDTO {\n");
     sb.append("    bonusPercentage: ").append(toIndentedString(bonusPercentage)).append("\n");
+    sb.append("    chatCreditCost: ").append(toIndentedString(chatCreditCost)).append("\n");
     sb.append("    chatIncludedPerCycle: ").append(toIndentedString(chatIncludedPerCycle)).append("\n");
     sb.append("    createdAt: ").append(toIndentedString(createdAt)).append("\n");
     sb.append("    createdAtTimestamp: ").append(toIndentedString(createdAtTimestamp)).append("\n");
@@ -738,6 +814,7 @@ public class PlanDetailOutDTO {
     sb.append("    documentIntelligenceEnabled: ").append(toIndentedString(documentIntelligenceEnabled)).append("\n");
     sb.append("    enhancedPrivacyEnabled: ").append(toIndentedString(enhancedPrivacyEnabled)).append("\n");
     sb.append("    id: ").append(toIndentedString(id)).append("\n");
+    sb.append("    indexCreditCost: ").append(toIndentedString(indexCreditCost)).append("\n");
     sb.append("    ipAllowlistEnabled: ").append(toIndentedString(ipAllowlistEnabled)).append("\n");
     sb.append("    isActive: ").append(toIndentedString(isActive)).append("\n");
     sb.append("    maxDataRetentionPeriod: ").append(toIndentedString(maxDataRetentionPeriod)).append("\n");
@@ -750,6 +827,7 @@ public class PlanDetailOutDTO {
     sb.append("    retrievalRateLimitPerSecond: ").append(toIndentedString(retrievalRateLimitPerSecond)).append("\n");
     sb.append("    slug: ").append(toIndentedString(slug)).append("\n");
     sb.append("    storageCreditCostPerGbMonth: ").append(toIndentedString(storageCreditCostPerGbMonth)).append("\n");
+    sb.append("    storageIncludedGb: ").append(toIndentedString(storageIncludedGb)).append("\n");
     sb.append("    supportLevel: ").append(toIndentedString(supportLevel)).append("\n");
     sb.append("    webhooksEnabled: ").append(toIndentedString(webhooksEnabled)).append("\n");
     sb.append("}");
@@ -770,7 +848,7 @@ public class PlanDetailOutDTO {
 
   static {
     // a set of all properties/fields (JSON key names)
-    openapiFields = new HashSet<String>(Arrays.asList("bonusPercentage", "chatIncludedPerCycle", "createdAt", "createdAtTimestamp", "creditCosts", "credits", "dataResidencyEnabled", "description", "documentIntelligenceEnabled", "enhancedPrivacyEnabled", "id", "ipAllowlistEnabled", "isActive", "maxDataRetentionPeriod", "maxTemplates", "monthlyFiletagCredits", "name", "paddlePriceId", "paddleProductId", "priceCents", "retrievalRateLimitPerSecond", "slug", "storageCreditCostPerGbMonth", "supportLevel", "webhooksEnabled"));
+    openapiFields = new HashSet<String>(Arrays.asList("bonusPercentage", "chatCreditCost", "chatIncludedPerCycle", "createdAt", "createdAtTimestamp", "creditCosts", "credits", "dataResidencyEnabled", "description", "documentIntelligenceEnabled", "enhancedPrivacyEnabled", "id", "indexCreditCost", "ipAllowlistEnabled", "isActive", "maxDataRetentionPeriod", "maxTemplates", "monthlyFiletagCredits", "name", "paddlePriceId", "paddleProductId", "priceCents", "retrievalRateLimitPerSecond", "slug", "storageCreditCostPerGbMonth", "storageIncludedGb", "supportLevel", "webhooksEnabled"));
 
     // a set of required properties/fields (JSON key names)
     openapiRequiredFields = new HashSet<String>(Arrays.asList("bonusPercentage", "credits", "dataResidencyEnabled", "enhancedPrivacyEnabled", "id", "ipAllowlistEnabled", "isActive", "maxDataRetentionPeriod", "maxTemplates", "monthlyFiletagCredits", "name", "priceCents", "slug", "supportLevel", "webhooksEnabled"));
@@ -804,6 +882,9 @@ public class PlanDetailOutDTO {
         }
       }
         JsonObject jsonObj = jsonElement.getAsJsonObject();
+      if ((jsonObj.get("chatCreditCost") != null && !jsonObj.get("chatCreditCost").isJsonNull()) && !jsonObj.get("chatCreditCost").isJsonPrimitive()) {
+        throw new IllegalArgumentException(String.format(java.util.Locale.ROOT, "Expected the field `chatCreditCost` to be a primitive type in the JSON string but got `%s`", jsonObj.get("chatCreditCost").toString()));
+      }
       if (jsonObj.get("creditCosts") != null && !jsonObj.get("creditCosts").isJsonNull()) {
         JsonArray jsonArraycreditCosts = jsonObj.getAsJsonArray("creditCosts");
         if (jsonArraycreditCosts != null) {
@@ -824,6 +905,9 @@ public class PlanDetailOutDTO {
       if (!jsonObj.get("id").isJsonPrimitive()) {
         throw new IllegalArgumentException(String.format(java.util.Locale.ROOT, "Expected the field `id` to be a primitive type in the JSON string but got `%s`", jsonObj.get("id").toString()));
       }
+      if ((jsonObj.get("indexCreditCost") != null && !jsonObj.get("indexCreditCost").isJsonNull()) && !jsonObj.get("indexCreditCost").isJsonPrimitive()) {
+        throw new IllegalArgumentException(String.format(java.util.Locale.ROOT, "Expected the field `indexCreditCost` to be a primitive type in the JSON string but got `%s`", jsonObj.get("indexCreditCost").toString()));
+      }
       // validate the required field `maxDataRetentionPeriod`
       DataRetentionPeriodModel.validateJsonElement(jsonObj.get("maxDataRetentionPeriod"));
       if (!jsonObj.get("name").isJsonPrimitive()) {
@@ -840,6 +924,9 @@ public class PlanDetailOutDTO {
       }
       if ((jsonObj.get("storageCreditCostPerGbMonth") != null && !jsonObj.get("storageCreditCostPerGbMonth").isJsonNull()) && !jsonObj.get("storageCreditCostPerGbMonth").isJsonPrimitive()) {
         throw new IllegalArgumentException(String.format(java.util.Locale.ROOT, "Expected the field `storageCreditCostPerGbMonth` to be a primitive type in the JSON string but got `%s`", jsonObj.get("storageCreditCostPerGbMonth").toString()));
+      }
+      if ((jsonObj.get("storageIncludedGb") != null && !jsonObj.get("storageIncludedGb").isJsonNull()) && !jsonObj.get("storageIncludedGb").isJsonPrimitive()) {
+        throw new IllegalArgumentException(String.format(java.util.Locale.ROOT, "Expected the field `storageIncludedGb` to be a primitive type in the JSON string but got `%s`", jsonObj.get("storageIncludedGb").toString()));
       }
       // validate the required field `supportLevel`
       SupportLevel.validateJsonElement(jsonObj.get("supportLevel"));

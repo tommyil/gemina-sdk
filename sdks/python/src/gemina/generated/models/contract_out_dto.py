@@ -34,21 +34,28 @@ class ContractOutDTO(BaseModel):
     ContractOutDTO
     """ # noqa: E501
     billing_cycle_day: StrictInt = Field(alias="billingCycleDay")
+    chat_included_per_cycle: Optional[StrictInt] = Field(default=0, alias="chatIncludedPerCycle")
+    chat_price_cents: Optional[StrictStr] = Field(default='0', alias="chatPriceCents")
     checkout_url: Optional[StrictStr] = Field(default=None, alias="checkoutUrl")
     created_at: Optional[datetime] = Field(default=None, alias="createdAt")
     created_at_timestamp: Optional[Union[StrictFloat, StrictInt]] = Field(default=None, alias="createdAtTimestamp")
+    document_intelligence_enabled: Optional[StrictBool] = Field(default=False, alias="documentIntelligenceEnabled")
     id: UUID
+    index_price_cents: Optional[StrictStr] = Field(default='0', alias="indexPriceCents")
     max_monthly_extractions: Optional[StrictInt] = Field(default=None, alias="maxMonthlyExtractions")
     monthly_filetag_credits: Optional[Annotated[int, Field(strict=True, ge=0)]] = Field(default=0, alias="monthlyFiletagCredits")
     paddle_subscription_id: Optional[StrictStr] = Field(default=None, alias="paddleSubscriptionId")
     rate_card_template_id: Optional[UUID] = Field(default=None, alias="rateCardTemplateId")
     rate_cards: Optional[List[RateCardOutDTO]] = Field(default=None, alias="rateCards")
     requires_manual_approval: StrictBool = Field(alias="requiresManualApproval")
+    retrieval_rate_limit_per_second: Optional[StrictInt] = Field(default=20, alias="retrievalRateLimitPerSecond")
     status: ContractStatus
+    storage_included_gb: Optional[StrictStr] = Field(default='0', alias="storageIncludedGb")
+    storage_price_per_gb_month_cents: Optional[StrictStr] = Field(default='0', alias="storagePricePerGbMonthCents")
     user_email: Optional[StrictStr] = Field(default=None, alias="userEmail")
     user_id: UUID = Field(alias="userId")
     volume_discount_tiers: Optional[List[VolumeDiscountTierOutDTO]] = Field(default=None, alias="volumeDiscountTiers")
-    __properties: ClassVar[List[str]] = ["billingCycleDay", "checkoutUrl", "createdAt", "createdAtTimestamp", "id", "maxMonthlyExtractions", "monthlyFiletagCredits", "paddleSubscriptionId", "rateCardTemplateId", "rateCards", "requiresManualApproval", "status", "userEmail", "userId", "volumeDiscountTiers"]
+    __properties: ClassVar[List[str]] = ["billingCycleDay", "chatIncludedPerCycle", "chatPriceCents", "checkoutUrl", "createdAt", "createdAtTimestamp", "documentIntelligenceEnabled", "id", "indexPriceCents", "maxMonthlyExtractions", "monthlyFiletagCredits", "paddleSubscriptionId", "rateCardTemplateId", "rateCards", "requiresManualApproval", "retrievalRateLimitPerSecond", "status", "storageIncludedGb", "storagePricePerGbMonthCents", "userEmail", "userId", "volumeDiscountTiers"]
 
     model_config = ConfigDict(
         validate_by_name=True,
@@ -151,17 +158,24 @@ class ContractOutDTO(BaseModel):
 
         _obj = cls.model_validate({
             "billingCycleDay": obj.get("billingCycleDay"),
+            "chatIncludedPerCycle": obj.get("chatIncludedPerCycle") if obj.get("chatIncludedPerCycle") is not None else 0,
+            "chatPriceCents": obj.get("chatPriceCents") if obj.get("chatPriceCents") is not None else '0',
             "checkoutUrl": obj.get("checkoutUrl"),
             "createdAt": obj.get("createdAt"),
             "createdAtTimestamp": obj.get("createdAtTimestamp"),
+            "documentIntelligenceEnabled": obj.get("documentIntelligenceEnabled") if obj.get("documentIntelligenceEnabled") is not None else False,
             "id": obj.get("id"),
+            "indexPriceCents": obj.get("indexPriceCents") if obj.get("indexPriceCents") is not None else '0',
             "maxMonthlyExtractions": obj.get("maxMonthlyExtractions"),
             "monthlyFiletagCredits": obj.get("monthlyFiletagCredits") if obj.get("monthlyFiletagCredits") is not None else 0,
             "paddleSubscriptionId": obj.get("paddleSubscriptionId"),
             "rateCardTemplateId": obj.get("rateCardTemplateId"),
             "rateCards": [RateCardOutDTO.from_dict(_item) for _item in obj["rateCards"]] if obj.get("rateCards") is not None else None,
             "requiresManualApproval": obj.get("requiresManualApproval"),
+            "retrievalRateLimitPerSecond": obj.get("retrievalRateLimitPerSecond") if obj.get("retrievalRateLimitPerSecond") is not None else 20,
             "status": obj.get("status"),
+            "storageIncludedGb": obj.get("storageIncludedGb") if obj.get("storageIncludedGb") is not None else '0',
+            "storagePricePerGbMonthCents": obj.get("storagePricePerGbMonthCents") if obj.get("storagePricePerGbMonthCents") is not None else '0',
             "userEmail": obj.get("userEmail"),
             "userId": obj.get("userId"),
             "volumeDiscountTiers": [VolumeDiscountTierOutDTO.from_dict(_item) for _item in obj["volumeDiscountTiers"]] if obj.get("volumeDiscountTiers") is not None else None

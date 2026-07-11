@@ -79,6 +79,7 @@ from gemina.generated.models.invoice_pdf_out_dto import InvoicePdfOutDTO
 from gemina.generated.models.invoice_status import InvoiceStatus
 from gemina.generated.models.invoice_type import InvoiceType
 from gemina.generated.models.location_inner import LocationInner
+from gemina.generated.models.matched_chunk_dto import MatchedChunkDTO
 from gemina.generated.models.model_type import ModelType
 from gemina.generated.models.next_action_out_dto import NextActionOutDTO
 from gemina.generated.models.number_of_stored_documents_out_dto import NumberOfStoredDocumentsOutDTO
@@ -97,6 +98,8 @@ from gemina.generated.models.response_change_plan import ResponseChangePlan
 from gemina.generated.models.response_status import ResponseStatus
 from gemina.generated.models.retrieval_aggregate_in_dto import RetrievalAggregateInDTO
 from gemina.generated.models.retrieval_aggregate_out_dto import RetrievalAggregateOutDTO
+from gemina.generated.models.retrieval_field_item_dto import RetrievalFieldItemDTO
+from gemina.generated.models.retrieval_fields_out_dto import RetrievalFieldsOutDTO
 from gemina.generated.models.retrieval_filters_dto import RetrievalFiltersDTO
 from gemina.generated.models.retrieval_query_in_dto import RetrievalQueryInDTO
 from gemina.generated.models.retrieval_query_out_dto import RetrievalQueryOutDTO
@@ -104,6 +107,8 @@ from gemina.generated.models.retrieval_status_out_dto import RetrievalStatusOutD
 from gemina.generated.models.session_token_in_dto import SessionTokenInDTO
 from gemina.generated.models.session_token_out_dto import SessionTokenOutDTO
 from gemina.generated.models.sort_method_model import SortMethodModel
+from gemina.generated.models.storage_usage_out_dto import StorageUsageOutDTO
+from gemina.generated.models.structured_filter_dto import StructuredFilterDTO
 from gemina.generated.models.subscribe_in_dto import SubscribeInDTO
 from gemina.generated.models.subscription_out_dto import SubscriptionOutDTO
 from gemina.generated.models.subscription_status import SubscriptionStatus
@@ -128,6 +133,7 @@ from gemina.generated.models.usage_line_item_out_dto import UsageLineItemOutDTO
 from gemina.generated.models.usage_summary_out_dto import UsageSummaryOutDTO
 from gemina.generated.models.validation_error import ValidationError
 from gemina.generated.models.validation_schema_model import ValidationSchemaModel
+from gemina.generated.models.value import Value
 from gemina.generated.models.values_value import ValuesValue
 from gemina.generated.models.view_meta_out_dto import ViewMetaOutDTO
 from gemina.generated.models.volume_discount_tier_out_dto import VolumeDiscountTierOutDTO

@@ -47,7 +47,8 @@ namespace Gemina.Sdk.Model
         /// <param name="intent">structured | semantic | hybrid | aggregation.</param>
         /// <param name="servedAt">servedAt.</param>
         /// <param name="servedAtTimestamp">servedAtTimestamp.</param>
-        public ChatQueryOutDTO(string answer = default, List<string> citations = default, bool confident = false, DateTime? createdAt = default, decimal? createdAtTimestamp = default, string intent = default, DateTime servedAt = default, decimal servedAtTimestamp = default)
+        /// <param name="sessionId">Conversation id — send back to continue this chat (required).</param>
+        public ChatQueryOutDTO(string answer = default, List<string> citations = default, bool confident = false, DateTime? createdAt = default, decimal? createdAtTimestamp = default, string intent = default, DateTime servedAt = default, decimal servedAtTimestamp = default, Guid sessionId = default)
         {
             // to ensure "answer" is required (not null)
             if (answer == null)
@@ -55,6 +56,7 @@ namespace Gemina.Sdk.Model
                 throw new ArgumentNullException("answer is a required property for ChatQueryOutDTO and cannot be null");
             }
             this.Answer = answer;
+            this.SessionId = sessionId;
             this.Citations = citations;
             this.Confident = confident;
             this.CreatedAt = createdAt;
@@ -116,6 +118,13 @@ namespace Gemina.Sdk.Model
         public decimal ServedAtTimestamp { get; set; }
 
         /// <summary>
+        /// Conversation id — send back to continue this chat
+        /// </summary>
+        /// <value>Conversation id — send back to continue this chat</value>
+        [DataMember(Name = "sessionId", IsRequired = true, EmitDefaultValue = true)]
+        public Guid SessionId { get; set; }
+
+        /// <summary>
         /// Returns the string presentation of the object
         /// </summary>
         /// <returns>String presentation of the object</returns>
@@ -131,6 +140,7 @@ namespace Gemina.Sdk.Model
             sb.Append("  Intent: ").Append(Intent).Append("\n");
             sb.Append("  ServedAt: ").Append(ServedAt).Append("\n");
             sb.Append("  ServedAtTimestamp: ").Append(ServedAtTimestamp).Append("\n");
+            sb.Append("  SessionId: ").Append(SessionId).Append("\n");
             sb.Append("}\n");
             return sb.ToString();
         }

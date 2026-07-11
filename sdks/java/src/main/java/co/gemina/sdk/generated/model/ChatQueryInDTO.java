@@ -21,6 +21,7 @@ import com.google.gson.stream.JsonReader;
 import com.google.gson.stream.JsonWriter;
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.UUID;
 import org.openapitools.jackson.nullable.JsonNullable;
 
 import com.google.gson.Gson;
@@ -60,6 +61,11 @@ public class ChatQueryInDTO {
   @SerializedName(SERIALIZED_NAME_MESSAGE)
   @javax.annotation.Nonnull
   private String message;
+
+  public static final String SERIALIZED_NAME_SESSION_ID = "sessionId";
+  @SerializedName(SERIALIZED_NAME_SESSION_ID)
+  @javax.annotation.Nullable
+  private UUID sessionId;
 
   public ChatQueryInDTO() {
   }
@@ -102,6 +108,25 @@ public class ChatQueryInDTO {
   }
 
 
+  public ChatQueryInDTO sessionId(@javax.annotation.Nullable UUID sessionId) {
+    this.sessionId = sessionId;
+    return this;
+  }
+
+  /**
+   * Continue an existing conversation. Omit to start a new one; the response returns the sessionId to send on follow-up turns.
+   * @return sessionId
+   */
+  @javax.annotation.Nullable
+  public UUID getSessionId() {
+    return sessionId;
+  }
+
+  public void setSessionId(@javax.annotation.Nullable UUID sessionId) {
+    this.sessionId = sessionId;
+  }
+
+
 
   @Override
   public boolean equals(Object o) {
@@ -113,7 +138,8 @@ public class ChatQueryInDTO {
     }
     ChatQueryInDTO chatQueryInDTO = (ChatQueryInDTO) o;
     return Objects.equals(this.endUserId, chatQueryInDTO.endUserId) &&
-        Objects.equals(this.message, chatQueryInDTO.message);
+        Objects.equals(this.message, chatQueryInDTO.message) &&
+        Objects.equals(this.sessionId, chatQueryInDTO.sessionId);
   }
 
   private static <T> boolean equalsNullable(JsonNullable<T> a, JsonNullable<T> b) {
@@ -122,7 +148,7 @@ public class ChatQueryInDTO {
 
   @Override
   public int hashCode() {
-    return Objects.hash(endUserId, message);
+    return Objects.hash(endUserId, message, sessionId);
   }
 
   private static <T> int hashCodeNullable(JsonNullable<T> a) {
@@ -138,6 +164,7 @@ public class ChatQueryInDTO {
     sb.append("class ChatQueryInDTO {\n");
     sb.append("    endUserId: ").append(toIndentedString(endUserId)).append("\n");
     sb.append("    message: ").append(toIndentedString(message)).append("\n");
+    sb.append("    sessionId: ").append(toIndentedString(sessionId)).append("\n");
     sb.append("}");
     return sb.toString();
   }
@@ -156,7 +183,7 @@ public class ChatQueryInDTO {
 
   static {
     // a set of all properties/fields (JSON key names)
-    openapiFields = new HashSet<String>(Arrays.asList("endUserId", "message"));
+    openapiFields = new HashSet<String>(Arrays.asList("endUserId", "message", "sessionId"));
 
     // a set of required properties/fields (JSON key names)
     openapiRequiredFields = new HashSet<String>(Arrays.asList("message"));
@@ -195,6 +222,9 @@ public class ChatQueryInDTO {
       }
       if (!jsonObj.get("message").isJsonPrimitive()) {
         throw new IllegalArgumentException(String.format(java.util.Locale.ROOT, "Expected the field `message` to be a primitive type in the JSON string but got `%s`", jsonObj.get("message").toString()));
+      }
+      if ((jsonObj.get("sessionId") != null && !jsonObj.get("sessionId").isJsonNull()) && !jsonObj.get("sessionId").isJsonPrimitive()) {
+        throw new IllegalArgumentException(String.format(java.util.Locale.ROOT, "Expected the field `sessionId` to be a primitive type in the JSON string but got `%s`", jsonObj.get("sessionId").toString()));
       }
   }
 

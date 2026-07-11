@@ -20,6 +20,7 @@ import json
 from pydantic import BaseModel, ConfigDict, Field
 from typing import Any, ClassVar, Dict, List, Optional
 from typing_extensions import Annotated
+from uuid import UUID
 from typing import Optional, Set
 from typing_extensions import Self
 from pydantic_core import to_jsonable_python
@@ -30,7 +31,8 @@ class ChatQueryInDTO(BaseModel):
     """ # noqa: E501
     end_user_id: Optional[Annotated[str, Field(strict=True, max_length=100)]] = Field(default=None, description="Server-to-server (API key) path only: trusted within-tenant filter. On the token path the token's signed scope always wins.", alias="endUserId")
     message: Annotated[str, Field(min_length=1, strict=True, max_length=2000)]
-    __properties: ClassVar[List[str]] = ["endUserId", "message"]
+    session_id: Optional[UUID] = Field(default=None, description="Continue an existing conversation. Omit to start a new one; the response returns the sessionId to send on follow-up turns.", alias="sessionId")
+    __properties: ClassVar[List[str]] = ["endUserId", "message", "sessionId"]
 
     model_config = ConfigDict(
         validate_by_name=True,
@@ -76,6 +78,11 @@ class ChatQueryInDTO(BaseModel):
         if self.end_user_id is None and "end_user_id" in self.model_fields_set:
             _dict['endUserId'] = None
 
+        # set to None if session_id (nullable) is None
+        # and model_fields_set contains the field
+        if self.session_id is None and "session_id" in self.model_fields_set:
+            _dict['sessionId'] = None
+
         return _dict
 
     @classmethod
@@ -89,7 +96,8 @@ class ChatQueryInDTO(BaseModel):
 
         _obj = cls.model_validate({
             "endUserId": obj.get("endUserId"),
-            "message": obj.get("message")
+            "message": obj.get("message"),
+            "sessionId": obj.get("sessionId")
         })
         return _obj
 

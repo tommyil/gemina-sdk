@@ -31,6 +31,12 @@ export interface ChatQueryInDTO {
      * @memberof ChatQueryInDTO
      */
     message: string;
+    /**
+     * Continue an existing conversation. Omit to start a new one; the response returns the sessionId to send on follow-up turns.
+     * @type {string}
+     * @memberof ChatQueryInDTO
+     */
+    sessionId?: string | null;
 }
 
 /**
@@ -53,6 +59,7 @@ export function ChatQueryInDTOFromJSONTyped(json: any, ignoreDiscriminator: bool
         
         'endUserId': json['endUserId'] == null ? undefined : json['endUserId'],
         'message': json['message'],
+        'sessionId': json['sessionId'] == null ? undefined : json['sessionId'],
     };
 }
 
@@ -69,6 +76,7 @@ export function ChatQueryInDTOToJSONTyped(value?: ChatQueryInDTO | null, ignoreD
         
         'endUserId': value['endUserId'],
         'message': value['message'],
+        'sessionId': value['sessionId'],
     };
 }
 

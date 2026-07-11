@@ -41,7 +41,8 @@ namespace Gemina.Sdk.Model
         /// </summary>
         /// <param name="endUserId">Server-to-server (API key) path only: trusted within-tenant filter. On the token path the token&#39;s signed scope always wins..</param>
         /// <param name="message">message (required).</param>
-        public ChatQueryInDTO(string endUserId = default, string message = default)
+        /// <param name="sessionId">Continue an existing conversation. Omit to start a new one; the response returns the sessionId to send on follow-up turns..</param>
+        public ChatQueryInDTO(string endUserId = default, string message = default, Guid? sessionId = default)
         {
             // to ensure "message" is required (not null)
             if (message == null)
@@ -50,6 +51,7 @@ namespace Gemina.Sdk.Model
             }
             this.Message = message;
             this.EndUserId = endUserId;
+            this.SessionId = sessionId;
         }
 
         /// <summary>
@@ -66,6 +68,13 @@ namespace Gemina.Sdk.Model
         public string Message { get; set; }
 
         /// <summary>
+        /// Continue an existing conversation. Omit to start a new one; the response returns the sessionId to send on follow-up turns.
+        /// </summary>
+        /// <value>Continue an existing conversation. Omit to start a new one; the response returns the sessionId to send on follow-up turns.</value>
+        [DataMember(Name = "sessionId", EmitDefaultValue = true)]
+        public Guid? SessionId { get; set; }
+
+        /// <summary>
         /// Returns the string presentation of the object
         /// </summary>
         /// <returns>String presentation of the object</returns>
@@ -75,6 +84,7 @@ namespace Gemina.Sdk.Model
             sb.Append("class ChatQueryInDTO {\n");
             sb.Append("  EndUserId: ").Append(EndUserId).Append("\n");
             sb.Append("  Message: ").Append(Message).Append("\n");
+            sb.Append("  SessionId: ").Append(SessionId).Append("\n");
             sb.Append("}\n");
             return sb.ToString();
         }

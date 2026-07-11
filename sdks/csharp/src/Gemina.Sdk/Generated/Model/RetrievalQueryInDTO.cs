@@ -139,9 +139,10 @@ namespace Gemina.Sdk.Model
         /// <param name="skip">skip (default to 0).</param>
         /// <param name="sortField">sortField.</param>
         /// <param name="sortMethod">sortMethod (default to SortMethodEnum.Desc).</param>
+        /// <param name="structuredFilters">Self-query conditions over any structured field (whitelisted ops).</param>
         /// <param name="text">Natural-language query (semantic/hybrid modes).</param>
         /// <param name="topK">topK (default to 10).</param>
-        public RetrievalQueryInDTO(RetrievalFiltersDTO filters = default, int limit = 100, ModeEnum? mode = ModeEnum.Structured, int skip = 0, SortFieldEnum? sortField = default, SortMethodEnum? sortMethod = SortMethodEnum.Desc, string text = default, int topK = 10)
+        public RetrievalQueryInDTO(RetrievalFiltersDTO filters = default, int limit = 100, ModeEnum? mode = ModeEnum.Structured, int skip = 0, SortFieldEnum? sortField = default, SortMethodEnum? sortMethod = SortMethodEnum.Desc, List<StructuredFilterDTO> structuredFilters = default, string text = default, int topK = 10)
         {
             this.Filters = filters;
             this.Limit = limit;
@@ -149,6 +150,7 @@ namespace Gemina.Sdk.Model
             this.Skip = skip;
             this.SortField = sortField;
             this.SortMethod = sortMethod;
+            this.StructuredFilters = structuredFilters;
             this.Text = text;
             this.TopK = topK;
         }
@@ -170,6 +172,13 @@ namespace Gemina.Sdk.Model
         /// </summary>
         [DataMember(Name = "skip", EmitDefaultValue = false)]
         public int Skip { get; set; }
+
+        /// <summary>
+        /// Self-query conditions over any structured field (whitelisted ops)
+        /// </summary>
+        /// <value>Self-query conditions over any structured field (whitelisted ops)</value>
+        [DataMember(Name = "structuredFilters", EmitDefaultValue = false)]
+        public List<StructuredFilterDTO> StructuredFilters { get; set; }
 
         /// <summary>
         /// Natural-language query (semantic/hybrid modes)
@@ -198,6 +207,7 @@ namespace Gemina.Sdk.Model
             sb.Append("  Skip: ").Append(Skip).Append("\n");
             sb.Append("  SortField: ").Append(SortField).Append("\n");
             sb.Append("  SortMethod: ").Append(SortMethod).Append("\n");
+            sb.Append("  StructuredFilters: ").Append(StructuredFilters).Append("\n");
             sb.Append("  Text: ").Append(Text).Append("\n");
             sb.Append("  TopK: ").Append(TopK).Append("\n");
             sb.Append("}\n");
