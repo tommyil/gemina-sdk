@@ -147,6 +147,40 @@ for (AggregateRowDTO row : totals.getRows()) {
 }
 ```
 
+**Advanced filters & match highlights.** Beyond the promoted `filters`, filter
+on *any* structured field a document has with `structuredFilters` (each `op` is
+one of `EQ` / `NEQ` / `GT` / `LT` / `CONTAINS` / `EXISTS`, max 8), and read back
+the line-item snippet that made a document match via `getMatchedChunks()`:
+
+```java
+RetrievalQueryOutDTO hits = client.retrieval().retrievalQuery(
+        new RetrievalQueryInDTO()
+                .mode(RetrievalQueryInDTO.ModeEnum.HYBRID)
+                .text("27-inch monitors")
+                .addStructuredFiltersItem(new StructuredFilterDTO()
+                        .path("position")
+                        .op(StructuredFilterDTO.OpEnum.CONTAINS)
+                        .value(new Value("engineer"))));
+
+for (QueryResultItemDTO item : hits.getItems()) {
+    for (MatchedChunkDTO chunk : item.getMatchedChunks()) {
+        System.out.println(item.getDocumentId() + " matched on: " + chunk.getText());
+    }
+}
+```
+
+Discover which fields you can filter on with `client.retrieval().retrievalFields()`
+— it returns the structured field names per document type (names only, never
+values), so you can build a field picker from real data:
+
+```java
+RetrievalFieldsOutDTO fields = client.retrieval().retrievalFields();
+for (RetrievalFieldItemDTO f : fields.getFields()) {
+    // e.g. documentType="invoice", field="vendor_name", count=42
+    System.out.println(f.getDocumentType() + "." + f.getField() + "  (" + f.getCount() + ")");
+}
+```
+
 ## Chat with your documents
 
 Ask questions in natural language; answers cite the documents they came from:
@@ -162,6 +196,26 @@ System.out.println("citations: " + reply.getCitations());
 
 Chat requires a plan with Document Intelligence enabled — see
 [pricing](https://gemina.co/pricing); requests return `402`/`403` otherwise.
+
+**Multi-turn conversations (memory).** For a back-and-forth where follow-ups
+keep context, use a **conversation** — it threads the server-issued `sessionId`
+for you, so you never touch the id:
+
+```java
+GeminaClient.GeminaChatConversation chat = client.conversation();
+chat.send("How much did we spend on cleaning in 2020?");
+ChatQueryOutDTO follow = chat.send("And which vendor was most expensive?"); // remembers 2020 / cleaning
+System.out.println(follow.getAnswer() + " · session: " + chat.getSessionId());
+
+chat.delete(); // end it server-side (or chat.reset() to just forget it locally)
+```
+
+A conversation expires after 24h of inactivity; the next `send` then throws the
+API's `404 CHAT_SESSION_NOT_FOUND` (an `ApiException`) — call `chat.reset()` and
+resend to continue in a fresh one. The one-shot
+`client.chat().chatQuery(new ChatQueryInDTO().message(...).sessionId(...))` is
+still there if you'd rather hold the id yourself; every response returns a
+`getSessionId()`.
 
 ## Session tokens (browser embedding)
 

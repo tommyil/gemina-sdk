@@ -46,35 +46,53 @@ namespace Gemina.Sdk.Model
         /// Initializes a new instance of the <see cref="ContractOutDTO" /> class.
         /// </summary>
         /// <param name="billingCycleDay">billingCycleDay (required).</param>
+        /// <param name="chatIncludedPerCycle">chatIncludedPerCycle (default to 0).</param>
+        /// <param name="chatPriceCents">chatPriceCents (default to &quot;0&quot;).</param>
         /// <param name="checkoutUrl">checkoutUrl.</param>
         /// <param name="createdAt">createdAt.</param>
         /// <param name="createdAtTimestamp">createdAtTimestamp.</param>
+        /// <param name="documentIntelligenceEnabled">documentIntelligenceEnabled (default to false).</param>
         /// <param name="id">id (required).</param>
+        /// <param name="indexPriceCents">indexPriceCents (default to &quot;0&quot;).</param>
         /// <param name="maxMonthlyExtractions">maxMonthlyExtractions.</param>
         /// <param name="monthlyFiletagCredits">monthlyFiletagCredits (default to 0).</param>
         /// <param name="paddleSubscriptionId">paddleSubscriptionId.</param>
         /// <param name="rateCardTemplateId">rateCardTemplateId.</param>
         /// <param name="rateCards">rateCards.</param>
         /// <param name="requiresManualApproval">requiresManualApproval (required).</param>
+        /// <param name="retrievalRateLimitPerSecond">retrievalRateLimitPerSecond (default to 20).</param>
         /// <param name="status">status (required).</param>
+        /// <param name="storageIncludedGb">storageIncludedGb (default to &quot;0&quot;).</param>
+        /// <param name="storagePricePerGbMonthCents">storagePricePerGbMonthCents (default to &quot;0&quot;).</param>
         /// <param name="userEmail">userEmail.</param>
         /// <param name="userId">userId (required).</param>
         /// <param name="volumeDiscountTiers">volumeDiscountTiers.</param>
-        public ContractOutDTO(int billingCycleDay = default, string checkoutUrl = default, DateTime? createdAt = default, decimal? createdAtTimestamp = default, Guid id = default, int? maxMonthlyExtractions = default, int monthlyFiletagCredits = 0, string paddleSubscriptionId = default, Guid? rateCardTemplateId = default, List<RateCardOutDTO> rateCards = default, bool requiresManualApproval = default, ContractStatus status = default, string userEmail = default, Guid userId = default, List<VolumeDiscountTierOutDTO> volumeDiscountTiers = default)
+        public ContractOutDTO(int billingCycleDay = default, int chatIncludedPerCycle = 0, string chatPriceCents = @"0", string checkoutUrl = default, DateTime? createdAt = default, decimal? createdAtTimestamp = default, bool documentIntelligenceEnabled = false, Guid id = default, string indexPriceCents = @"0", int? maxMonthlyExtractions = default, int monthlyFiletagCredits = 0, string paddleSubscriptionId = default, Guid? rateCardTemplateId = default, List<RateCardOutDTO> rateCards = default, bool requiresManualApproval = default, int retrievalRateLimitPerSecond = 20, ContractStatus status = default, string storageIncludedGb = @"0", string storagePricePerGbMonthCents = @"0", string userEmail = default, Guid userId = default, List<VolumeDiscountTierOutDTO> volumeDiscountTiers = default)
         {
             this.BillingCycleDay = billingCycleDay;
             this.Id = id;
             this.RequiresManualApproval = requiresManualApproval;
             this.Status = status;
             this.UserId = userId;
+            this.ChatIncludedPerCycle = chatIncludedPerCycle;
+            // use default value if no "chatPriceCents" provided
+            this.ChatPriceCents = chatPriceCents ?? @"0";
             this.CheckoutUrl = checkoutUrl;
             this.CreatedAt = createdAt;
             this.CreatedAtTimestamp = createdAtTimestamp;
+            this.DocumentIntelligenceEnabled = documentIntelligenceEnabled;
+            // use default value if no "indexPriceCents" provided
+            this.IndexPriceCents = indexPriceCents ?? @"0";
             this.MaxMonthlyExtractions = maxMonthlyExtractions;
             this.MonthlyFiletagCredits = monthlyFiletagCredits;
             this.PaddleSubscriptionId = paddleSubscriptionId;
             this.RateCardTemplateId = rateCardTemplateId;
             this.RateCards = rateCards;
+            this.RetrievalRateLimitPerSecond = retrievalRateLimitPerSecond;
+            // use default value if no "storageIncludedGb" provided
+            this.StorageIncludedGb = storageIncludedGb ?? @"0";
+            // use default value if no "storagePricePerGbMonthCents" provided
+            this.StoragePricePerGbMonthCents = storagePricePerGbMonthCents ?? @"0";
             this.UserEmail = userEmail;
             this.VolumeDiscountTiers = volumeDiscountTiers;
         }
@@ -84,6 +102,18 @@ namespace Gemina.Sdk.Model
         /// </summary>
         [DataMember(Name = "billingCycleDay", IsRequired = true, EmitDefaultValue = true)]
         public int BillingCycleDay { get; set; }
+
+        /// <summary>
+        /// Gets or Sets ChatIncludedPerCycle
+        /// </summary>
+        [DataMember(Name = "chatIncludedPerCycle", EmitDefaultValue = false)]
+        public int ChatIncludedPerCycle { get; set; }
+
+        /// <summary>
+        /// Gets or Sets ChatPriceCents
+        /// </summary>
+        [DataMember(Name = "chatPriceCents", EmitDefaultValue = false)]
+        public string ChatPriceCents { get; set; }
 
         /// <summary>
         /// Gets or Sets CheckoutUrl
@@ -104,10 +134,22 @@ namespace Gemina.Sdk.Model
         public decimal? CreatedAtTimestamp { get; set; }
 
         /// <summary>
+        /// Gets or Sets DocumentIntelligenceEnabled
+        /// </summary>
+        [DataMember(Name = "documentIntelligenceEnabled", EmitDefaultValue = true)]
+        public bool DocumentIntelligenceEnabled { get; set; }
+
+        /// <summary>
         /// Gets or Sets Id
         /// </summary>
         [DataMember(Name = "id", IsRequired = true, EmitDefaultValue = true)]
         public Guid Id { get; set; }
+
+        /// <summary>
+        /// Gets or Sets IndexPriceCents
+        /// </summary>
+        [DataMember(Name = "indexPriceCents", EmitDefaultValue = false)]
+        public string IndexPriceCents { get; set; }
 
         /// <summary>
         /// Gets or Sets MaxMonthlyExtractions
@@ -146,6 +188,24 @@ namespace Gemina.Sdk.Model
         public bool RequiresManualApproval { get; set; }
 
         /// <summary>
+        /// Gets or Sets RetrievalRateLimitPerSecond
+        /// </summary>
+        [DataMember(Name = "retrievalRateLimitPerSecond", EmitDefaultValue = false)]
+        public int RetrievalRateLimitPerSecond { get; set; }
+
+        /// <summary>
+        /// Gets or Sets StorageIncludedGb
+        /// </summary>
+        [DataMember(Name = "storageIncludedGb", EmitDefaultValue = false)]
+        public string StorageIncludedGb { get; set; }
+
+        /// <summary>
+        /// Gets or Sets StoragePricePerGbMonthCents
+        /// </summary>
+        [DataMember(Name = "storagePricePerGbMonthCents", EmitDefaultValue = false)]
+        public string StoragePricePerGbMonthCents { get; set; }
+
+        /// <summary>
         /// Gets or Sets UserEmail
         /// </summary>
         [DataMember(Name = "userEmail", EmitDefaultValue = true)]
@@ -172,17 +232,24 @@ namespace Gemina.Sdk.Model
             StringBuilder sb = new StringBuilder();
             sb.Append("class ContractOutDTO {\n");
             sb.Append("  BillingCycleDay: ").Append(BillingCycleDay).Append("\n");
+            sb.Append("  ChatIncludedPerCycle: ").Append(ChatIncludedPerCycle).Append("\n");
+            sb.Append("  ChatPriceCents: ").Append(ChatPriceCents).Append("\n");
             sb.Append("  CheckoutUrl: ").Append(CheckoutUrl).Append("\n");
             sb.Append("  CreatedAt: ").Append(CreatedAt).Append("\n");
             sb.Append("  CreatedAtTimestamp: ").Append(CreatedAtTimestamp).Append("\n");
+            sb.Append("  DocumentIntelligenceEnabled: ").Append(DocumentIntelligenceEnabled).Append("\n");
             sb.Append("  Id: ").Append(Id).Append("\n");
+            sb.Append("  IndexPriceCents: ").Append(IndexPriceCents).Append("\n");
             sb.Append("  MaxMonthlyExtractions: ").Append(MaxMonthlyExtractions).Append("\n");
             sb.Append("  MonthlyFiletagCredits: ").Append(MonthlyFiletagCredits).Append("\n");
             sb.Append("  PaddleSubscriptionId: ").Append(PaddleSubscriptionId).Append("\n");
             sb.Append("  RateCardTemplateId: ").Append(RateCardTemplateId).Append("\n");
             sb.Append("  RateCards: ").Append(RateCards).Append("\n");
             sb.Append("  RequiresManualApproval: ").Append(RequiresManualApproval).Append("\n");
+            sb.Append("  RetrievalRateLimitPerSecond: ").Append(RetrievalRateLimitPerSecond).Append("\n");
             sb.Append("  Status: ").Append(Status).Append("\n");
+            sb.Append("  StorageIncludedGb: ").Append(StorageIncludedGb).Append("\n");
+            sb.Append("  StoragePricePerGbMonthCents: ").Append(StoragePricePerGbMonthCents).Append("\n");
             sb.Append("  UserEmail: ").Append(UserEmail).Append("\n");
             sb.Append("  UserId: ").Append(UserId).Append("\n");
             sb.Append("  VolumeDiscountTiers: ").Append(VolumeDiscountTiers).Append("\n");

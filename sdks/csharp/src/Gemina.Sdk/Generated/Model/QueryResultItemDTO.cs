@@ -50,6 +50,7 @@ namespace Gemina.Sdk.Model
         /// <param name="expenseType">expenseType.</param>
         /// <param name="externalId">externalId.</param>
         /// <param name="issueDate">issueDate.</param>
+        /// <param name="matchedChunks">Line-item/section snippets that matched the query (chunk search).</param>
         /// <param name="netAmount">netAmount.</param>
         /// <param name="paymentMethod">paymentMethod.</param>
         /// <param name="score">Similarity score (semantic mode only).</param>
@@ -58,7 +59,7 @@ namespace Gemina.Sdk.Model
         /// <param name="vatAmount">vatAmount.</param>
         /// <param name="vendorName">vendorName.</param>
         /// <param name="vendorTaxId">vendorTaxId.</param>
-        public QueryResultItemDTO(string buyerName = default, string currency = default, string docNumber = default, Guid documentExtractionId = default, Guid documentId = default, string documentType = default, DateTime? dueDate = default, string endUserId = default, string expenseType = default, string externalId = default, DateTime? issueDate = default, decimal? netAmount = default, string paymentMethod = default, decimal? score = default, Dictionary<string, Object> structured = default, decimal? totalAmount = default, decimal? vatAmount = default, string vendorName = default, string vendorTaxId = default)
+        public QueryResultItemDTO(string buyerName = default, string currency = default, string docNumber = default, Guid documentExtractionId = default, Guid documentId = default, string documentType = default, DateTime? dueDate = default, string endUserId = default, string expenseType = default, string externalId = default, DateTime? issueDate = default, List<MatchedChunkDTO> matchedChunks = default, decimal? netAmount = default, string paymentMethod = default, decimal? score = default, Dictionary<string, Object> structured = default, decimal? totalAmount = default, decimal? vatAmount = default, string vendorName = default, string vendorTaxId = default)
         {
             this.DocumentExtractionId = documentExtractionId;
             this.DocumentId = documentId;
@@ -71,6 +72,7 @@ namespace Gemina.Sdk.Model
             this.ExpenseType = expenseType;
             this.ExternalId = externalId;
             this.IssueDate = issueDate;
+            this.MatchedChunks = matchedChunks;
             this.NetAmount = netAmount;
             this.PaymentMethod = paymentMethod;
             this.Score = score;
@@ -150,6 +152,13 @@ namespace Gemina.Sdk.Model
         public DateTime? IssueDate { get; set; }
 
         /// <summary>
+        /// Line-item/section snippets that matched the query (chunk search)
+        /// </summary>
+        /// <value>Line-item/section snippets that matched the query (chunk search)</value>
+        [DataMember(Name = "matchedChunks", EmitDefaultValue = false)]
+        public List<MatchedChunkDTO> MatchedChunks { get; set; }
+
+        /// <summary>
         /// Gets or Sets NetAmount
         /// </summary>
         [DataMember(Name = "netAmount", EmitDefaultValue = true)]
@@ -217,6 +226,7 @@ namespace Gemina.Sdk.Model
             sb.Append("  ExpenseType: ").Append(ExpenseType).Append("\n");
             sb.Append("  ExternalId: ").Append(ExternalId).Append("\n");
             sb.Append("  IssueDate: ").Append(IssueDate).Append("\n");
+            sb.Append("  MatchedChunks: ").Append(MatchedChunks).Append("\n");
             sb.Append("  NetAmount: ").Append(NetAmount).Append("\n");
             sb.Append("  PaymentMethod: ").Append(PaymentMethod).Append("\n");
             sb.Append("  Score: ").Append(Score).Append("\n");

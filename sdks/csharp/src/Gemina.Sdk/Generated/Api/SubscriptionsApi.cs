@@ -108,6 +108,24 @@ namespace Gemina.Sdk.Api
         /// <returns>ApiResponse of UsageBreakdownListOutDTO</returns>
         ApiResponse<UsageBreakdownListOutDTO> GetCreditUsageWithHttpInfo(int operationIndex = 0);
         /// <summary>
+        /// Get My Storage Usage
+        /// </summary>
+        /// <exception cref="Gemina.Sdk.Client.ApiException">Thrown when fails to make API call</exception>
+        /// <param name="operationIndex">Index associated with the operation.</param>
+        /// <returns>StorageUsageOutDTO</returns>
+        StorageUsageOutDTO GetMyStorageUsage(int operationIndex = 0);
+
+        /// <summary>
+        /// Get My Storage Usage
+        /// </summary>
+        /// <remarks>
+        /// 
+        /// </remarks>
+        /// <exception cref="Gemina.Sdk.Client.ApiException">Thrown when fails to make API call</exception>
+        /// <param name="operationIndex">Index associated with the operation.</param>
+        /// <returns>ApiResponse of StorageUsageOutDTO</returns>
+        ApiResponse<StorageUsageOutDTO> GetMyStorageUsageWithHttpInfo(int operationIndex = 0);
+        /// <summary>
         /// Get My Subscription
         /// </summary>
         /// <exception cref="Gemina.Sdk.Client.ApiException">Thrown when fails to make API call</exception>
@@ -334,6 +352,29 @@ namespace Gemina.Sdk.Api
         /// <param name="cancellationToken">Cancellation Token to cancel the request.</param>
         /// <returns>Task of ApiResponse (UsageBreakdownListOutDTO)</returns>
         System.Threading.Tasks.Task<ApiResponse<UsageBreakdownListOutDTO>> GetCreditUsageWithHttpInfoAsync(int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default);
+        /// <summary>
+        /// Get My Storage Usage
+        /// </summary>
+        /// <remarks>
+        /// 
+        /// </remarks>
+        /// <exception cref="Gemina.Sdk.Client.ApiException">Thrown when fails to make API call</exception>
+        /// <param name="operationIndex">Index associated with the operation.</param>
+        /// <param name="cancellationToken">Cancellation Token to cancel the request.</param>
+        /// <returns>Task of StorageUsageOutDTO</returns>
+        System.Threading.Tasks.Task<StorageUsageOutDTO> GetMyStorageUsageAsync(int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Get My Storage Usage
+        /// </summary>
+        /// <remarks>
+        /// 
+        /// </remarks>
+        /// <exception cref="Gemina.Sdk.Client.ApiException">Thrown when fails to make API call</exception>
+        /// <param name="operationIndex">Index associated with the operation.</param>
+        /// <param name="cancellationToken">Cancellation Token to cancel the request.</param>
+        /// <returns>Task of ApiResponse (StorageUsageOutDTO)</returns>
+        System.Threading.Tasks.Task<ApiResponse<StorageUsageOutDTO>> GetMyStorageUsageWithHttpInfoAsync(int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default);
         /// <summary>
         /// Get My Subscription
         /// </summary>
@@ -1285,6 +1326,165 @@ namespace Gemina.Sdk.Api
             if (this.ExceptionFactory != null)
             {
                 Exception _exception = this.ExceptionFactory("GetCreditUsage", localVarResponse);
+                if (_exception != null)
+                {
+                    throw _exception;
+                }
+            }
+
+            return localVarResponse;
+        }
+
+        /// <summary>
+        /// Get My Storage Usage 
+        /// </summary>
+        /// <exception cref="Gemina.Sdk.Client.ApiException">Thrown when fails to make API call</exception>
+        /// <param name="operationIndex">Index associated with the operation.</param>
+        /// <returns>StorageUsageOutDTO</returns>
+        public StorageUsageOutDTO GetMyStorageUsage(int operationIndex = 0)
+        {
+            Gemina.Sdk.Client.ApiResponse<StorageUsageOutDTO> localVarResponse = GetMyStorageUsageWithHttpInfo();
+            return localVarResponse.Data;
+        }
+
+        /// <summary>
+        /// Get My Storage Usage 
+        /// </summary>
+        /// <exception cref="Gemina.Sdk.Client.ApiException">Thrown when fails to make API call</exception>
+        /// <param name="operationIndex">Index associated with the operation.</param>
+        /// <returns>ApiResponse of StorageUsageOutDTO</returns>
+        public Gemina.Sdk.Client.ApiResponse<StorageUsageOutDTO> GetMyStorageUsageWithHttpInfo(int operationIndex = 0)
+        {
+            Gemina.Sdk.Client.RequestOptions localVarRequestOptions = new Gemina.Sdk.Client.RequestOptions();
+
+            string[] _contentTypes = new string[] {
+            };
+
+            // to determine the Accept header
+            string[] _accepts = new string[] {
+                "application/json"
+            };
+
+            var localVarContentType = Gemina.Sdk.Client.ClientUtils.SelectHeaderContentType(_contentTypes);
+            var localVarMultipartFormData = localVarContentType == "multipart/form-data";
+            if (localVarContentType != null)
+            {
+                localVarRequestOptions.HeaderParameters.Add("Content-Type", localVarContentType);
+            }
+
+            var localVarAccept = Gemina.Sdk.Client.ClientUtils.SelectHeaderAccept(_accepts);
+            if (localVarAccept != null)
+            {
+                localVarRequestOptions.HeaderParameters.Add("Accept", localVarAccept);
+            }
+
+
+            localVarRequestOptions.Operation = "SubscriptionsApi.GetMyStorageUsage";
+            localVarRequestOptions.OperationIndex = operationIndex;
+
+            // authentication (OAuth2PasswordBearer) required
+            // oauth required
+            if (!localVarRequestOptions.HeaderParameters.ContainsKey("Authorization"))
+            {
+                if (!string.IsNullOrEmpty(this.Configuration.AccessToken))
+                {
+                    localVarRequestOptions.HeaderParameters.Add("Authorization", "Bearer " + this.Configuration.AccessToken);
+                }
+                else if (!string.IsNullOrEmpty(this.Configuration.OAuthTokenUrl) &&
+                         !string.IsNullOrEmpty(this.Configuration.OAuthClientId) &&
+                         !string.IsNullOrEmpty(this.Configuration.OAuthClientSecret) &&
+                         this.Configuration.OAuthFlow != null)
+                {
+                    localVarRequestOptions.OAuth = true;
+                }
+            }
+
+            // make the HTTP request
+            var localVarResponse = this.Client.Get<StorageUsageOutDTO>("/api/v1/subscriptions/me/storage", localVarRequestOptions, this.Configuration);
+            if (this.ExceptionFactory != null)
+            {
+                Exception _exception = this.ExceptionFactory("GetMyStorageUsage", localVarResponse);
+                if (_exception != null)
+                {
+                    throw _exception;
+                }
+            }
+
+            return localVarResponse;
+        }
+
+        /// <summary>
+        /// Get My Storage Usage 
+        /// </summary>
+        /// <exception cref="Gemina.Sdk.Client.ApiException">Thrown when fails to make API call</exception>
+        /// <param name="operationIndex">Index associated with the operation.</param>
+        /// <param name="cancellationToken">Cancellation Token to cancel the request.</param>
+        /// <returns>Task of StorageUsageOutDTO</returns>
+        public async System.Threading.Tasks.Task<StorageUsageOutDTO> GetMyStorageUsageAsync(int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default)
+        {
+            Gemina.Sdk.Client.ApiResponse<StorageUsageOutDTO> localVarResponse = await GetMyStorageUsageWithHttpInfoAsync(operationIndex, cancellationToken).ConfigureAwait(false);
+            return localVarResponse.Data;
+        }
+
+        /// <summary>
+        /// Get My Storage Usage 
+        /// </summary>
+        /// <exception cref="Gemina.Sdk.Client.ApiException">Thrown when fails to make API call</exception>
+        /// <param name="operationIndex">Index associated with the operation.</param>
+        /// <param name="cancellationToken">Cancellation Token to cancel the request.</param>
+        /// <returns>Task of ApiResponse (StorageUsageOutDTO)</returns>
+        public async System.Threading.Tasks.Task<Gemina.Sdk.Client.ApiResponse<StorageUsageOutDTO>> GetMyStorageUsageWithHttpInfoAsync(int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default)
+        {
+
+            Gemina.Sdk.Client.RequestOptions localVarRequestOptions = new Gemina.Sdk.Client.RequestOptions();
+
+            string[] _contentTypes = new string[] {
+            };
+
+            // to determine the Accept header
+            string[] _accepts = new string[] {
+                "application/json"
+            };
+
+            var localVarContentType = Gemina.Sdk.Client.ClientUtils.SelectHeaderContentType(_contentTypes);
+            if (localVarContentType != null)
+            {
+                localVarRequestOptions.HeaderParameters.Add("Content-Type", localVarContentType);
+            }
+
+            var localVarAccept = Gemina.Sdk.Client.ClientUtils.SelectHeaderAccept(_accepts);
+            if (localVarAccept != null)
+            {
+                localVarRequestOptions.HeaderParameters.Add("Accept", localVarAccept);
+            }
+
+
+            localVarRequestOptions.Operation = "SubscriptionsApi.GetMyStorageUsage";
+            localVarRequestOptions.OperationIndex = operationIndex;
+
+            // authentication (OAuth2PasswordBearer) required
+            // oauth required
+            if (!localVarRequestOptions.HeaderParameters.ContainsKey("Authorization"))
+            {
+                if (!string.IsNullOrEmpty(this.Configuration.AccessToken))
+                {
+                    localVarRequestOptions.HeaderParameters.Add("Authorization", "Bearer " + this.Configuration.AccessToken);
+                }
+                else if (!string.IsNullOrEmpty(this.Configuration.OAuthTokenUrl) &&
+                         !string.IsNullOrEmpty(this.Configuration.OAuthClientId) &&
+                         !string.IsNullOrEmpty(this.Configuration.OAuthClientSecret) &&
+                         this.Configuration.OAuthFlow != null)
+                {
+                    localVarRequestOptions.OAuth = true;
+                }
+            }
+
+            // make the HTTP request
+            var localVarResponse = await this.AsynchronousClient.GetAsync<StorageUsageOutDTO>("/api/v1/subscriptions/me/storage", localVarRequestOptions, this.Configuration, cancellationToken).ConfigureAwait(false);
+
+            if (this.ExceptionFactory != null)
+            {
+                Exception _exception = this.ExceptionFactory("GetMyStorageUsage", localVarResponse);
                 if (_exception != null)
                 {
                     throw _exception;

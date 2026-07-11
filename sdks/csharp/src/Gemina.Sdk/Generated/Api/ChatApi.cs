@@ -31,7 +31,7 @@ namespace Gemina.Sdk.Api
         /// Chat Query
         /// </summary>
         /// <remarks>
-        /// Ask a natural-language question about the tenant&#39;s indexed documents.  Returns a grounded answer with documentId citations; &#x60;&#x60;confident&#x3D;false&#x60;&#x60; means the underlying data could not support a reliable answer.
+        /// Ask a natural-language question about the tenant&#39;s indexed documents.  Returns a grounded answer with documentId citations; &#x60;&#x60;confident&#x3D;false&#x60;&#x60; means the underlying data could not support a reliable answer. Send back the returned &#x60;&#x60;sessionId&#x60;&#x60; to continue the conversation; omit it to start a new one.
         /// </remarks>
         /// <exception cref="Gemina.Sdk.Client.ApiException">Thrown when fails to make API call</exception>
         /// <param name="chatQueryInDTO"></param>
@@ -43,13 +43,36 @@ namespace Gemina.Sdk.Api
         /// Chat Query
         /// </summary>
         /// <remarks>
-        /// Ask a natural-language question about the tenant&#39;s indexed documents.  Returns a grounded answer with documentId citations; &#x60;&#x60;confident&#x3D;false&#x60;&#x60; means the underlying data could not support a reliable answer.
+        /// Ask a natural-language question about the tenant&#39;s indexed documents.  Returns a grounded answer with documentId citations; &#x60;&#x60;confident&#x3D;false&#x60;&#x60; means the underlying data could not support a reliable answer. Send back the returned &#x60;&#x60;sessionId&#x60;&#x60; to continue the conversation; omit it to start a new one.
         /// </remarks>
         /// <exception cref="Gemina.Sdk.Client.ApiException">Thrown when fails to make API call</exception>
         /// <param name="chatQueryInDTO"></param>
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <returns>ApiResponse of ChatQueryOutDTO</returns>
         ApiResponse<ChatQueryOutDTO> ChatQueryWithHttpInfo(ChatQueryInDTO chatQueryInDTO, int operationIndex = 0);
+        /// <summary>
+        /// Delete Chat Session
+        /// </summary>
+        /// <remarks>
+        /// End a conversation explicitly (&#39;new chat&#39; hygiene).  404 for unknown, expired, or foreign sessions alike — ids can&#39;t be probed.
+        /// </remarks>
+        /// <exception cref="Gemina.Sdk.Client.ApiException">Thrown when fails to make API call</exception>
+        /// <param name="sessionId"></param>
+        /// <param name="operationIndex">Index associated with the operation.</param>
+        /// <returns></returns>
+        void DeleteChatSession(Guid sessionId, int operationIndex = 0);
+
+        /// <summary>
+        /// Delete Chat Session
+        /// </summary>
+        /// <remarks>
+        /// End a conversation explicitly (&#39;new chat&#39; hygiene).  404 for unknown, expired, or foreign sessions alike — ids can&#39;t be probed.
+        /// </remarks>
+        /// <exception cref="Gemina.Sdk.Client.ApiException">Thrown when fails to make API call</exception>
+        /// <param name="sessionId"></param>
+        /// <param name="operationIndex">Index associated with the operation.</param>
+        /// <returns>ApiResponse of Object(void)</returns>
+        ApiResponse<Object> DeleteChatSessionWithHttpInfo(Guid sessionId, int operationIndex = 0);
         #endregion Synchronous Operations
     }
 
@@ -63,7 +86,7 @@ namespace Gemina.Sdk.Api
         /// Chat Query
         /// </summary>
         /// <remarks>
-        /// Ask a natural-language question about the tenant&#39;s indexed documents.  Returns a grounded answer with documentId citations; &#x60;&#x60;confident&#x3D;false&#x60;&#x60; means the underlying data could not support a reliable answer.
+        /// Ask a natural-language question about the tenant&#39;s indexed documents.  Returns a grounded answer with documentId citations; &#x60;&#x60;confident&#x3D;false&#x60;&#x60; means the underlying data could not support a reliable answer. Send back the returned &#x60;&#x60;sessionId&#x60;&#x60; to continue the conversation; omit it to start a new one.
         /// </remarks>
         /// <exception cref="Gemina.Sdk.Client.ApiException">Thrown when fails to make API call</exception>
         /// <param name="chatQueryInDTO"></param>
@@ -76,7 +99,7 @@ namespace Gemina.Sdk.Api
         /// Chat Query
         /// </summary>
         /// <remarks>
-        /// Ask a natural-language question about the tenant&#39;s indexed documents.  Returns a grounded answer with documentId citations; &#x60;&#x60;confident&#x3D;false&#x60;&#x60; means the underlying data could not support a reliable answer.
+        /// Ask a natural-language question about the tenant&#39;s indexed documents.  Returns a grounded answer with documentId citations; &#x60;&#x60;confident&#x3D;false&#x60;&#x60; means the underlying data could not support a reliable answer. Send back the returned &#x60;&#x60;sessionId&#x60;&#x60; to continue the conversation; omit it to start a new one.
         /// </remarks>
         /// <exception cref="Gemina.Sdk.Client.ApiException">Thrown when fails to make API call</exception>
         /// <param name="chatQueryInDTO"></param>
@@ -84,6 +107,31 @@ namespace Gemina.Sdk.Api
         /// <param name="cancellationToken">Cancellation Token to cancel the request.</param>
         /// <returns>Task of ApiResponse (ChatQueryOutDTO)</returns>
         System.Threading.Tasks.Task<ApiResponse<ChatQueryOutDTO>> ChatQueryWithHttpInfoAsync(ChatQueryInDTO chatQueryInDTO, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default);
+        /// <summary>
+        /// Delete Chat Session
+        /// </summary>
+        /// <remarks>
+        /// End a conversation explicitly (&#39;new chat&#39; hygiene).  404 for unknown, expired, or foreign sessions alike — ids can&#39;t be probed.
+        /// </remarks>
+        /// <exception cref="Gemina.Sdk.Client.ApiException">Thrown when fails to make API call</exception>
+        /// <param name="sessionId"></param>
+        /// <param name="operationIndex">Index associated with the operation.</param>
+        /// <param name="cancellationToken">Cancellation Token to cancel the request.</param>
+        /// <returns>Task of void</returns>
+        System.Threading.Tasks.Task DeleteChatSessionAsync(Guid sessionId, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Delete Chat Session
+        /// </summary>
+        /// <remarks>
+        /// End a conversation explicitly (&#39;new chat&#39; hygiene).  404 for unknown, expired, or foreign sessions alike — ids can&#39;t be probed.
+        /// </remarks>
+        /// <exception cref="Gemina.Sdk.Client.ApiException">Thrown when fails to make API call</exception>
+        /// <param name="sessionId"></param>
+        /// <param name="operationIndex">Index associated with the operation.</param>
+        /// <param name="cancellationToken">Cancellation Token to cancel the request.</param>
+        /// <returns>Task of ApiResponse</returns>
+        System.Threading.Tasks.Task<ApiResponse<Object>> DeleteChatSessionWithHttpInfoAsync(Guid sessionId, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default);
         #endregion Asynchronous Operations
     }
 
@@ -205,7 +253,7 @@ namespace Gemina.Sdk.Api
         }
 
         /// <summary>
-        /// Chat Query Ask a natural-language question about the tenant&#39;s indexed documents.  Returns a grounded answer with documentId citations; &#x60;&#x60;confident&#x3D;false&#x60;&#x60; means the underlying data could not support a reliable answer.
+        /// Chat Query Ask a natural-language question about the tenant&#39;s indexed documents.  Returns a grounded answer with documentId citations; &#x60;&#x60;confident&#x3D;false&#x60;&#x60; means the underlying data could not support a reliable answer. Send back the returned &#x60;&#x60;sessionId&#x60;&#x60; to continue the conversation; omit it to start a new one.
         /// </summary>
         /// <exception cref="Gemina.Sdk.Client.ApiException">Thrown when fails to make API call</exception>
         /// <param name="chatQueryInDTO"></param>
@@ -218,7 +266,7 @@ namespace Gemina.Sdk.Api
         }
 
         /// <summary>
-        /// Chat Query Ask a natural-language question about the tenant&#39;s indexed documents.  Returns a grounded answer with documentId citations; &#x60;&#x60;confident&#x3D;false&#x60;&#x60; means the underlying data could not support a reliable answer.
+        /// Chat Query Ask a natural-language question about the tenant&#39;s indexed documents.  Returns a grounded answer with documentId citations; &#x60;&#x60;confident&#x3D;false&#x60;&#x60; means the underlying data could not support a reliable answer. Send back the returned &#x60;&#x60;sessionId&#x60;&#x60; to continue the conversation; omit it to start a new one.
         /// </summary>
         /// <exception cref="Gemina.Sdk.Client.ApiException">Thrown when fails to make API call</exception>
         /// <param name="chatQueryInDTO"></param>
@@ -298,7 +346,7 @@ namespace Gemina.Sdk.Api
         }
 
         /// <summary>
-        /// Chat Query Ask a natural-language question about the tenant&#39;s indexed documents.  Returns a grounded answer with documentId citations; &#x60;&#x60;confident&#x3D;false&#x60;&#x60; means the underlying data could not support a reliable answer.
+        /// Chat Query Ask a natural-language question about the tenant&#39;s indexed documents.  Returns a grounded answer with documentId citations; &#x60;&#x60;confident&#x3D;false&#x60;&#x60; means the underlying data could not support a reliable answer. Send back the returned &#x60;&#x60;sessionId&#x60;&#x60; to continue the conversation; omit it to start a new one.
         /// </summary>
         /// <exception cref="Gemina.Sdk.Client.ApiException">Thrown when fails to make API call</exception>
         /// <param name="chatQueryInDTO"></param>
@@ -312,7 +360,7 @@ namespace Gemina.Sdk.Api
         }
 
         /// <summary>
-        /// Chat Query Ask a natural-language question about the tenant&#39;s indexed documents.  Returns a grounded answer with documentId citations; &#x60;&#x60;confident&#x3D;false&#x60;&#x60; means the underlying data could not support a reliable answer.
+        /// Chat Query Ask a natural-language question about the tenant&#39;s indexed documents.  Returns a grounded answer with documentId citations; &#x60;&#x60;confident&#x3D;false&#x60;&#x60; means the underlying data could not support a reliable answer. Send back the returned &#x60;&#x60;sessionId&#x60;&#x60; to continue the conversation; omit it to start a new one.
         /// </summary>
         /// <exception cref="Gemina.Sdk.Client.ApiException">Thrown when fails to make API call</exception>
         /// <param name="chatQueryInDTO"></param>
@@ -384,6 +432,179 @@ namespace Gemina.Sdk.Api
             if (this.ExceptionFactory != null)
             {
                 Exception _exception = this.ExceptionFactory("ChatQuery", localVarResponse);
+                if (_exception != null)
+                {
+                    throw _exception;
+                }
+            }
+
+            return localVarResponse;
+        }
+
+        /// <summary>
+        /// Delete Chat Session End a conversation explicitly (&#39;new chat&#39; hygiene).  404 for unknown, expired, or foreign sessions alike — ids can&#39;t be probed.
+        /// </summary>
+        /// <exception cref="Gemina.Sdk.Client.ApiException">Thrown when fails to make API call</exception>
+        /// <param name="sessionId"></param>
+        /// <param name="operationIndex">Index associated with the operation.</param>
+        /// <returns></returns>
+        public void DeleteChatSession(Guid sessionId, int operationIndex = 0)
+        {
+            DeleteChatSessionWithHttpInfo(sessionId);
+        }
+
+        /// <summary>
+        /// Delete Chat Session End a conversation explicitly (&#39;new chat&#39; hygiene).  404 for unknown, expired, or foreign sessions alike — ids can&#39;t be probed.
+        /// </summary>
+        /// <exception cref="Gemina.Sdk.Client.ApiException">Thrown when fails to make API call</exception>
+        /// <param name="sessionId"></param>
+        /// <param name="operationIndex">Index associated with the operation.</param>
+        /// <returns>ApiResponse of Object(void)</returns>
+        public Gemina.Sdk.Client.ApiResponse<Object> DeleteChatSessionWithHttpInfo(Guid sessionId, int operationIndex = 0)
+        {
+            Gemina.Sdk.Client.RequestOptions localVarRequestOptions = new Gemina.Sdk.Client.RequestOptions();
+
+            string[] _contentTypes = new string[] {
+            };
+
+            // to determine the Accept header
+            string[] _accepts = new string[] {
+                "application/json"
+            };
+
+            var localVarContentType = Gemina.Sdk.Client.ClientUtils.SelectHeaderContentType(_contentTypes);
+            var localVarMultipartFormData = localVarContentType == "multipart/form-data";
+            if (localVarContentType != null)
+            {
+                localVarRequestOptions.HeaderParameters.Add("Content-Type", localVarContentType);
+            }
+
+            var localVarAccept = Gemina.Sdk.Client.ClientUtils.SelectHeaderAccept(_accepts);
+            if (localVarAccept != null)
+            {
+                localVarRequestOptions.HeaderParameters.Add("Accept", localVarAccept);
+            }
+
+            localVarRequestOptions.PathParameters.Add("session_id", Gemina.Sdk.Client.ClientUtils.ParameterToString(sessionId)); // path parameter
+
+            localVarRequestOptions.Operation = "ChatApi.DeleteChatSession";
+            localVarRequestOptions.OperationIndex = operationIndex;
+
+            // authentication (APIKeyHeader) required
+            if (!string.IsNullOrEmpty(this.Configuration.GetApiKeyWithPrefix("X-API-Key")))
+            {
+                localVarRequestOptions.HeaderParameters.Add("X-API-Key", this.Configuration.GetApiKeyWithPrefix("X-API-Key"));
+            }
+            // authentication (OAuth2PasswordBearer) required
+            // oauth required
+            if (!localVarRequestOptions.HeaderParameters.ContainsKey("Authorization"))
+            {
+                if (!string.IsNullOrEmpty(this.Configuration.AccessToken))
+                {
+                    localVarRequestOptions.HeaderParameters.Add("Authorization", "Bearer " + this.Configuration.AccessToken);
+                }
+                else if (!string.IsNullOrEmpty(this.Configuration.OAuthTokenUrl) &&
+                         !string.IsNullOrEmpty(this.Configuration.OAuthClientId) &&
+                         !string.IsNullOrEmpty(this.Configuration.OAuthClientSecret) &&
+                         this.Configuration.OAuthFlow != null)
+                {
+                    localVarRequestOptions.OAuth = true;
+                }
+            }
+
+            // make the HTTP request
+            var localVarResponse = this.Client.Delete<Object>("/api/v1/chat/sessions/{session_id}", localVarRequestOptions, this.Configuration);
+            if (this.ExceptionFactory != null)
+            {
+                Exception _exception = this.ExceptionFactory("DeleteChatSession", localVarResponse);
+                if (_exception != null)
+                {
+                    throw _exception;
+                }
+            }
+
+            return localVarResponse;
+        }
+
+        /// <summary>
+        /// Delete Chat Session End a conversation explicitly (&#39;new chat&#39; hygiene).  404 for unknown, expired, or foreign sessions alike — ids can&#39;t be probed.
+        /// </summary>
+        /// <exception cref="Gemina.Sdk.Client.ApiException">Thrown when fails to make API call</exception>
+        /// <param name="sessionId"></param>
+        /// <param name="operationIndex">Index associated with the operation.</param>
+        /// <param name="cancellationToken">Cancellation Token to cancel the request.</param>
+        /// <returns>Task of void</returns>
+        public async System.Threading.Tasks.Task DeleteChatSessionAsync(Guid sessionId, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default)
+        {
+            await DeleteChatSessionWithHttpInfoAsync(sessionId, operationIndex, cancellationToken).ConfigureAwait(false);
+        }
+
+        /// <summary>
+        /// Delete Chat Session End a conversation explicitly (&#39;new chat&#39; hygiene).  404 for unknown, expired, or foreign sessions alike — ids can&#39;t be probed.
+        /// </summary>
+        /// <exception cref="Gemina.Sdk.Client.ApiException">Thrown when fails to make API call</exception>
+        /// <param name="sessionId"></param>
+        /// <param name="operationIndex">Index associated with the operation.</param>
+        /// <param name="cancellationToken">Cancellation Token to cancel the request.</param>
+        /// <returns>Task of ApiResponse</returns>
+        public async System.Threading.Tasks.Task<Gemina.Sdk.Client.ApiResponse<Object>> DeleteChatSessionWithHttpInfoAsync(Guid sessionId, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default)
+        {
+
+            Gemina.Sdk.Client.RequestOptions localVarRequestOptions = new Gemina.Sdk.Client.RequestOptions();
+
+            string[] _contentTypes = new string[] {
+            };
+
+            // to determine the Accept header
+            string[] _accepts = new string[] {
+                "application/json"
+            };
+
+            var localVarContentType = Gemina.Sdk.Client.ClientUtils.SelectHeaderContentType(_contentTypes);
+            if (localVarContentType != null)
+            {
+                localVarRequestOptions.HeaderParameters.Add("Content-Type", localVarContentType);
+            }
+
+            var localVarAccept = Gemina.Sdk.Client.ClientUtils.SelectHeaderAccept(_accepts);
+            if (localVarAccept != null)
+            {
+                localVarRequestOptions.HeaderParameters.Add("Accept", localVarAccept);
+            }
+
+            localVarRequestOptions.PathParameters.Add("session_id", Gemina.Sdk.Client.ClientUtils.ParameterToString(sessionId)); // path parameter
+
+            localVarRequestOptions.Operation = "ChatApi.DeleteChatSession";
+            localVarRequestOptions.OperationIndex = operationIndex;
+
+            // authentication (APIKeyHeader) required
+            if (!string.IsNullOrEmpty(this.Configuration.GetApiKeyWithPrefix("X-API-Key")))
+            {
+                localVarRequestOptions.HeaderParameters.Add("X-API-Key", this.Configuration.GetApiKeyWithPrefix("X-API-Key"));
+            }
+            // authentication (OAuth2PasswordBearer) required
+            // oauth required
+            if (!localVarRequestOptions.HeaderParameters.ContainsKey("Authorization"))
+            {
+                if (!string.IsNullOrEmpty(this.Configuration.AccessToken))
+                {
+                    localVarRequestOptions.HeaderParameters.Add("Authorization", "Bearer " + this.Configuration.AccessToken);
+                }
+                else if (!string.IsNullOrEmpty(this.Configuration.OAuthTokenUrl) &&
+                         !string.IsNullOrEmpty(this.Configuration.OAuthClientId) &&
+                         !string.IsNullOrEmpty(this.Configuration.OAuthClientSecret) &&
+                         this.Configuration.OAuthFlow != null)
+                {
+                    localVarRequestOptions.OAuth = true;
+                }
+            }
+
+            // make the HTTP request
+            var localVarResponse = await this.AsynchronousClient.DeleteAsync<Object>("/api/v1/chat/sessions/{session_id}", localVarRequestOptions, this.Configuration, cancellationToken).ConfigureAwait(false);
+
+            if (this.ExceptionFactory != null)
+            {
+                Exception _exception = this.ExceptionFactory("DeleteChatSession", localVarResponse);
                 if (_exception != null)
                 {
                     throw _exception;

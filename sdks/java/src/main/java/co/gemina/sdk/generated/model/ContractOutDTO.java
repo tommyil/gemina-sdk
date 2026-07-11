@@ -64,6 +64,16 @@ public class ContractOutDTO {
   @javax.annotation.Nonnull
   private Integer billingCycleDay;
 
+  public static final String SERIALIZED_NAME_CHAT_INCLUDED_PER_CYCLE = "chatIncludedPerCycle";
+  @SerializedName(SERIALIZED_NAME_CHAT_INCLUDED_PER_CYCLE)
+  @javax.annotation.Nullable
+  private Integer chatIncludedPerCycle = 0;
+
+  public static final String SERIALIZED_NAME_CHAT_PRICE_CENTS = "chatPriceCents";
+  @SerializedName(SERIALIZED_NAME_CHAT_PRICE_CENTS)
+  @javax.annotation.Nullable
+  private String chatPriceCents = "0";
+
   public static final String SERIALIZED_NAME_CHECKOUT_URL = "checkoutUrl";
   @SerializedName(SERIALIZED_NAME_CHECKOUT_URL)
   @javax.annotation.Nullable
@@ -79,10 +89,20 @@ public class ContractOutDTO {
   @javax.annotation.Nullable
   private BigDecimal createdAtTimestamp;
 
+  public static final String SERIALIZED_NAME_DOCUMENT_INTELLIGENCE_ENABLED = "documentIntelligenceEnabled";
+  @SerializedName(SERIALIZED_NAME_DOCUMENT_INTELLIGENCE_ENABLED)
+  @javax.annotation.Nullable
+  private Boolean documentIntelligenceEnabled = false;
+
   public static final String SERIALIZED_NAME_ID = "id";
   @SerializedName(SERIALIZED_NAME_ID)
   @javax.annotation.Nonnull
   private UUID id;
+
+  public static final String SERIALIZED_NAME_INDEX_PRICE_CENTS = "indexPriceCents";
+  @SerializedName(SERIALIZED_NAME_INDEX_PRICE_CENTS)
+  @javax.annotation.Nullable
+  private String indexPriceCents = "0";
 
   public static final String SERIALIZED_NAME_MAX_MONTHLY_EXTRACTIONS = "maxMonthlyExtractions";
   @SerializedName(SERIALIZED_NAME_MAX_MONTHLY_EXTRACTIONS)
@@ -114,10 +134,25 @@ public class ContractOutDTO {
   @javax.annotation.Nonnull
   private Boolean requiresManualApproval;
 
+  public static final String SERIALIZED_NAME_RETRIEVAL_RATE_LIMIT_PER_SECOND = "retrievalRateLimitPerSecond";
+  @SerializedName(SERIALIZED_NAME_RETRIEVAL_RATE_LIMIT_PER_SECOND)
+  @javax.annotation.Nullable
+  private Integer retrievalRateLimitPerSecond = 20;
+
   public static final String SERIALIZED_NAME_STATUS = "status";
   @SerializedName(SERIALIZED_NAME_STATUS)
   @javax.annotation.Nonnull
   private ContractStatus status;
+
+  public static final String SERIALIZED_NAME_STORAGE_INCLUDED_GB = "storageIncludedGb";
+  @SerializedName(SERIALIZED_NAME_STORAGE_INCLUDED_GB)
+  @javax.annotation.Nullable
+  private String storageIncludedGb = "0";
+
+  public static final String SERIALIZED_NAME_STORAGE_PRICE_PER_GB_MONTH_CENTS = "storagePricePerGbMonthCents";
+  @SerializedName(SERIALIZED_NAME_STORAGE_PRICE_PER_GB_MONTH_CENTS)
+  @javax.annotation.Nullable
+  private String storagePricePerGbMonthCents = "0";
 
   public static final String SERIALIZED_NAME_USER_EMAIL = "userEmail";
   @SerializedName(SERIALIZED_NAME_USER_EMAIL)
@@ -153,6 +188,44 @@ public class ContractOutDTO {
 
   public void setBillingCycleDay(@javax.annotation.Nonnull Integer billingCycleDay) {
     this.billingCycleDay = billingCycleDay;
+  }
+
+
+  public ContractOutDTO chatIncludedPerCycle(@javax.annotation.Nullable Integer chatIncludedPerCycle) {
+    this.chatIncludedPerCycle = chatIncludedPerCycle;
+    return this;
+  }
+
+  /**
+   * Get chatIncludedPerCycle
+   * @return chatIncludedPerCycle
+   */
+  @javax.annotation.Nullable
+  public Integer getChatIncludedPerCycle() {
+    return chatIncludedPerCycle;
+  }
+
+  public void setChatIncludedPerCycle(@javax.annotation.Nullable Integer chatIncludedPerCycle) {
+    this.chatIncludedPerCycle = chatIncludedPerCycle;
+  }
+
+
+  public ContractOutDTO chatPriceCents(@javax.annotation.Nullable String chatPriceCents) {
+    this.chatPriceCents = chatPriceCents;
+    return this;
+  }
+
+  /**
+   * Get chatPriceCents
+   * @return chatPriceCents
+   */
+  @javax.annotation.Nullable
+  public String getChatPriceCents() {
+    return chatPriceCents;
+  }
+
+  public void setChatPriceCents(@javax.annotation.Nullable String chatPriceCents) {
+    this.chatPriceCents = chatPriceCents;
   }
 
 
@@ -213,6 +286,25 @@ public class ContractOutDTO {
   }
 
 
+  public ContractOutDTO documentIntelligenceEnabled(@javax.annotation.Nullable Boolean documentIntelligenceEnabled) {
+    this.documentIntelligenceEnabled = documentIntelligenceEnabled;
+    return this;
+  }
+
+  /**
+   * Get documentIntelligenceEnabled
+   * @return documentIntelligenceEnabled
+   */
+  @javax.annotation.Nullable
+  public Boolean getDocumentIntelligenceEnabled() {
+    return documentIntelligenceEnabled;
+  }
+
+  public void setDocumentIntelligenceEnabled(@javax.annotation.Nullable Boolean documentIntelligenceEnabled) {
+    this.documentIntelligenceEnabled = documentIntelligenceEnabled;
+  }
+
+
   public ContractOutDTO id(@javax.annotation.Nonnull UUID id) {
     this.id = id;
     return this;
@@ -229,6 +321,25 @@ public class ContractOutDTO {
 
   public void setId(@javax.annotation.Nonnull UUID id) {
     this.id = id;
+  }
+
+
+  public ContractOutDTO indexPriceCents(@javax.annotation.Nullable String indexPriceCents) {
+    this.indexPriceCents = indexPriceCents;
+    return this;
+  }
+
+  /**
+   * Get indexPriceCents
+   * @return indexPriceCents
+   */
+  @javax.annotation.Nullable
+  public String getIndexPriceCents() {
+    return indexPriceCents;
+  }
+
+  public void setIndexPriceCents(@javax.annotation.Nullable String indexPriceCents) {
+    this.indexPriceCents = indexPriceCents;
   }
 
 
@@ -355,6 +466,25 @@ public class ContractOutDTO {
   }
 
 
+  public ContractOutDTO retrievalRateLimitPerSecond(@javax.annotation.Nullable Integer retrievalRateLimitPerSecond) {
+    this.retrievalRateLimitPerSecond = retrievalRateLimitPerSecond;
+    return this;
+  }
+
+  /**
+   * Get retrievalRateLimitPerSecond
+   * @return retrievalRateLimitPerSecond
+   */
+  @javax.annotation.Nullable
+  public Integer getRetrievalRateLimitPerSecond() {
+    return retrievalRateLimitPerSecond;
+  }
+
+  public void setRetrievalRateLimitPerSecond(@javax.annotation.Nullable Integer retrievalRateLimitPerSecond) {
+    this.retrievalRateLimitPerSecond = retrievalRateLimitPerSecond;
+  }
+
+
   public ContractOutDTO status(@javax.annotation.Nonnull ContractStatus status) {
     this.status = status;
     return this;
@@ -371,6 +501,44 @@ public class ContractOutDTO {
 
   public void setStatus(@javax.annotation.Nonnull ContractStatus status) {
     this.status = status;
+  }
+
+
+  public ContractOutDTO storageIncludedGb(@javax.annotation.Nullable String storageIncludedGb) {
+    this.storageIncludedGb = storageIncludedGb;
+    return this;
+  }
+
+  /**
+   * Get storageIncludedGb
+   * @return storageIncludedGb
+   */
+  @javax.annotation.Nullable
+  public String getStorageIncludedGb() {
+    return storageIncludedGb;
+  }
+
+  public void setStorageIncludedGb(@javax.annotation.Nullable String storageIncludedGb) {
+    this.storageIncludedGb = storageIncludedGb;
+  }
+
+
+  public ContractOutDTO storagePricePerGbMonthCents(@javax.annotation.Nullable String storagePricePerGbMonthCents) {
+    this.storagePricePerGbMonthCents = storagePricePerGbMonthCents;
+    return this;
+  }
+
+  /**
+   * Get storagePricePerGbMonthCents
+   * @return storagePricePerGbMonthCents
+   */
+  @javax.annotation.Nullable
+  public String getStoragePricePerGbMonthCents() {
+    return storagePricePerGbMonthCents;
+  }
+
+  public void setStoragePricePerGbMonthCents(@javax.annotation.Nullable String storagePricePerGbMonthCents) {
+    this.storagePricePerGbMonthCents = storagePricePerGbMonthCents;
   }
 
 
@@ -450,17 +618,24 @@ public class ContractOutDTO {
     }
     ContractOutDTO contractOutDTO = (ContractOutDTO) o;
     return Objects.equals(this.billingCycleDay, contractOutDTO.billingCycleDay) &&
+        Objects.equals(this.chatIncludedPerCycle, contractOutDTO.chatIncludedPerCycle) &&
+        Objects.equals(this.chatPriceCents, contractOutDTO.chatPriceCents) &&
         Objects.equals(this.checkoutUrl, contractOutDTO.checkoutUrl) &&
         Objects.equals(this.createdAt, contractOutDTO.createdAt) &&
         Objects.equals(this.createdAtTimestamp, contractOutDTO.createdAtTimestamp) &&
+        Objects.equals(this.documentIntelligenceEnabled, contractOutDTO.documentIntelligenceEnabled) &&
         Objects.equals(this.id, contractOutDTO.id) &&
+        Objects.equals(this.indexPriceCents, contractOutDTO.indexPriceCents) &&
         Objects.equals(this.maxMonthlyExtractions, contractOutDTO.maxMonthlyExtractions) &&
         Objects.equals(this.monthlyFiletagCredits, contractOutDTO.monthlyFiletagCredits) &&
         Objects.equals(this.paddleSubscriptionId, contractOutDTO.paddleSubscriptionId) &&
         Objects.equals(this.rateCardTemplateId, contractOutDTO.rateCardTemplateId) &&
         Objects.equals(this.rateCards, contractOutDTO.rateCards) &&
         Objects.equals(this.requiresManualApproval, contractOutDTO.requiresManualApproval) &&
+        Objects.equals(this.retrievalRateLimitPerSecond, contractOutDTO.retrievalRateLimitPerSecond) &&
         Objects.equals(this.status, contractOutDTO.status) &&
+        Objects.equals(this.storageIncludedGb, contractOutDTO.storageIncludedGb) &&
+        Objects.equals(this.storagePricePerGbMonthCents, contractOutDTO.storagePricePerGbMonthCents) &&
         Objects.equals(this.userEmail, contractOutDTO.userEmail) &&
         Objects.equals(this.userId, contractOutDTO.userId) &&
         Objects.equals(this.volumeDiscountTiers, contractOutDTO.volumeDiscountTiers);
@@ -472,7 +647,7 @@ public class ContractOutDTO {
 
   @Override
   public int hashCode() {
-    return Objects.hash(billingCycleDay, checkoutUrl, createdAt, createdAtTimestamp, id, maxMonthlyExtractions, monthlyFiletagCredits, paddleSubscriptionId, rateCardTemplateId, rateCards, requiresManualApproval, status, userEmail, userId, volumeDiscountTiers);
+    return Objects.hash(billingCycleDay, chatIncludedPerCycle, chatPriceCents, checkoutUrl, createdAt, createdAtTimestamp, documentIntelligenceEnabled, id, indexPriceCents, maxMonthlyExtractions, monthlyFiletagCredits, paddleSubscriptionId, rateCardTemplateId, rateCards, requiresManualApproval, retrievalRateLimitPerSecond, status, storageIncludedGb, storagePricePerGbMonthCents, userEmail, userId, volumeDiscountTiers);
   }
 
   private static <T> int hashCodeNullable(JsonNullable<T> a) {
@@ -487,17 +662,24 @@ public class ContractOutDTO {
     StringBuilder sb = new StringBuilder();
     sb.append("class ContractOutDTO {\n");
     sb.append("    billingCycleDay: ").append(toIndentedString(billingCycleDay)).append("\n");
+    sb.append("    chatIncludedPerCycle: ").append(toIndentedString(chatIncludedPerCycle)).append("\n");
+    sb.append("    chatPriceCents: ").append(toIndentedString(chatPriceCents)).append("\n");
     sb.append("    checkoutUrl: ").append(toIndentedString(checkoutUrl)).append("\n");
     sb.append("    createdAt: ").append(toIndentedString(createdAt)).append("\n");
     sb.append("    createdAtTimestamp: ").append(toIndentedString(createdAtTimestamp)).append("\n");
+    sb.append("    documentIntelligenceEnabled: ").append(toIndentedString(documentIntelligenceEnabled)).append("\n");
     sb.append("    id: ").append(toIndentedString(id)).append("\n");
+    sb.append("    indexPriceCents: ").append(toIndentedString(indexPriceCents)).append("\n");
     sb.append("    maxMonthlyExtractions: ").append(toIndentedString(maxMonthlyExtractions)).append("\n");
     sb.append("    monthlyFiletagCredits: ").append(toIndentedString(monthlyFiletagCredits)).append("\n");
     sb.append("    paddleSubscriptionId: ").append(toIndentedString(paddleSubscriptionId)).append("\n");
     sb.append("    rateCardTemplateId: ").append(toIndentedString(rateCardTemplateId)).append("\n");
     sb.append("    rateCards: ").append(toIndentedString(rateCards)).append("\n");
     sb.append("    requiresManualApproval: ").append(toIndentedString(requiresManualApproval)).append("\n");
+    sb.append("    retrievalRateLimitPerSecond: ").append(toIndentedString(retrievalRateLimitPerSecond)).append("\n");
     sb.append("    status: ").append(toIndentedString(status)).append("\n");
+    sb.append("    storageIncludedGb: ").append(toIndentedString(storageIncludedGb)).append("\n");
+    sb.append("    storagePricePerGbMonthCents: ").append(toIndentedString(storagePricePerGbMonthCents)).append("\n");
     sb.append("    userEmail: ").append(toIndentedString(userEmail)).append("\n");
     sb.append("    userId: ").append(toIndentedString(userId)).append("\n");
     sb.append("    volumeDiscountTiers: ").append(toIndentedString(volumeDiscountTiers)).append("\n");
@@ -519,7 +701,7 @@ public class ContractOutDTO {
 
   static {
     // a set of all properties/fields (JSON key names)
-    openapiFields = new HashSet<String>(Arrays.asList("billingCycleDay", "checkoutUrl", "createdAt", "createdAtTimestamp", "id", "maxMonthlyExtractions", "monthlyFiletagCredits", "paddleSubscriptionId", "rateCardTemplateId", "rateCards", "requiresManualApproval", "status", "userEmail", "userId", "volumeDiscountTiers"));
+    openapiFields = new HashSet<String>(Arrays.asList("billingCycleDay", "chatIncludedPerCycle", "chatPriceCents", "checkoutUrl", "createdAt", "createdAtTimestamp", "documentIntelligenceEnabled", "id", "indexPriceCents", "maxMonthlyExtractions", "monthlyFiletagCredits", "paddleSubscriptionId", "rateCardTemplateId", "rateCards", "requiresManualApproval", "retrievalRateLimitPerSecond", "status", "storageIncludedGb", "storagePricePerGbMonthCents", "userEmail", "userId", "volumeDiscountTiers"));
 
     // a set of required properties/fields (JSON key names)
     openapiRequiredFields = new HashSet<String>(Arrays.asList("billingCycleDay", "id", "requiresManualApproval", "status", "userId"));
@@ -553,11 +735,17 @@ public class ContractOutDTO {
         }
       }
         JsonObject jsonObj = jsonElement.getAsJsonObject();
+      if ((jsonObj.get("chatPriceCents") != null && !jsonObj.get("chatPriceCents").isJsonNull()) && !jsonObj.get("chatPriceCents").isJsonPrimitive()) {
+        throw new IllegalArgumentException(String.format(java.util.Locale.ROOT, "Expected the field `chatPriceCents` to be a primitive type in the JSON string but got `%s`", jsonObj.get("chatPriceCents").toString()));
+      }
       if ((jsonObj.get("checkoutUrl") != null && !jsonObj.get("checkoutUrl").isJsonNull()) && !jsonObj.get("checkoutUrl").isJsonPrimitive()) {
         throw new IllegalArgumentException(String.format(java.util.Locale.ROOT, "Expected the field `checkoutUrl` to be a primitive type in the JSON string but got `%s`", jsonObj.get("checkoutUrl").toString()));
       }
       if (!jsonObj.get("id").isJsonPrimitive()) {
         throw new IllegalArgumentException(String.format(java.util.Locale.ROOT, "Expected the field `id` to be a primitive type in the JSON string but got `%s`", jsonObj.get("id").toString()));
+      }
+      if ((jsonObj.get("indexPriceCents") != null && !jsonObj.get("indexPriceCents").isJsonNull()) && !jsonObj.get("indexPriceCents").isJsonPrimitive()) {
+        throw new IllegalArgumentException(String.format(java.util.Locale.ROOT, "Expected the field `indexPriceCents` to be a primitive type in the JSON string but got `%s`", jsonObj.get("indexPriceCents").toString()));
       }
       if ((jsonObj.get("paddleSubscriptionId") != null && !jsonObj.get("paddleSubscriptionId").isJsonNull()) && !jsonObj.get("paddleSubscriptionId").isJsonPrimitive()) {
         throw new IllegalArgumentException(String.format(java.util.Locale.ROOT, "Expected the field `paddleSubscriptionId` to be a primitive type in the JSON string but got `%s`", jsonObj.get("paddleSubscriptionId").toString()));
@@ -581,6 +769,12 @@ public class ContractOutDTO {
       }
       // validate the required field `status`
       ContractStatus.validateJsonElement(jsonObj.get("status"));
+      if ((jsonObj.get("storageIncludedGb") != null && !jsonObj.get("storageIncludedGb").isJsonNull()) && !jsonObj.get("storageIncludedGb").isJsonPrimitive()) {
+        throw new IllegalArgumentException(String.format(java.util.Locale.ROOT, "Expected the field `storageIncludedGb` to be a primitive type in the JSON string but got `%s`", jsonObj.get("storageIncludedGb").toString()));
+      }
+      if ((jsonObj.get("storagePricePerGbMonthCents") != null && !jsonObj.get("storagePricePerGbMonthCents").isJsonNull()) && !jsonObj.get("storagePricePerGbMonthCents").isJsonPrimitive()) {
+        throw new IllegalArgumentException(String.format(java.util.Locale.ROOT, "Expected the field `storagePricePerGbMonthCents` to be a primitive type in the JSON string but got `%s`", jsonObj.get("storagePricePerGbMonthCents").toString()));
+      }
       if ((jsonObj.get("userEmail") != null && !jsonObj.get("userEmail").isJsonNull()) && !jsonObj.get("userEmail").isJsonPrimitive()) {
         throw new IllegalArgumentException(String.format(java.util.Locale.ROOT, "Expected the field `userEmail` to be a primitive type in the JSON string but got `%s`", jsonObj.get("userEmail").toString()));
       }

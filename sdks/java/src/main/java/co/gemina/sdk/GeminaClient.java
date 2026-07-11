@@ -21,6 +21,8 @@ import co.gemina.sdk.generated.api.RetrievalApi;
 import co.gemina.sdk.generated.api.SessionsApi;
 import co.gemina.sdk.generated.api.SubscriptionsApi;
 import co.gemina.sdk.generated.api.TemplatesApi;
+import co.gemina.sdk.generated.model.ChatQueryInDTO;
+import co.gemina.sdk.generated.model.ChatQueryOutDTO;
 import co.gemina.sdk.generated.model.DocumentProcessingResultOutDTO;
 import co.gemina.sdk.generated.model.ExtractionTypeModel;
 import co.gemina.sdk.generated.model.ResponseStatus;
@@ -247,6 +249,112 @@ public class GeminaClient {
 
     synchronized void setBillingApi(BillingApi billingApi) {
         this.billingApi = billingApi;
+    }
+
+    // ------------------------------------------------------------------
+    // Stateful chat convenience
+    // ------------------------------------------------------------------
+
+    /**
+     * Start a stateful {@link GeminaChatConversation} that threads the
+     * server-issued {@code sessionId} across turns for you, so follow-up
+     * questions keep context — you never touch the id. The full one-shot
+     * surface stays available on {@link #chat()}.
+     *
+     * <pre>{@code
+     * GeminaClient.GeminaChatConversation chat = client.conversation();
+     * chat.send("How much did I spend at Acme in Q1?");
+     * chat.send("And the biggest invoice?"); // remembers Acme / Q1
+     * chat.delete();                          // end it server-side
+     * }</pre>
+     */
+    public GeminaChatConversation conversation() {
+        return new GeminaChatConversation(chat(), null);
+    }
+
+    /**
+     * {@link #conversation()} that also forwards an {@code endUserId} with each
+     * turn (API-key path only; on the session-token path the token's signed
+     * scope wins server-side).
+     */
+    public GeminaChatConversation conversation(String endUserId) {
+        return new GeminaChatConversation(chat(), endUserId);
+    }
+
+    /**
+     * A stateful chat conversation that threads the server-issued
+     * {@code sessionId} across turns, so follow-up questions keep context —
+     * you never touch the id. Create one with {@link GeminaClient#conversation()}.
+     *
+     * <p>A turn that carries a stale session (24h idle TTL, or after
+     * {@link #reset()}) fails with the API's {@code 404
+     * CHAT_SESSION_NOT_FOUND}; catch the {@link ApiException}, call
+     * {@link #reset()}, and resend to continue in a fresh conversation. This
+     * helper does not auto-retry.</p>
+     *
+     * <p>Not thread-safe: a single conversation is a linear back-and-forth and
+     * is expected to be driven from one thread at a time.</p>
+     */
+    public static final class GeminaChatConversation {
+
+        private final ChatApi chat;
+        private final String endUserId;
+        private UUID currentSessionId;
+
+        private GeminaChatConversation(ChatApi chat, String endUserId) {
+            this.chat = chat;
+            this.endUserId = endUserId;
+        }
+
+        /**
+         * The current conversation id — {@code null} before the first turn or
+         * after a {@link #reset()}.
+         */
+        public UUID getSessionId() {
+            return currentSessionId;
+        }
+
+        /**
+         * Send one turn; its answer continues this conversation. The first turn
+         * omits the session id; every following turn threads the id the server
+         * issued.
+         *
+         * @param message the user message for this turn
+         * @return the full chat reply (answer, confidence, citations, sessionId)
+         * @throws ApiException transport/HTTP errors from the generated client,
+         *     unwrapped — including {@code 404 CHAT_SESSION_NOT_FOUND} when the
+         *     threaded session has expired ({@link #reset()} and resend)
+         */
+        public ChatQueryOutDTO send(String message) throws ApiException {
+            ChatQueryInDTO body = new ChatQueryInDTO()
+                    .message(message)
+                    .endUserId(endUserId)
+                    .sessionId(currentSessionId); // null on the first turn
+            ChatQueryOutDTO result = chat.chatQuery(body);
+            if (result.getSessionId() != null) {
+                currentSessionId = result.getSessionId();
+            }
+            return result;
+        }
+
+        /** Forget the conversation locally; the next {@link #send} starts a new one. */
+        public void reset() {
+            currentSessionId = null;
+        }
+
+        /**
+         * End the conversation: delete it server-side (mirrors a "New chat"
+         * action) and forget it locally. No-op if no turn has been sent yet.
+         *
+         * @throws ApiException transport/HTTP errors from the generated client, unwrapped
+         */
+        public void delete() throws ApiException {
+            UUID sessionId = currentSessionId;
+            currentSessionId = null;
+            if (sessionId != null) {
+                chat.deleteChatSession(sessionId);
+            }
+        }
     }
 
     // ------------------------------------------------------------------

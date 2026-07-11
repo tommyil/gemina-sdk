@@ -29,6 +29,11 @@ import {
     RetrievalAggregateOutDTOToJSON,
 } from '../models/RetrievalAggregateOutDTO';
 import {
+    type RetrievalFieldsOutDTO,
+    RetrievalFieldsOutDTOFromJSON,
+    RetrievalFieldsOutDTOToJSON,
+} from '../models/RetrievalFieldsOutDTO';
+import {
     type RetrievalQueryInDTO,
     RetrievalQueryInDTOFromJSON,
     RetrievalQueryInDTOToJSON,
@@ -116,6 +121,54 @@ export class RetrievalApi extends runtime.BaseAPI {
     }
 
     /**
+     * Creates request options for retrievalFields without sending the request
+     */
+    async retrievalFieldsRequestOpts(): Promise<runtime.RequestOpts> {
+        const queryParameters: any = {};
+
+        const headerParameters: runtime.HTTPHeaders = {};
+
+        if (this.configuration && this.configuration.apiKey) {
+            headerParameters["X-API-Key"] = await this.configuration.apiKey("X-API-Key"); // APIKeyHeader authentication
+        }
+
+        if (this.configuration && this.configuration.accessToken) {
+            // oauth required
+            headerParameters["Authorization"] = await this.configuration.accessToken("OAuth2PasswordBearer", []);
+        }
+
+
+        let urlPath = `/api/v1/retrieval/fields`;
+
+        return {
+            path: urlPath,
+            method: 'GET',
+            headers: headerParameters,
+            query: queryParameters,
+        };
+    }
+
+    /**
+     * Observed structured field NAMES per document type (self-query catalog).  Names only — no values; tenant-scoped like every retrieval path.
+     * Retrieval Fields
+     */
+    async retrievalFieldsRaw(initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<RetrievalFieldsOutDTO>> {
+        const requestOptions = await this.retrievalFieldsRequestOpts();
+        const response = await this.request(requestOptions, initOverrides);
+
+        return new runtime.JSONApiResponse(response, (jsonValue) => RetrievalFieldsOutDTOFromJSON(jsonValue));
+    }
+
+    /**
+     * Observed structured field NAMES per document type (self-query catalog).  Names only — no values; tenant-scoped like every retrieval path.
+     * Retrieval Fields
+     */
+    async retrievalFields(initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<RetrievalFieldsOutDTO> {
+        const response = await this.retrievalFieldsRaw(initOverrides);
+        return await response.value();
+    }
+
+    /**
      * Creates request options for retrievalQuery without sending the request
      */
     async retrievalQueryRequestOpts(requestParameters: RetrievalQueryRequest): Promise<runtime.RequestOpts> {
@@ -185,6 +238,11 @@ export class RetrievalApi extends runtime.BaseAPI {
             headerParameters["X-API-Key"] = await this.configuration.apiKey("X-API-Key"); // APIKeyHeader authentication
         }
 
+        if (this.configuration && this.configuration.accessToken) {
+            // oauth required
+            headerParameters["Authorization"] = await this.configuration.accessToken("OAuth2PasswordBearer", []);
+        }
+
 
         let urlPath = `/api/v1/retrieval/status`;
 
@@ -197,7 +255,7 @@ export class RetrievalApi extends runtime.BaseAPI {
     }
 
     /**
-     * How many of the tenant\'s documents are currently indexed.
+     * How many of the tenant\'s documents are currently indexed.  Same dual auth as /query: X-API-Key OR a Bearer retrieval token — but only an *unpinned* (whole-account) token is accepted. An end-user-pinned token gets 403: the account-wide index size must not leak into a single end-user\'s browser session.
      * Retrieval Status
      */
     async retrievalStatusRaw(initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<RetrievalStatusOutDTO>> {
@@ -208,7 +266,7 @@ export class RetrievalApi extends runtime.BaseAPI {
     }
 
     /**
-     * How many of the tenant\'s documents are currently indexed.
+     * How many of the tenant\'s documents are currently indexed.  Same dual auth as /query: X-API-Key OR a Bearer retrieval token — but only an *unpinned* (whole-account) token is accepted. An end-user-pinned token gets 403: the account-wide index size must not leak into a single end-user\'s browser session.
      * Retrieval Status
      */
     async retrievalStatus(initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<RetrievalStatusOutDTO> {

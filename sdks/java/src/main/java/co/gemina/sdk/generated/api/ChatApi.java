@@ -30,6 +30,7 @@ import java.io.IOException;
 import co.gemina.sdk.generated.model.ChatQueryInDTO;
 import co.gemina.sdk.generated.model.ChatQueryOutDTO;
 import co.gemina.sdk.generated.model.HTTPValidationError;
+import java.util.UUID;
 
 import java.lang.reflect.Type;
 import java.util.ArrayList;
@@ -146,7 +147,7 @@ public class ChatApi {
 
     /**
      * Chat Query
-     * Ask a natural-language question about the tenant&#39;s indexed documents.  Returns a grounded answer with documentId citations; &#x60;&#x60;confident&#x3D;false&#x60;&#x60; means the underlying data could not support a reliable answer.
+     * Ask a natural-language question about the tenant&#39;s indexed documents.  Returns a grounded answer with documentId citations; &#x60;&#x60;confident&#x3D;false&#x60;&#x60; means the underlying data could not support a reliable answer. Send back the returned &#x60;&#x60;sessionId&#x60;&#x60; to continue the conversation; omit it to start a new one.
      * @param chatQueryInDTO  (required)
      * @return ChatQueryOutDTO
      * @throws ApiException If fail to call the API, e.g. server error or cannot deserialize the response body
@@ -165,7 +166,7 @@ public class ChatApi {
 
     /**
      * Chat Query
-     * Ask a natural-language question about the tenant&#39;s indexed documents.  Returns a grounded answer with documentId citations; &#x60;&#x60;confident&#x3D;false&#x60;&#x60; means the underlying data could not support a reliable answer.
+     * Ask a natural-language question about the tenant&#39;s indexed documents.  Returns a grounded answer with documentId citations; &#x60;&#x60;confident&#x3D;false&#x60;&#x60; means the underlying data could not support a reliable answer. Send back the returned &#x60;&#x60;sessionId&#x60;&#x60; to continue the conversation; omit it to start a new one.
      * @param chatQueryInDTO  (required)
      * @return ApiResponse&lt;ChatQueryOutDTO&gt;
      * @throws ApiException If fail to call the API, e.g. server error or cannot deserialize the response body
@@ -185,7 +186,7 @@ public class ChatApi {
 
     /**
      * Chat Query (asynchronously)
-     * Ask a natural-language question about the tenant&#39;s indexed documents.  Returns a grounded answer with documentId citations; &#x60;&#x60;confident&#x3D;false&#x60;&#x60; means the underlying data could not support a reliable answer.
+     * Ask a natural-language question about the tenant&#39;s indexed documents.  Returns a grounded answer with documentId citations; &#x60;&#x60;confident&#x3D;false&#x60;&#x60; means the underlying data could not support a reliable answer. Send back the returned &#x60;&#x60;sessionId&#x60;&#x60; to continue the conversation; omit it to start a new one.
      * @param chatQueryInDTO  (required)
      * @param _callback The callback to be executed when the API call finishes
      * @return The request call
@@ -203,6 +204,133 @@ public class ChatApi {
         okhttp3.Call localVarCall = chatQueryValidateBeforeCall(chatQueryInDTO, _callback);
         Type localVarReturnType = new TypeToken<ChatQueryOutDTO>(){}.getType();
         localVarApiClient.executeAsync(localVarCall, localVarReturnType, _callback);
+        return localVarCall;
+    }
+    /**
+     * Build call for deleteChatSession
+     * @param sessionId  (required)
+     * @param _callback Callback for upload/download progress
+     * @return Call to execute
+     * @throws ApiException If fail to serialize the request body object
+     * @http.response.details
+     <table border="1">
+       <caption>Response Details</caption>
+        <tr><td> Status Code </td><td> Description </td><td> Response Headers </td></tr>
+        <tr><td> 204 </td><td> Successful Response </td><td>  -  </td></tr>
+        <tr><td> 422 </td><td> Validation Error </td><td>  -  </td></tr>
+     </table>
+     */
+    public okhttp3.Call deleteChatSessionCall(@javax.annotation.Nonnull UUID sessionId, final ApiCallback _callback) throws ApiException {
+        String basePath = null;
+        // Operation Servers
+        String[] localBasePaths = new String[] {  };
+
+        // Determine Base Path to Use
+        if (localCustomBaseUrl != null){
+            basePath = localCustomBaseUrl;
+        } else if ( localBasePaths.length > 0 ) {
+            basePath = localBasePaths[localHostIndex];
+        } else {
+            basePath = null;
+        }
+
+        Object localVarPostBody = null;
+
+        // create path and map variables
+        String localVarPath = "/api/v1/chat/sessions/{session_id}"
+            .replace("{" + "session_id" + "}", localVarApiClient.escapeString(sessionId.toString()));
+
+        List<Pair> localVarQueryParams = new ArrayList<Pair>();
+        List<Pair> localVarCollectionQueryParams = new ArrayList<Pair>();
+        Map<String, String> localVarHeaderParams = new HashMap<String, String>();
+        Map<String, String> localVarCookieParams = new HashMap<String, String>();
+        Map<String, Object> localVarFormParams = new HashMap<String, Object>();
+
+        final String[] localVarAccepts = {
+            "application/json"
+        };
+        final String localVarAccept = localVarApiClient.selectHeaderAccept(localVarAccepts);
+        if (localVarAccept != null) {
+            localVarHeaderParams.put("Accept", localVarAccept);
+        }
+
+        final String[] localVarContentTypes = {
+        };
+        final String localVarContentType = localVarApiClient.selectHeaderContentType(localVarContentTypes);
+        if (localVarContentType != null) {
+            localVarHeaderParams.put("Content-Type", localVarContentType);
+        }
+
+        String[] localVarAuthNames = new String[] { "APIKeyHeader", "OAuth2PasswordBearer" };
+        return localVarApiClient.buildCall(basePath, localVarPath, "DELETE", localVarQueryParams, localVarCollectionQueryParams, localVarPostBody, localVarHeaderParams, localVarCookieParams, localVarFormParams, localVarAuthNames, _callback);
+    }
+
+    @SuppressWarnings("rawtypes")
+    private okhttp3.Call deleteChatSessionValidateBeforeCall(@javax.annotation.Nonnull UUID sessionId, final ApiCallback _callback) throws ApiException {
+        // verify the required parameter 'sessionId' is set
+        if (sessionId == null) {
+            throw new ApiException("Missing the required parameter 'sessionId' when calling deleteChatSession(Async)");
+        }
+
+        return deleteChatSessionCall(sessionId, _callback);
+
+    }
+
+    /**
+     * Delete Chat Session
+     * End a conversation explicitly (&#39;new chat&#39; hygiene).  404 for unknown, expired, or foreign sessions alike — ids can&#39;t be probed.
+     * @param sessionId  (required)
+     * @throws ApiException If fail to call the API, e.g. server error or cannot deserialize the response body
+     * @http.response.details
+     <table border="1">
+       <caption>Response Details</caption>
+        <tr><td> Status Code </td><td> Description </td><td> Response Headers </td></tr>
+        <tr><td> 204 </td><td> Successful Response </td><td>  -  </td></tr>
+        <tr><td> 422 </td><td> Validation Error </td><td>  -  </td></tr>
+     </table>
+     */
+    public void deleteChatSession(@javax.annotation.Nonnull UUID sessionId) throws ApiException {
+        deleteChatSessionWithHttpInfo(sessionId);
+    }
+
+    /**
+     * Delete Chat Session
+     * End a conversation explicitly (&#39;new chat&#39; hygiene).  404 for unknown, expired, or foreign sessions alike — ids can&#39;t be probed.
+     * @param sessionId  (required)
+     * @return ApiResponse&lt;Void&gt;
+     * @throws ApiException If fail to call the API, e.g. server error or cannot deserialize the response body
+     * @http.response.details
+     <table border="1">
+       <caption>Response Details</caption>
+        <tr><td> Status Code </td><td> Description </td><td> Response Headers </td></tr>
+        <tr><td> 204 </td><td> Successful Response </td><td>  -  </td></tr>
+        <tr><td> 422 </td><td> Validation Error </td><td>  -  </td></tr>
+     </table>
+     */
+    public ApiResponse<Void> deleteChatSessionWithHttpInfo(@javax.annotation.Nonnull UUID sessionId) throws ApiException {
+        okhttp3.Call localVarCall = deleteChatSessionValidateBeforeCall(sessionId, null);
+        return localVarApiClient.execute(localVarCall);
+    }
+
+    /**
+     * Delete Chat Session (asynchronously)
+     * End a conversation explicitly (&#39;new chat&#39; hygiene).  404 for unknown, expired, or foreign sessions alike — ids can&#39;t be probed.
+     * @param sessionId  (required)
+     * @param _callback The callback to be executed when the API call finishes
+     * @return The request call
+     * @throws ApiException If fail to process the API call, e.g. serializing the request body object
+     * @http.response.details
+     <table border="1">
+       <caption>Response Details</caption>
+        <tr><td> Status Code </td><td> Description </td><td> Response Headers </td></tr>
+        <tr><td> 204 </td><td> Successful Response </td><td>  -  </td></tr>
+        <tr><td> 422 </td><td> Validation Error </td><td>  -  </td></tr>
+     </table>
+     */
+    public okhttp3.Call deleteChatSessionAsync(@javax.annotation.Nonnull UUID sessionId, final ApiCallback<Void> _callback) throws ApiException {
+
+        okhttp3.Call localVarCall = deleteChatSessionValidateBeforeCall(sessionId, _callback);
+        localVarApiClient.executeAsync(localVarCall, _callback);
         return localVarCall;
     }
 }

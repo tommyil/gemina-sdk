@@ -25,6 +25,7 @@ import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.UUID;
 import org.openapitools.jackson.nullable.JsonNullable;
 
 import com.google.gson.Gson;
@@ -94,6 +95,11 @@ public class ChatQueryOutDTO {
   @SerializedName(SERIALIZED_NAME_SERVED_AT_TIMESTAMP)
   @javax.annotation.Nullable
   private BigDecimal servedAtTimestamp;
+
+  public static final String SERIALIZED_NAME_SESSION_ID = "sessionId";
+  @SerializedName(SERIALIZED_NAME_SESSION_ID)
+  @javax.annotation.Nonnull
+  private UUID sessionId;
 
   public ChatQueryOutDTO() {
   }
@@ -258,6 +264,25 @@ public class ChatQueryOutDTO {
   }
 
 
+  public ChatQueryOutDTO sessionId(@javax.annotation.Nonnull UUID sessionId) {
+    this.sessionId = sessionId;
+    return this;
+  }
+
+  /**
+   * Conversation id — send back to continue this chat
+   * @return sessionId
+   */
+  @javax.annotation.Nonnull
+  public UUID getSessionId() {
+    return sessionId;
+  }
+
+  public void setSessionId(@javax.annotation.Nonnull UUID sessionId) {
+    this.sessionId = sessionId;
+  }
+
+
 
   @Override
   public boolean equals(Object o) {
@@ -275,7 +300,8 @@ public class ChatQueryOutDTO {
         Objects.equals(this.createdAtTimestamp, chatQueryOutDTO.createdAtTimestamp) &&
         Objects.equals(this.intent, chatQueryOutDTO.intent) &&
         Objects.equals(this.servedAt, chatQueryOutDTO.servedAt) &&
-        Objects.equals(this.servedAtTimestamp, chatQueryOutDTO.servedAtTimestamp);
+        Objects.equals(this.servedAtTimestamp, chatQueryOutDTO.servedAtTimestamp) &&
+        Objects.equals(this.sessionId, chatQueryOutDTO.sessionId);
   }
 
   private static <T> boolean equalsNullable(JsonNullable<T> a, JsonNullable<T> b) {
@@ -284,7 +310,7 @@ public class ChatQueryOutDTO {
 
   @Override
   public int hashCode() {
-    return Objects.hash(answer, citations, confident, createdAt, createdAtTimestamp, intent, servedAt, servedAtTimestamp);
+    return Objects.hash(answer, citations, confident, createdAt, createdAtTimestamp, intent, servedAt, servedAtTimestamp, sessionId);
   }
 
   private static <T> int hashCodeNullable(JsonNullable<T> a) {
@@ -306,6 +332,7 @@ public class ChatQueryOutDTO {
     sb.append("    intent: ").append(toIndentedString(intent)).append("\n");
     sb.append("    servedAt: ").append(toIndentedString(servedAt)).append("\n");
     sb.append("    servedAtTimestamp: ").append(toIndentedString(servedAtTimestamp)).append("\n");
+    sb.append("    sessionId: ").append(toIndentedString(sessionId)).append("\n");
     sb.append("}");
     return sb.toString();
   }
@@ -324,10 +351,10 @@ public class ChatQueryOutDTO {
 
   static {
     // a set of all properties/fields (JSON key names)
-    openapiFields = new HashSet<String>(Arrays.asList("answer", "citations", "confident", "createdAt", "createdAtTimestamp", "intent", "servedAt", "servedAtTimestamp"));
+    openapiFields = new HashSet<String>(Arrays.asList("answer", "citations", "confident", "createdAt", "createdAtTimestamp", "intent", "servedAt", "servedAtTimestamp", "sessionId"));
 
     // a set of required properties/fields (JSON key names)
-    openapiRequiredFields = new HashSet<String>(Arrays.asList("answer"));
+    openapiRequiredFields = new HashSet<String>(Arrays.asList("answer", "sessionId"));
   }
 
   /**
@@ -367,6 +394,9 @@ public class ChatQueryOutDTO {
       }
       if ((jsonObj.get("intent") != null && !jsonObj.get("intent").isJsonNull()) && !jsonObj.get("intent").isJsonPrimitive()) {
         throw new IllegalArgumentException(String.format(java.util.Locale.ROOT, "Expected the field `intent` to be a primitive type in the JSON string but got `%s`", jsonObj.get("intent").toString()));
+      }
+      if (!jsonObj.get("sessionId").isJsonPrimitive()) {
+        throw new IllegalArgumentException(String.format(java.util.Locale.ROOT, "Expected the field `sessionId` to be a primitive type in the JSON string but got `%s`", jsonObj.get("sessionId").toString()));
       }
   }
 

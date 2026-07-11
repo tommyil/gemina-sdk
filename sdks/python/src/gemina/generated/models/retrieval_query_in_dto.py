@@ -21,6 +21,7 @@ from pydantic import BaseModel, ConfigDict, Field, StrictStr, field_validator
 from typing import Any, ClassVar, Dict, List, Optional
 from typing_extensions import Annotated
 from gemina.generated.models.retrieval_filters_dto import RetrievalFiltersDTO
+from gemina.generated.models.structured_filter_dto import StructuredFilterDTO
 from typing import Optional, Set
 from typing_extensions import Self
 from pydantic_core import to_jsonable_python
@@ -35,9 +36,10 @@ class RetrievalQueryInDTO(BaseModel):
     skip: Optional[Annotated[int, Field(strict=True, ge=0)]] = 0
     sort_field: Optional[StrictStr] = Field(default=None, alias="sortField")
     sort_method: Optional[StrictStr] = Field(default='desc', alias="sortMethod")
+    structured_filters: Optional[Annotated[List[StructuredFilterDTO], Field(max_length=8)]] = Field(default=None, description="Self-query conditions over any structured field (whitelisted ops)", alias="structuredFilters")
     text: Optional[Annotated[str, Field(strict=True, max_length=2000)]] = Field(default=None, description="Natural-language query (semantic/hybrid modes)")
     top_k: Optional[Annotated[int, Field(le=100, strict=True, ge=1)]] = Field(default=10, alias="topK")
-    __properties: ClassVar[List[str]] = ["filters", "limit", "mode", "skip", "sortField", "sortMethod", "text", "topK"]
+    __properties: ClassVar[List[str]] = ["filters", "limit", "mode", "skip", "sortField", "sortMethod", "structuredFilters", "text", "topK"]
 
     @field_validator('mode')
     def mode_validate_enum(cls, value):
@@ -111,6 +113,13 @@ class RetrievalQueryInDTO(BaseModel):
         # override the default output from pydantic by calling `to_dict()` of filters
         if self.filters:
             _dict['filters'] = self.filters.to_dict()
+        # override the default output from pydantic by calling `to_dict()` of each item in structured_filters (list)
+        _items = []
+        if self.structured_filters:
+            for _item_structured_filters in self.structured_filters:
+                if _item_structured_filters:
+                    _items.append(_item_structured_filters.to_dict())
+            _dict['structuredFilters'] = _items
         # set to None if filters (nullable) is None
         # and model_fields_set contains the field
         if self.filters is None and "filters" in self.model_fields_set:
@@ -144,6 +153,7 @@ class RetrievalQueryInDTO(BaseModel):
             "skip": obj.get("skip") if obj.get("skip") is not None else 0,
             "sortField": obj.get("sortField"),
             "sortMethod": obj.get("sortMethod") if obj.get("sortMethod") is not None else 'desc',
+            "structuredFilters": [StructuredFilterDTO.from_dict(_item) for _item in obj["structuredFilters"]] if obj.get("structuredFilters") is not None else None,
             "text": obj.get("text"),
             "topK": obj.get("topK") if obj.get("topK") is not None else 10
         })

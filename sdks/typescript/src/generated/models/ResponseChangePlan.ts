@@ -96,6 +96,18 @@ export interface ResponseChangePlan {
      * @type {string}
      * @memberof ResponseChangePlan
      */
+    chatCreditCost?: string;
+    /**
+     * 
+     * @type {number}
+     * @memberof ResponseChangePlan
+     */
+    chatIncludedPerCycle?: number;
+    /**
+     * 
+     * @type {string}
+     * @memberof ResponseChangePlan
+     */
     creditsRemaining: string;
     /**
      * 
@@ -126,6 +138,12 @@ export interface ResponseChangePlan {
      * @type {boolean}
      * @memberof ResponseChangePlan
      */
+    documentIntelligenceEnabled?: boolean;
+    /**
+     * 
+     * @type {boolean}
+     * @memberof ResponseChangePlan
+     */
     enhancedPrivacyEnabled: boolean;
     /**
      * 
@@ -133,6 +151,12 @@ export interface ResponseChangePlan {
      * @memberof ResponseChangePlan
      */
     id: string;
+    /**
+     * 
+     * @type {string}
+     * @memberof ResponseChangePlan
+     */
+    indexCreditCost?: string;
     /**
      * 
      * @type {boolean}
@@ -183,10 +207,28 @@ export interface ResponseChangePlan {
     priceSnapshotCents: number;
     /**
      * 
+     * @type {number}
+     * @memberof ResponseChangePlan
+     */
+    retrievalRateLimitPerSecond?: number;
+    /**
+     * 
      * @type {SubscriptionStatus}
      * @memberof ResponseChangePlan
      */
     status: SubscriptionStatus;
+    /**
+     * 
+     * @type {string}
+     * @memberof ResponseChangePlan
+     */
+    storageCreditCostPerGbMonth?: string;
+    /**
+     * 
+     * @type {string}
+     * @memberof ResponseChangePlan
+     */
+    storageIncludedGb?: string;
     /**
      * 
      * @type {SupportLevel}
@@ -254,13 +296,17 @@ export function ResponseChangePlanFromJSONTyped(json: any, ignoreDiscriminator: 
         'paddleTransactionId': json['paddleTransactionId'] == null ? undefined : json['paddleTransactionId'],
         'subscriptionId': json['subscriptionId'],
         'cancelScheduledAt': json['cancelScheduledAt'] == null ? undefined : (new Date(json['cancelScheduledAt'])),
+        'chatCreditCost': json['chatCreditCost'] == null ? undefined : json['chatCreditCost'],
+        'chatIncludedPerCycle': json['chatIncludedPerCycle'] == null ? undefined : json['chatIncludedPerCycle'],
         'creditsRemaining': json['creditsRemaining'],
         'creditsSnapshot': json['creditsSnapshot'],
         'currentPeriodEnd': json['currentPeriodEnd'] == null ? undefined : (new Date(json['currentPeriodEnd'])),
         'currentPeriodStart': json['currentPeriodStart'] == null ? undefined : (new Date(json['currentPeriodStart'])),
         'dataResidencyEnabled': json['dataResidencyEnabled'],
+        'documentIntelligenceEnabled': json['documentIntelligenceEnabled'] == null ? undefined : json['documentIntelligenceEnabled'],
         'enhancedPrivacyEnabled': json['enhancedPrivacyEnabled'],
         'id': json['id'],
+        'indexCreditCost': json['indexCreditCost'] == null ? undefined : json['indexCreditCost'],
         'ipAllowlistEnabled': json['ipAllowlistEnabled'],
         'maxDataRetentionPeriod': DataRetentionPeriodModelFromJSON(json['maxDataRetentionPeriod']),
         'maxTemplates': json['maxTemplates'],
@@ -269,7 +315,10 @@ export function ResponseChangePlanFromJSONTyped(json: any, ignoreDiscriminator: 
         'planId': json['planId'],
         'planName': json['planName'] == null ? undefined : json['planName'],
         'priceSnapshotCents': json['priceSnapshotCents'],
+        'retrievalRateLimitPerSecond': json['retrievalRateLimitPerSecond'] == null ? undefined : json['retrievalRateLimitPerSecond'],
         'status': SubscriptionStatusFromJSON(json['status']),
+        'storageCreditCostPerGbMonth': json['storageCreditCostPerGbMonth'] == null ? undefined : json['storageCreditCostPerGbMonth'],
+        'storageIncludedGb': json['storageIncludedGb'] == null ? undefined : json['storageIncludedGb'],
         'supportLevel': SupportLevelFromJSON(json['supportLevel']),
         'userEmail': json['userEmail'] == null ? undefined : json['userEmail'],
         'userId': json['userId'],
@@ -294,13 +343,17 @@ export function ResponseChangePlanToJSONTyped(value?: ResponseChangePlan | null,
         'paddleTransactionId': value['paddleTransactionId'],
         'subscriptionId': value['subscriptionId'],
         'cancelScheduledAt': value['cancelScheduledAt'] == null ? value['cancelScheduledAt'] : value['cancelScheduledAt'].toISOString(),
+        'chatCreditCost': value['chatCreditCost'],
+        'chatIncludedPerCycle': value['chatIncludedPerCycle'],
         'creditsRemaining': value['creditsRemaining'],
         'creditsSnapshot': value['creditsSnapshot'],
         'currentPeriodEnd': value['currentPeriodEnd'] == null ? value['currentPeriodEnd'] : value['currentPeriodEnd'].toISOString(),
         'currentPeriodStart': value['currentPeriodStart'] == null ? value['currentPeriodStart'] : value['currentPeriodStart'].toISOString(),
         'dataResidencyEnabled': value['dataResidencyEnabled'],
+        'documentIntelligenceEnabled': value['documentIntelligenceEnabled'],
         'enhancedPrivacyEnabled': value['enhancedPrivacyEnabled'],
         'id': value['id'],
+        'indexCreditCost': value['indexCreditCost'],
         'ipAllowlistEnabled': value['ipAllowlistEnabled'],
         'maxDataRetentionPeriod': DataRetentionPeriodModelToJSON(value['maxDataRetentionPeriod']),
         'maxTemplates': value['maxTemplates'],
@@ -309,7 +362,10 @@ export function ResponseChangePlanToJSONTyped(value?: ResponseChangePlan | null,
         'planId': value['planId'],
         'planName': value['planName'],
         'priceSnapshotCents': value['priceSnapshotCents'],
+        'retrievalRateLimitPerSecond': value['retrievalRateLimitPerSecond'],
         'status': SubscriptionStatusToJSON(value['status']),
+        'storageCreditCostPerGbMonth': value['storageCreditCostPerGbMonth'],
+        'storageIncludedGb': value['storageIncludedGb'],
         'supportLevel': SupportLevelToJSON(value['supportLevel']),
         'userEmail': value['userEmail'],
         'userId': value['userId'],

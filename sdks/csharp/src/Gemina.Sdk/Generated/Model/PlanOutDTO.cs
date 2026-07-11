@@ -52,6 +52,7 @@ namespace Gemina.Sdk.Model
         /// Initializes a new instance of the <see cref="PlanOutDTO" /> class.
         /// </summary>
         /// <param name="bonusPercentage">bonusPercentage (required).</param>
+        /// <param name="chatCreditCost">chatCreditCost (default to &quot;0&quot;).</param>
         /// <param name="chatIncludedPerCycle">chatIncludedPerCycle (default to 0).</param>
         /// <param name="createdAt">createdAt.</param>
         /// <param name="createdAtTimestamp">createdAtTimestamp.</param>
@@ -61,6 +62,7 @@ namespace Gemina.Sdk.Model
         /// <param name="documentIntelligenceEnabled">documentIntelligenceEnabled (default to false).</param>
         /// <param name="enhancedPrivacyEnabled">enhancedPrivacyEnabled (required).</param>
         /// <param name="id">id (required).</param>
+        /// <param name="indexCreditCost">indexCreditCost (default to &quot;0&quot;).</param>
         /// <param name="ipAllowlistEnabled">ipAllowlistEnabled (required).</param>
         /// <param name="isActive">isActive (required).</param>
         /// <param name="maxDataRetentionPeriod">maxDataRetentionPeriod (required).</param>
@@ -73,9 +75,10 @@ namespace Gemina.Sdk.Model
         /// <param name="retrievalRateLimitPerSecond">retrievalRateLimitPerSecond (default to 20).</param>
         /// <param name="slug">slug (required).</param>
         /// <param name="storageCreditCostPerGbMonth">storageCreditCostPerGbMonth (default to &quot;0&quot;).</param>
+        /// <param name="storageIncludedGb">storageIncludedGb (default to &quot;0&quot;).</param>
         /// <param name="supportLevel">supportLevel (required).</param>
         /// <param name="webhooksEnabled">webhooksEnabled (required).</param>
-        public PlanOutDTO(int bonusPercentage = default, int chatIncludedPerCycle = 0, DateTime? createdAt = default, decimal? createdAtTimestamp = default, int credits = default, bool dataResidencyEnabled = default, string description = default, bool documentIntelligenceEnabled = false, bool enhancedPrivacyEnabled = default, Guid id = default, bool ipAllowlistEnabled = default, bool isActive = default, DataRetentionPeriodModel maxDataRetentionPeriod = default, int maxTemplates = default, int monthlyFiletagCredits = default, string name = default, string paddlePriceId = default, string paddleProductId = default, int priceCents = default, int retrievalRateLimitPerSecond = 20, string slug = default, string storageCreditCostPerGbMonth = @"0", SupportLevel supportLevel = default, bool webhooksEnabled = default)
+        public PlanOutDTO(int bonusPercentage = default, string chatCreditCost = @"0", int chatIncludedPerCycle = 0, DateTime? createdAt = default, decimal? createdAtTimestamp = default, int credits = default, bool dataResidencyEnabled = default, string description = default, bool documentIntelligenceEnabled = false, bool enhancedPrivacyEnabled = default, Guid id = default, string indexCreditCost = @"0", bool ipAllowlistEnabled = default, bool isActive = default, DataRetentionPeriodModel maxDataRetentionPeriod = default, int maxTemplates = default, int monthlyFiletagCredits = default, string name = default, string paddlePriceId = default, string paddleProductId = default, int priceCents = default, int retrievalRateLimitPerSecond = 20, string slug = default, string storageCreditCostPerGbMonth = @"0", string storageIncludedGb = @"0", SupportLevel supportLevel = default, bool webhooksEnabled = default)
         {
             this.BonusPercentage = bonusPercentage;
             this.Credits = credits;
@@ -102,16 +105,22 @@ namespace Gemina.Sdk.Model
             this.Slug = slug;
             this.SupportLevel = supportLevel;
             this.WebhooksEnabled = webhooksEnabled;
+            // use default value if no "chatCreditCost" provided
+            this.ChatCreditCost = chatCreditCost ?? @"0";
             this.ChatIncludedPerCycle = chatIncludedPerCycle;
             this.CreatedAt = createdAt;
             this.CreatedAtTimestamp = createdAtTimestamp;
             this.Description = description;
             this.DocumentIntelligenceEnabled = documentIntelligenceEnabled;
+            // use default value if no "indexCreditCost" provided
+            this.IndexCreditCost = indexCreditCost ?? @"0";
             this.PaddlePriceId = paddlePriceId;
             this.PaddleProductId = paddleProductId;
             this.RetrievalRateLimitPerSecond = retrievalRateLimitPerSecond;
             // use default value if no "storageCreditCostPerGbMonth" provided
             this.StorageCreditCostPerGbMonth = storageCreditCostPerGbMonth ?? @"0";
+            // use default value if no "storageIncludedGb" provided
+            this.StorageIncludedGb = storageIncludedGb ?? @"0";
         }
 
         /// <summary>
@@ -119,6 +128,12 @@ namespace Gemina.Sdk.Model
         /// </summary>
         [DataMember(Name = "bonusPercentage", IsRequired = true, EmitDefaultValue = true)]
         public int BonusPercentage { get; set; }
+
+        /// <summary>
+        /// Gets or Sets ChatCreditCost
+        /// </summary>
+        [DataMember(Name = "chatCreditCost", EmitDefaultValue = false)]
+        public string ChatCreditCost { get; set; }
 
         /// <summary>
         /// Gets or Sets ChatIncludedPerCycle
@@ -173,6 +188,12 @@ namespace Gemina.Sdk.Model
         /// </summary>
         [DataMember(Name = "id", IsRequired = true, EmitDefaultValue = true)]
         public Guid Id { get; set; }
+
+        /// <summary>
+        /// Gets or Sets IndexCreditCost
+        /// </summary>
+        [DataMember(Name = "indexCreditCost", EmitDefaultValue = false)]
+        public string IndexCreditCost { get; set; }
 
         /// <summary>
         /// Gets or Sets IpAllowlistEnabled
@@ -241,6 +262,12 @@ namespace Gemina.Sdk.Model
         public string StorageCreditCostPerGbMonth { get; set; }
 
         /// <summary>
+        /// Gets or Sets StorageIncludedGb
+        /// </summary>
+        [DataMember(Name = "storageIncludedGb", EmitDefaultValue = false)]
+        public string StorageIncludedGb { get; set; }
+
+        /// <summary>
         /// Gets or Sets WebhooksEnabled
         /// </summary>
         [DataMember(Name = "webhooksEnabled", IsRequired = true, EmitDefaultValue = true)]
@@ -255,6 +282,7 @@ namespace Gemina.Sdk.Model
             StringBuilder sb = new StringBuilder();
             sb.Append("class PlanOutDTO {\n");
             sb.Append("  BonusPercentage: ").Append(BonusPercentage).Append("\n");
+            sb.Append("  ChatCreditCost: ").Append(ChatCreditCost).Append("\n");
             sb.Append("  ChatIncludedPerCycle: ").Append(ChatIncludedPerCycle).Append("\n");
             sb.Append("  CreatedAt: ").Append(CreatedAt).Append("\n");
             sb.Append("  CreatedAtTimestamp: ").Append(CreatedAtTimestamp).Append("\n");
@@ -264,6 +292,7 @@ namespace Gemina.Sdk.Model
             sb.Append("  DocumentIntelligenceEnabled: ").Append(DocumentIntelligenceEnabled).Append("\n");
             sb.Append("  EnhancedPrivacyEnabled: ").Append(EnhancedPrivacyEnabled).Append("\n");
             sb.Append("  Id: ").Append(Id).Append("\n");
+            sb.Append("  IndexCreditCost: ").Append(IndexCreditCost).Append("\n");
             sb.Append("  IpAllowlistEnabled: ").Append(IpAllowlistEnabled).Append("\n");
             sb.Append("  IsActive: ").Append(IsActive).Append("\n");
             sb.Append("  MaxDataRetentionPeriod: ").Append(MaxDataRetentionPeriod).Append("\n");
@@ -276,6 +305,7 @@ namespace Gemina.Sdk.Model
             sb.Append("  RetrievalRateLimitPerSecond: ").Append(RetrievalRateLimitPerSecond).Append("\n");
             sb.Append("  Slug: ").Append(Slug).Append("\n");
             sb.Append("  StorageCreditCostPerGbMonth: ").Append(StorageCreditCostPerGbMonth).Append("\n");
+            sb.Append("  StorageIncludedGb: ").Append(StorageIncludedGb).Append("\n");
             sb.Append("  SupportLevel: ").Append(SupportLevel).Append("\n");
             sb.Append("  WebhooksEnabled: ").Append(WebhooksEnabled).Append("\n");
             sb.Append("}\n");

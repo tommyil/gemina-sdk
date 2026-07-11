@@ -33,6 +33,10 @@ export interface MintRetrievalTokenRequest {
     sessionTokenInDTO: SessionTokenInDTO;
 }
 
+export interface MintRetrievalTokenUserRequest {
+    sessionTokenInDTO: SessionTokenInDTO;
+}
+
 /**
  * 
  */
@@ -88,6 +92,64 @@ export class SessionsApi extends runtime.BaseAPI {
      */
     async mintRetrievalToken(requestParameters: MintRetrievalTokenRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<SessionTokenOutDTO> {
         const response = await this.mintRetrievalTokenRaw(requestParameters, initOverrides);
+        return await response.value();
+    }
+
+    /**
+     * Creates request options for mintRetrievalTokenUser without sending the request
+     */
+    async mintRetrievalTokenUserRequestOpts(requestParameters: MintRetrievalTokenUserRequest): Promise<runtime.RequestOpts> {
+        if (requestParameters['sessionTokenInDTO'] == null) {
+            throw new runtime.RequiredError(
+                'sessionTokenInDTO',
+                'Required parameter "sessionTokenInDTO" was null or undefined when calling mintRetrievalTokenUser().'
+            );
+        }
+
+        const queryParameters: any = {};
+
+        const headerParameters: runtime.HTTPHeaders = {};
+
+        headerParameters['Content-Type'] = 'application/json';
+
+        if (this.configuration && this.configuration.apiKey) {
+            headerParameters["X-API-Key"] = await this.configuration.apiKey("X-API-Key"); // APIKeyHeader authentication
+        }
+
+        if (this.configuration && this.configuration.accessToken) {
+            // oauth required
+            headerParameters["Authorization"] = await this.configuration.accessToken("OAuth2PasswordBearer", []);
+        }
+
+
+        let urlPath = `/api/v1/sessions/token/user`;
+
+        return {
+            path: urlPath,
+            method: 'POST',
+            headers: headerParameters,
+            query: queryParameters,
+            body: SessionTokenInDTOToJSON(requestParameters['sessionTokenInDTO']),
+        };
+    }
+
+    /**
+     * Browser-safe variant of ``POST /v1/sessions/token`` for logged-in users.  Authenticates with the caller\'s JWT (``Authorization: Bearer <jwt>``) and treats the ``X-API-Key`` header as the *UUID id* of one of the user\'s API keys — NOT the raw secret. Ownership is verified server-side (``APIKeyModel.id == header AND user_id == jwt``), so the raw secret never leaves the server. Mirrors ``POST /v1/filetag/user``. Deliberately, the key\'s IP allowlist is NOT enforced on this path: the console runs from arbitrary user IPs, and JWT auth + server-side ownership is the control — the same accepted convention as ``/v1/filetag/user``.  The minted token is identical to the server-to-server variant: signed, query-only, TTL-clamped, tenant pinned from the key.
+     * Mint Retrieval Token User
+     */
+    async mintRetrievalTokenUserRaw(requestParameters: MintRetrievalTokenUserRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<SessionTokenOutDTO>> {
+        const requestOptions = await this.mintRetrievalTokenUserRequestOpts(requestParameters);
+        const response = await this.request(requestOptions, initOverrides);
+
+        return new runtime.JSONApiResponse(response, (jsonValue) => SessionTokenOutDTOFromJSON(jsonValue));
+    }
+
+    /**
+     * Browser-safe variant of ``POST /v1/sessions/token`` for logged-in users.  Authenticates with the caller\'s JWT (``Authorization: Bearer <jwt>``) and treats the ``X-API-Key`` header as the *UUID id* of one of the user\'s API keys — NOT the raw secret. Ownership is verified server-side (``APIKeyModel.id == header AND user_id == jwt``), so the raw secret never leaves the server. Mirrors ``POST /v1/filetag/user``. Deliberately, the key\'s IP allowlist is NOT enforced on this path: the console runs from arbitrary user IPs, and JWT auth + server-side ownership is the control — the same accepted convention as ``/v1/filetag/user``.  The minted token is identical to the server-to-server variant: signed, query-only, TTL-clamped, tenant pinned from the key.
+     * Mint Retrieval Token User
+     */
+    async mintRetrievalTokenUser(requestParameters: MintRetrievalTokenUserRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<SessionTokenOutDTO> {
+        const response = await this.mintRetrievalTokenUserRaw(requestParameters, initOverrides);
         return await response.value();
     }
 

@@ -62,6 +62,16 @@ public class SubscriptionOutDTO {
   @javax.annotation.Nullable
   private OffsetDateTime cancelScheduledAt;
 
+  public static final String SERIALIZED_NAME_CHAT_CREDIT_COST = "chatCreditCost";
+  @SerializedName(SERIALIZED_NAME_CHAT_CREDIT_COST)
+  @javax.annotation.Nullable
+  private String chatCreditCost = "0";
+
+  public static final String SERIALIZED_NAME_CHAT_INCLUDED_PER_CYCLE = "chatIncludedPerCycle";
+  @SerializedName(SERIALIZED_NAME_CHAT_INCLUDED_PER_CYCLE)
+  @javax.annotation.Nullable
+  private Integer chatIncludedPerCycle = 0;
+
   public static final String SERIALIZED_NAME_CREATED_AT = "createdAt";
   @SerializedName(SERIALIZED_NAME_CREATED_AT)
   @javax.annotation.Nullable
@@ -97,6 +107,11 @@ public class SubscriptionOutDTO {
   @javax.annotation.Nonnull
   private Boolean dataResidencyEnabled;
 
+  public static final String SERIALIZED_NAME_DOCUMENT_INTELLIGENCE_ENABLED = "documentIntelligenceEnabled";
+  @SerializedName(SERIALIZED_NAME_DOCUMENT_INTELLIGENCE_ENABLED)
+  @javax.annotation.Nullable
+  private Boolean documentIntelligenceEnabled = false;
+
   public static final String SERIALIZED_NAME_ENHANCED_PRIVACY_ENABLED = "enhancedPrivacyEnabled";
   @SerializedName(SERIALIZED_NAME_ENHANCED_PRIVACY_ENABLED)
   @javax.annotation.Nonnull
@@ -106,6 +121,11 @@ public class SubscriptionOutDTO {
   @SerializedName(SERIALIZED_NAME_ID)
   @javax.annotation.Nonnull
   private UUID id;
+
+  public static final String SERIALIZED_NAME_INDEX_CREDIT_COST = "indexCreditCost";
+  @SerializedName(SERIALIZED_NAME_INDEX_CREDIT_COST)
+  @javax.annotation.Nullable
+  private String indexCreditCost = "0";
 
   public static final String SERIALIZED_NAME_IP_ALLOWLIST_ENABLED = "ipAllowlistEnabled";
   @SerializedName(SERIALIZED_NAME_IP_ALLOWLIST_ENABLED)
@@ -147,10 +167,25 @@ public class SubscriptionOutDTO {
   @javax.annotation.Nonnull
   private Integer priceSnapshotCents;
 
+  public static final String SERIALIZED_NAME_RETRIEVAL_RATE_LIMIT_PER_SECOND = "retrievalRateLimitPerSecond";
+  @SerializedName(SERIALIZED_NAME_RETRIEVAL_RATE_LIMIT_PER_SECOND)
+  @javax.annotation.Nullable
+  private Integer retrievalRateLimitPerSecond = 20;
+
   public static final String SERIALIZED_NAME_STATUS = "status";
   @SerializedName(SERIALIZED_NAME_STATUS)
   @javax.annotation.Nonnull
   private SubscriptionStatus status;
+
+  public static final String SERIALIZED_NAME_STORAGE_CREDIT_COST_PER_GB_MONTH = "storageCreditCostPerGbMonth";
+  @SerializedName(SERIALIZED_NAME_STORAGE_CREDIT_COST_PER_GB_MONTH)
+  @javax.annotation.Nullable
+  private String storageCreditCostPerGbMonth = "0";
+
+  public static final String SERIALIZED_NAME_STORAGE_INCLUDED_GB = "storageIncludedGb";
+  @SerializedName(SERIALIZED_NAME_STORAGE_INCLUDED_GB)
+  @javax.annotation.Nullable
+  private String storageIncludedGb = "0";
 
   public static final String SERIALIZED_NAME_SUPPORT_LEVEL = "supportLevel";
   @SerializedName(SERIALIZED_NAME_SUPPORT_LEVEL)
@@ -191,6 +226,44 @@ public class SubscriptionOutDTO {
 
   public void setCancelScheduledAt(@javax.annotation.Nullable OffsetDateTime cancelScheduledAt) {
     this.cancelScheduledAt = cancelScheduledAt;
+  }
+
+
+  public SubscriptionOutDTO chatCreditCost(@javax.annotation.Nullable String chatCreditCost) {
+    this.chatCreditCost = chatCreditCost;
+    return this;
+  }
+
+  /**
+   * Get chatCreditCost
+   * @return chatCreditCost
+   */
+  @javax.annotation.Nullable
+  public String getChatCreditCost() {
+    return chatCreditCost;
+  }
+
+  public void setChatCreditCost(@javax.annotation.Nullable String chatCreditCost) {
+    this.chatCreditCost = chatCreditCost;
+  }
+
+
+  public SubscriptionOutDTO chatIncludedPerCycle(@javax.annotation.Nullable Integer chatIncludedPerCycle) {
+    this.chatIncludedPerCycle = chatIncludedPerCycle;
+    return this;
+  }
+
+  /**
+   * Get chatIncludedPerCycle
+   * @return chatIncludedPerCycle
+   */
+  @javax.annotation.Nullable
+  public Integer getChatIncludedPerCycle() {
+    return chatIncludedPerCycle;
+  }
+
+  public void setChatIncludedPerCycle(@javax.annotation.Nullable Integer chatIncludedPerCycle) {
+    this.chatIncludedPerCycle = chatIncludedPerCycle;
   }
 
 
@@ -327,6 +400,25 @@ public class SubscriptionOutDTO {
   }
 
 
+  public SubscriptionOutDTO documentIntelligenceEnabled(@javax.annotation.Nullable Boolean documentIntelligenceEnabled) {
+    this.documentIntelligenceEnabled = documentIntelligenceEnabled;
+    return this;
+  }
+
+  /**
+   * Get documentIntelligenceEnabled
+   * @return documentIntelligenceEnabled
+   */
+  @javax.annotation.Nullable
+  public Boolean getDocumentIntelligenceEnabled() {
+    return documentIntelligenceEnabled;
+  }
+
+  public void setDocumentIntelligenceEnabled(@javax.annotation.Nullable Boolean documentIntelligenceEnabled) {
+    this.documentIntelligenceEnabled = documentIntelligenceEnabled;
+  }
+
+
   public SubscriptionOutDTO enhancedPrivacyEnabled(@javax.annotation.Nonnull Boolean enhancedPrivacyEnabled) {
     this.enhancedPrivacyEnabled = enhancedPrivacyEnabled;
     return this;
@@ -362,6 +454,25 @@ public class SubscriptionOutDTO {
 
   public void setId(@javax.annotation.Nonnull UUID id) {
     this.id = id;
+  }
+
+
+  public SubscriptionOutDTO indexCreditCost(@javax.annotation.Nullable String indexCreditCost) {
+    this.indexCreditCost = indexCreditCost;
+    return this;
+  }
+
+  /**
+   * Get indexCreditCost
+   * @return indexCreditCost
+   */
+  @javax.annotation.Nullable
+  public String getIndexCreditCost() {
+    return indexCreditCost;
+  }
+
+  public void setIndexCreditCost(@javax.annotation.Nullable String indexCreditCost) {
+    this.indexCreditCost = indexCreditCost;
   }
 
 
@@ -517,6 +628,25 @@ public class SubscriptionOutDTO {
   }
 
 
+  public SubscriptionOutDTO retrievalRateLimitPerSecond(@javax.annotation.Nullable Integer retrievalRateLimitPerSecond) {
+    this.retrievalRateLimitPerSecond = retrievalRateLimitPerSecond;
+    return this;
+  }
+
+  /**
+   * Get retrievalRateLimitPerSecond
+   * @return retrievalRateLimitPerSecond
+   */
+  @javax.annotation.Nullable
+  public Integer getRetrievalRateLimitPerSecond() {
+    return retrievalRateLimitPerSecond;
+  }
+
+  public void setRetrievalRateLimitPerSecond(@javax.annotation.Nullable Integer retrievalRateLimitPerSecond) {
+    this.retrievalRateLimitPerSecond = retrievalRateLimitPerSecond;
+  }
+
+
   public SubscriptionOutDTO status(@javax.annotation.Nonnull SubscriptionStatus status) {
     this.status = status;
     return this;
@@ -533,6 +663,44 @@ public class SubscriptionOutDTO {
 
   public void setStatus(@javax.annotation.Nonnull SubscriptionStatus status) {
     this.status = status;
+  }
+
+
+  public SubscriptionOutDTO storageCreditCostPerGbMonth(@javax.annotation.Nullable String storageCreditCostPerGbMonth) {
+    this.storageCreditCostPerGbMonth = storageCreditCostPerGbMonth;
+    return this;
+  }
+
+  /**
+   * Get storageCreditCostPerGbMonth
+   * @return storageCreditCostPerGbMonth
+   */
+  @javax.annotation.Nullable
+  public String getStorageCreditCostPerGbMonth() {
+    return storageCreditCostPerGbMonth;
+  }
+
+  public void setStorageCreditCostPerGbMonth(@javax.annotation.Nullable String storageCreditCostPerGbMonth) {
+    this.storageCreditCostPerGbMonth = storageCreditCostPerGbMonth;
+  }
+
+
+  public SubscriptionOutDTO storageIncludedGb(@javax.annotation.Nullable String storageIncludedGb) {
+    this.storageIncludedGb = storageIncludedGb;
+    return this;
+  }
+
+  /**
+   * Get storageIncludedGb
+   * @return storageIncludedGb
+   */
+  @javax.annotation.Nullable
+  public String getStorageIncludedGb() {
+    return storageIncludedGb;
+  }
+
+  public void setStorageIncludedGb(@javax.annotation.Nullable String storageIncludedGb) {
+    this.storageIncludedGb = storageIncludedGb;
   }
 
 
@@ -623,6 +791,8 @@ public class SubscriptionOutDTO {
     }
     SubscriptionOutDTO subscriptionOutDTO = (SubscriptionOutDTO) o;
     return Objects.equals(this.cancelScheduledAt, subscriptionOutDTO.cancelScheduledAt) &&
+        Objects.equals(this.chatCreditCost, subscriptionOutDTO.chatCreditCost) &&
+        Objects.equals(this.chatIncludedPerCycle, subscriptionOutDTO.chatIncludedPerCycle) &&
         Objects.equals(this.createdAt, subscriptionOutDTO.createdAt) &&
         Objects.equals(this.createdAtTimestamp, subscriptionOutDTO.createdAtTimestamp) &&
         Objects.equals(this.creditsRemaining, subscriptionOutDTO.creditsRemaining) &&
@@ -630,8 +800,10 @@ public class SubscriptionOutDTO {
         Objects.equals(this.currentPeriodEnd, subscriptionOutDTO.currentPeriodEnd) &&
         Objects.equals(this.currentPeriodStart, subscriptionOutDTO.currentPeriodStart) &&
         Objects.equals(this.dataResidencyEnabled, subscriptionOutDTO.dataResidencyEnabled) &&
+        Objects.equals(this.documentIntelligenceEnabled, subscriptionOutDTO.documentIntelligenceEnabled) &&
         Objects.equals(this.enhancedPrivacyEnabled, subscriptionOutDTO.enhancedPrivacyEnabled) &&
         Objects.equals(this.id, subscriptionOutDTO.id) &&
+        Objects.equals(this.indexCreditCost, subscriptionOutDTO.indexCreditCost) &&
         Objects.equals(this.ipAllowlistEnabled, subscriptionOutDTO.ipAllowlistEnabled) &&
         Objects.equals(this.maxDataRetentionPeriod, subscriptionOutDTO.maxDataRetentionPeriod) &&
         Objects.equals(this.maxTemplates, subscriptionOutDTO.maxTemplates) &&
@@ -640,7 +812,10 @@ public class SubscriptionOutDTO {
         Objects.equals(this.planId, subscriptionOutDTO.planId) &&
         Objects.equals(this.planName, subscriptionOutDTO.planName) &&
         Objects.equals(this.priceSnapshotCents, subscriptionOutDTO.priceSnapshotCents) &&
+        Objects.equals(this.retrievalRateLimitPerSecond, subscriptionOutDTO.retrievalRateLimitPerSecond) &&
         Objects.equals(this.status, subscriptionOutDTO.status) &&
+        Objects.equals(this.storageCreditCostPerGbMonth, subscriptionOutDTO.storageCreditCostPerGbMonth) &&
+        Objects.equals(this.storageIncludedGb, subscriptionOutDTO.storageIncludedGb) &&
         Objects.equals(this.supportLevel, subscriptionOutDTO.supportLevel) &&
         Objects.equals(this.userEmail, subscriptionOutDTO.userEmail) &&
         Objects.equals(this.userId, subscriptionOutDTO.userId) &&
@@ -653,7 +828,7 @@ public class SubscriptionOutDTO {
 
   @Override
   public int hashCode() {
-    return Objects.hash(cancelScheduledAt, createdAt, createdAtTimestamp, creditsRemaining, creditsSnapshot, currentPeriodEnd, currentPeriodStart, dataResidencyEnabled, enhancedPrivacyEnabled, id, ipAllowlistEnabled, maxDataRetentionPeriod, maxTemplates, monthlyFiletagCredits, paddleSubscriptionId, planId, planName, priceSnapshotCents, status, supportLevel, userEmail, userId, webhooksEnabled);
+    return Objects.hash(cancelScheduledAt, chatCreditCost, chatIncludedPerCycle, createdAt, createdAtTimestamp, creditsRemaining, creditsSnapshot, currentPeriodEnd, currentPeriodStart, dataResidencyEnabled, documentIntelligenceEnabled, enhancedPrivacyEnabled, id, indexCreditCost, ipAllowlistEnabled, maxDataRetentionPeriod, maxTemplates, monthlyFiletagCredits, paddleSubscriptionId, planId, planName, priceSnapshotCents, retrievalRateLimitPerSecond, status, storageCreditCostPerGbMonth, storageIncludedGb, supportLevel, userEmail, userId, webhooksEnabled);
   }
 
   private static <T> int hashCodeNullable(JsonNullable<T> a) {
@@ -668,6 +843,8 @@ public class SubscriptionOutDTO {
     StringBuilder sb = new StringBuilder();
     sb.append("class SubscriptionOutDTO {\n");
     sb.append("    cancelScheduledAt: ").append(toIndentedString(cancelScheduledAt)).append("\n");
+    sb.append("    chatCreditCost: ").append(toIndentedString(chatCreditCost)).append("\n");
+    sb.append("    chatIncludedPerCycle: ").append(toIndentedString(chatIncludedPerCycle)).append("\n");
     sb.append("    createdAt: ").append(toIndentedString(createdAt)).append("\n");
     sb.append("    createdAtTimestamp: ").append(toIndentedString(createdAtTimestamp)).append("\n");
     sb.append("    creditsRemaining: ").append(toIndentedString(creditsRemaining)).append("\n");
@@ -675,8 +852,10 @@ public class SubscriptionOutDTO {
     sb.append("    currentPeriodEnd: ").append(toIndentedString(currentPeriodEnd)).append("\n");
     sb.append("    currentPeriodStart: ").append(toIndentedString(currentPeriodStart)).append("\n");
     sb.append("    dataResidencyEnabled: ").append(toIndentedString(dataResidencyEnabled)).append("\n");
+    sb.append("    documentIntelligenceEnabled: ").append(toIndentedString(documentIntelligenceEnabled)).append("\n");
     sb.append("    enhancedPrivacyEnabled: ").append(toIndentedString(enhancedPrivacyEnabled)).append("\n");
     sb.append("    id: ").append(toIndentedString(id)).append("\n");
+    sb.append("    indexCreditCost: ").append(toIndentedString(indexCreditCost)).append("\n");
     sb.append("    ipAllowlistEnabled: ").append(toIndentedString(ipAllowlistEnabled)).append("\n");
     sb.append("    maxDataRetentionPeriod: ").append(toIndentedString(maxDataRetentionPeriod)).append("\n");
     sb.append("    maxTemplates: ").append(toIndentedString(maxTemplates)).append("\n");
@@ -685,7 +864,10 @@ public class SubscriptionOutDTO {
     sb.append("    planId: ").append(toIndentedString(planId)).append("\n");
     sb.append("    planName: ").append(toIndentedString(planName)).append("\n");
     sb.append("    priceSnapshotCents: ").append(toIndentedString(priceSnapshotCents)).append("\n");
+    sb.append("    retrievalRateLimitPerSecond: ").append(toIndentedString(retrievalRateLimitPerSecond)).append("\n");
     sb.append("    status: ").append(toIndentedString(status)).append("\n");
+    sb.append("    storageCreditCostPerGbMonth: ").append(toIndentedString(storageCreditCostPerGbMonth)).append("\n");
+    sb.append("    storageIncludedGb: ").append(toIndentedString(storageIncludedGb)).append("\n");
     sb.append("    supportLevel: ").append(toIndentedString(supportLevel)).append("\n");
     sb.append("    userEmail: ").append(toIndentedString(userEmail)).append("\n");
     sb.append("    userId: ").append(toIndentedString(userId)).append("\n");
@@ -708,7 +890,7 @@ public class SubscriptionOutDTO {
 
   static {
     // a set of all properties/fields (JSON key names)
-    openapiFields = new HashSet<String>(Arrays.asList("cancelScheduledAt", "createdAt", "createdAtTimestamp", "creditsRemaining", "creditsSnapshot", "currentPeriodEnd", "currentPeriodStart", "dataResidencyEnabled", "enhancedPrivacyEnabled", "id", "ipAllowlistEnabled", "maxDataRetentionPeriod", "maxTemplates", "monthlyFiletagCredits", "paddleSubscriptionId", "planId", "planName", "priceSnapshotCents", "status", "supportLevel", "userEmail", "userId", "webhooksEnabled"));
+    openapiFields = new HashSet<String>(Arrays.asList("cancelScheduledAt", "chatCreditCost", "chatIncludedPerCycle", "createdAt", "createdAtTimestamp", "creditsRemaining", "creditsSnapshot", "currentPeriodEnd", "currentPeriodStart", "dataResidencyEnabled", "documentIntelligenceEnabled", "enhancedPrivacyEnabled", "id", "indexCreditCost", "ipAllowlistEnabled", "maxDataRetentionPeriod", "maxTemplates", "monthlyFiletagCredits", "paddleSubscriptionId", "planId", "planName", "priceSnapshotCents", "retrievalRateLimitPerSecond", "status", "storageCreditCostPerGbMonth", "storageIncludedGb", "supportLevel", "userEmail", "userId", "webhooksEnabled"));
 
     // a set of required properties/fields (JSON key names)
     openapiRequiredFields = new HashSet<String>(Arrays.asList("creditsRemaining", "creditsSnapshot", "dataResidencyEnabled", "enhancedPrivacyEnabled", "id", "ipAllowlistEnabled", "maxDataRetentionPeriod", "maxTemplates", "monthlyFiletagCredits", "planId", "priceSnapshotCents", "status", "supportLevel", "userId", "webhooksEnabled"));
@@ -742,11 +924,17 @@ public class SubscriptionOutDTO {
         }
       }
         JsonObject jsonObj = jsonElement.getAsJsonObject();
+      if ((jsonObj.get("chatCreditCost") != null && !jsonObj.get("chatCreditCost").isJsonNull()) && !jsonObj.get("chatCreditCost").isJsonPrimitive()) {
+        throw new IllegalArgumentException(String.format(java.util.Locale.ROOT, "Expected the field `chatCreditCost` to be a primitive type in the JSON string but got `%s`", jsonObj.get("chatCreditCost").toString()));
+      }
       if (!jsonObj.get("creditsRemaining").isJsonPrimitive()) {
         throw new IllegalArgumentException(String.format(java.util.Locale.ROOT, "Expected the field `creditsRemaining` to be a primitive type in the JSON string but got `%s`", jsonObj.get("creditsRemaining").toString()));
       }
       if (!jsonObj.get("id").isJsonPrimitive()) {
         throw new IllegalArgumentException(String.format(java.util.Locale.ROOT, "Expected the field `id` to be a primitive type in the JSON string but got `%s`", jsonObj.get("id").toString()));
+      }
+      if ((jsonObj.get("indexCreditCost") != null && !jsonObj.get("indexCreditCost").isJsonNull()) && !jsonObj.get("indexCreditCost").isJsonPrimitive()) {
+        throw new IllegalArgumentException(String.format(java.util.Locale.ROOT, "Expected the field `indexCreditCost` to be a primitive type in the JSON string but got `%s`", jsonObj.get("indexCreditCost").toString()));
       }
       // validate the required field `maxDataRetentionPeriod`
       DataRetentionPeriodModel.validateJsonElement(jsonObj.get("maxDataRetentionPeriod"));
@@ -761,6 +949,12 @@ public class SubscriptionOutDTO {
       }
       // validate the required field `status`
       SubscriptionStatus.validateJsonElement(jsonObj.get("status"));
+      if ((jsonObj.get("storageCreditCostPerGbMonth") != null && !jsonObj.get("storageCreditCostPerGbMonth").isJsonNull()) && !jsonObj.get("storageCreditCostPerGbMonth").isJsonPrimitive()) {
+        throw new IllegalArgumentException(String.format(java.util.Locale.ROOT, "Expected the field `storageCreditCostPerGbMonth` to be a primitive type in the JSON string but got `%s`", jsonObj.get("storageCreditCostPerGbMonth").toString()));
+      }
+      if ((jsonObj.get("storageIncludedGb") != null && !jsonObj.get("storageIncludedGb").isJsonNull()) && !jsonObj.get("storageIncludedGb").isJsonPrimitive()) {
+        throw new IllegalArgumentException(String.format(java.util.Locale.ROOT, "Expected the field `storageIncludedGb` to be a primitive type in the JSON string but got `%s`", jsonObj.get("storageIncludedGb").toString()));
+      }
       // validate the required field `supportLevel`
       SupportLevel.validateJsonElement(jsonObj.get("supportLevel"));
       if ((jsonObj.get("userEmail") != null && !jsonObj.get("userEmail").isJsonNull()) && !jsonObj.get("userEmail").isJsonPrimitive()) {

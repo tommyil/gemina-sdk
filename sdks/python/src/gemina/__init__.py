@@ -26,6 +26,7 @@ from gemina.errors import (
     GeminaTimeoutError as GeminaTimeoutError,
 )
 from gemina.helpers import (
+    GeminaChatConversation as GeminaChatConversation,
     GeminaClient as GeminaClient,
     UrlSource as UrlSource,
 )
@@ -59,6 +60,7 @@ from gemina import generated as generated
 __all__ = [
     "__version__",
     "GeminaClient",
+    "GeminaChatConversation",
     "UrlSource",
     "GeminaError",
     "GeminaProcessingError",

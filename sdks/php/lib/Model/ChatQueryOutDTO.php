@@ -64,7 +64,8 @@ class ChatQueryOutDTO implements ModelInterface, ArrayAccess, \JsonSerializable
         'created_at_timestamp' => 'float',
         'intent' => 'string',
         'served_at' => '\DateTime',
-        'served_at_timestamp' => 'float'
+        'served_at_timestamp' => 'float',
+        'session_id' => 'string'
     ];
 
     /**
@@ -82,7 +83,8 @@ class ChatQueryOutDTO implements ModelInterface, ArrayAccess, \JsonSerializable
         'created_at_timestamp' => null,
         'intent' => null,
         'served_at' => 'date-time',
-        'served_at_timestamp' => null
+        'served_at_timestamp' => null,
+        'session_id' => 'uuid'
     ];
 
     /**
@@ -98,7 +100,8 @@ class ChatQueryOutDTO implements ModelInterface, ArrayAccess, \JsonSerializable
         'created_at_timestamp' => true,
         'intent' => true,
         'served_at' => false,
-        'served_at_timestamp' => false
+        'served_at_timestamp' => false,
+        'session_id' => false
     ];
 
     /**
@@ -194,7 +197,8 @@ class ChatQueryOutDTO implements ModelInterface, ArrayAccess, \JsonSerializable
         'created_at_timestamp' => 'createdAtTimestamp',
         'intent' => 'intent',
         'served_at' => 'servedAt',
-        'served_at_timestamp' => 'servedAtTimestamp'
+        'served_at_timestamp' => 'servedAtTimestamp',
+        'session_id' => 'sessionId'
     ];
 
     /**
@@ -210,7 +214,8 @@ class ChatQueryOutDTO implements ModelInterface, ArrayAccess, \JsonSerializable
         'created_at_timestamp' => 'setCreatedAtTimestamp',
         'intent' => 'setIntent',
         'served_at' => 'setServedAt',
-        'served_at_timestamp' => 'setServedAtTimestamp'
+        'served_at_timestamp' => 'setServedAtTimestamp',
+        'session_id' => 'setSessionId'
     ];
 
     /**
@@ -226,7 +231,8 @@ class ChatQueryOutDTO implements ModelInterface, ArrayAccess, \JsonSerializable
         'created_at_timestamp' => 'getCreatedAtTimestamp',
         'intent' => 'getIntent',
         'served_at' => 'getServedAt',
-        'served_at_timestamp' => 'getServedAtTimestamp'
+        'served_at_timestamp' => 'getServedAtTimestamp',
+        'session_id' => 'getSessionId'
     ];
 
     /**
@@ -294,6 +300,7 @@ class ChatQueryOutDTO implements ModelInterface, ArrayAccess, \JsonSerializable
         $this->setIfExists('intent', $data ?? [], null);
         $this->setIfExists('served_at', $data ?? [], null);
         $this->setIfExists('served_at_timestamp', $data ?? [], null);
+        $this->setIfExists('session_id', $data ?? [], null);
     }
 
     /**
@@ -325,6 +332,9 @@ class ChatQueryOutDTO implements ModelInterface, ArrayAccess, \JsonSerializable
 
         if ($this->container['answer'] === null) {
             $invalidProperties[] = "'answer' can't be null";
+        }
+        if ($this->container['session_id'] === null) {
+            $invalidProperties[] = "'session_id' can't be null";
         }
         return $invalidProperties;
     }
@@ -574,6 +584,33 @@ class ChatQueryOutDTO implements ModelInterface, ArrayAccess, \JsonSerializable
             throw new \InvalidArgumentException('non-nullable served_at_timestamp cannot be null');
         }
         $this->container['served_at_timestamp'] = $served_at_timestamp;
+
+        return $this;
+    }
+
+    /**
+     * Gets session_id
+     *
+     * @return string
+     */
+    public function getSessionId()
+    {
+        return $this->container['session_id'];
+    }
+
+    /**
+     * Sets session_id
+     *
+     * @param string $session_id Conversation id — send back to continue this chat
+     *
+     * @return self
+     */
+    public function setSessionId($session_id)
+    {
+        if (is_null($session_id)) {
+            throw new \InvalidArgumentException('non-nullable session_id cannot be null');
+        }
+        $this->container['session_id'] = $session_id;
 
         return $this;
     }

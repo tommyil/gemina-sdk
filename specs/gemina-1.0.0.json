@@ -628,6 +628,19 @@
             "minLength": 1,
             "title": "Message",
             "type": "string"
+          },
+          "sessionId": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Continue an existing conversation. Omit to start a new one; the response returns the sessionId to send on follow-up turns.",
+            "title": "Sessionid"
           }
         },
         "required": [
@@ -699,10 +712,17 @@
           "servedAtTimestamp": {
             "title": "Servedattimestamp",
             "type": "number"
+          },
+          "sessionId": {
+            "description": "Conversation id — send back to continue this chat",
+            "format": "uuid",
+            "title": "Sessionid",
+            "type": "string"
           }
         },
         "required": [
-          "answer"
+          "answer",
+          "sessionId"
         ],
         "title": "ChatQueryOutDTO",
         "type": "object"
@@ -954,6 +974,16 @@
             "title": "Billingcycleday",
             "type": "integer"
           },
+          "chatIncludedPerCycle": {
+            "default": 0,
+            "title": "Chatincludedpercycle",
+            "type": "integer"
+          },
+          "chatPriceCents": {
+            "default": "0",
+            "title": "Chatpricecents",
+            "type": "string"
+          },
           "checkoutUrl": {
             "anyOf": [
               {
@@ -988,9 +1018,19 @@
             ],
             "title": "Createdattimestamp"
           },
+          "documentIntelligenceEnabled": {
+            "default": false,
+            "title": "Documentintelligenceenabled",
+            "type": "boolean"
+          },
           "id": {
             "format": "uuid",
             "title": "Id",
+            "type": "string"
+          },
+          "indexPriceCents": {
+            "default": "0",
+            "title": "Indexpricecents",
             "type": "string"
           },
           "maxMonthlyExtractions": {
@@ -1044,8 +1084,23 @@
             "title": "Requiresmanualapproval",
             "type": "boolean"
           },
+          "retrievalRateLimitPerSecond": {
+            "default": 20,
+            "title": "Retrievalratelimitpersecond",
+            "type": "integer"
+          },
           "status": {
             "$ref": "#/components/schemas/ContractStatus"
+          },
+          "storageIncludedGb": {
+            "default": "0",
+            "title": "Storageincludedgb",
+            "type": "string"
+          },
+          "storagePricePerGbMonthCents": {
+            "default": "0",
+            "title": "Storagepricepergbmonthcents",
+            "type": "string"
           },
           "userEmail": {
             "anyOf": [
@@ -4165,6 +4220,35 @@
         "title": "InvoiceType",
         "type": "string"
       },
+      "MatchedChunkDTO": {
+        "properties": {
+          "chunkType": {
+            "default": "line_item",
+            "title": "Chunktype",
+            "type": "string"
+          },
+          "score": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Score"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "text"
+        ],
+        "title": "MatchedChunkDTO",
+        "type": "object"
+      },
       "ModelType": {
         "enum": [
           "gemina",
@@ -4369,6 +4453,11 @@
             "title": "Bonuspercentage",
             "type": "integer"
           },
+          "chatCreditCost": {
+            "default": "0",
+            "title": "Chatcreditcost",
+            "type": "string"
+          },
           "chatIncludedPerCycle": {
             "default": 0,
             "title": "Chatincludedpercycle",
@@ -4438,6 +4527,11 @@
             "title": "Id",
             "type": "string"
           },
+          "indexCreditCost": {
+            "default": "0",
+            "title": "Indexcreditcost",
+            "type": "string"
+          },
           "ipAllowlistEnabled": {
             "title": "Ipallowlistenabled",
             "type": "boolean"
@@ -4499,6 +4593,11 @@
           "storageCreditCostPerGbMonth": {
             "default": "0",
             "title": "Storagecreditcostpergbmonth",
+            "type": "string"
+          },
+          "storageIncludedGb": {
+            "default": "0",
+            "title": "Storageincludedgb",
             "type": "string"
           },
           "supportLevel": {
@@ -4588,6 +4687,11 @@
             "title": "Bonuspercentage",
             "type": "integer"
           },
+          "chatCreditCost": {
+            "default": "0",
+            "title": "Chatcreditcost",
+            "type": "string"
+          },
           "chatIncludedPerCycle": {
             "default": 0,
             "title": "Chatincludedpercycle",
@@ -4647,6 +4751,11 @@
           "id": {
             "format": "uuid",
             "title": "Id",
+            "type": "string"
+          },
+          "indexCreditCost": {
+            "default": "0",
+            "title": "Indexcreditcost",
             "type": "string"
           },
           "ipAllowlistEnabled": {
@@ -4710,6 +4819,11 @@
           "storageCreditCostPerGbMonth": {
             "default": "0",
             "title": "Storagecreditcostpergbmonth",
+            "type": "string"
+          },
+          "storageIncludedGb": {
+            "default": "0",
+            "title": "Storageincludedgb",
             "type": "string"
           },
           "supportLevel": {
@@ -4913,6 +5027,14 @@
               }
             ],
             "title": "Issuedate"
+          },
+          "matchedChunks": {
+            "description": "Line-item/section snippets that matched the query (chunk search)",
+            "items": {
+              "$ref": "#/components/schemas/MatchedChunkDTO"
+            },
+            "title": "Matchedchunks",
+            "type": "array"
           },
           "netAmount": {
             "anyOf": [
@@ -5214,6 +5336,82 @@
         "title": "RetrievalAggregateOutDTO",
         "type": "object"
       },
+      "RetrievalFieldItemDTO": {
+        "properties": {
+          "count": {
+            "default": 0,
+            "description": "documents in which this field appears",
+            "title": "Count",
+            "type": "integer"
+          },
+          "documentType": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Documenttype"
+          },
+          "field": {
+            "title": "Field",
+            "type": "string"
+          }
+        },
+        "required": [
+          "field"
+        ],
+        "title": "RetrievalFieldItemDTO",
+        "type": "object"
+      },
+      "RetrievalFieldsOutDTO": {
+        "description": "Observed structured field NAMES per document type (self-query catalog).\n\nNames only — never values. Same envelope (servedAt) as the sibling\nretrieval endpoints.",
+        "properties": {
+          "createdAt": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Createdat"
+          },
+          "createdAtTimestamp": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Createdattimestamp"
+          },
+          "fields": {
+            "items": {
+              "$ref": "#/components/schemas/RetrievalFieldItemDTO"
+            },
+            "title": "Fields",
+            "type": "array"
+          },
+          "servedAt": {
+            "format": "date-time",
+            "title": "Servedat",
+            "type": "string"
+          },
+          "servedAtTimestamp": {
+            "title": "Servedattimestamp",
+            "type": "number"
+          }
+        },
+        "title": "RetrievalFieldsOutDTO",
+        "type": "object"
+      },
       "RetrievalFiltersDTO": {
         "additionalProperties": false,
         "description": "Structured filters over promoted index columns.\n\nTenant scope is NOT part of this DTO by design: ``user_id`` always comes\nfrom the authenticated context, server-side. ``end_user_id`` is a trusted\nwithin-tenant filter on the server-to-server path (PRD §6.6).",
@@ -5477,6 +5675,15 @@
             "title": "Sortmethod",
             "type": "string"
           },
+          "structuredFilters": {
+            "description": "Self-query conditions over any structured field (whitelisted ops)",
+            "items": {
+              "$ref": "#/components/schemas/StructuredFilterDTO"
+            },
+            "maxItems": 8,
+            "title": "Structuredfilters",
+            "type": "array"
+          },
           "text": {
             "anyOf": [
               {
@@ -5698,6 +5905,135 @@
         "title": "SortMethodModel",
         "type": "string"
       },
+      "StorageUsageOutDTO": {
+        "description": "Tenant storage usage (FileTag-excluded). ``billingMode`` is\ncredits | money | none; ``unit`` is credits | usd. ``ratePerGbMonth`` and\n``projectedCharge`` are 0 when storage is not billed (``none``).",
+        "properties": {
+          "billableGb": {
+            "title": "Billablegb",
+            "type": "string"
+          },
+          "billingMode": {
+            "title": "Billingmode",
+            "type": "string"
+          },
+          "createdAt": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Createdat"
+          },
+          "createdAtTimestamp": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Createdattimestamp"
+          },
+          "includedGb": {
+            "title": "Includedgb",
+            "type": "string"
+          },
+          "projectedCharge": {
+            "title": "Projectedcharge",
+            "type": "string"
+          },
+          "ratePerGbMonth": {
+            "title": "Ratepergbmonth",
+            "type": "string"
+          },
+          "servedAt": {
+            "format": "date-time",
+            "title": "Servedat",
+            "type": "string"
+          },
+          "servedAtTimestamp": {
+            "title": "Servedattimestamp",
+            "type": "number"
+          },
+          "storedBytes": {
+            "title": "Storedbytes",
+            "type": "integer"
+          },
+          "storedGb": {
+            "title": "Storedgb",
+            "type": "string"
+          },
+          "unit": {
+            "title": "Unit",
+            "type": "string"
+          }
+        },
+        "required": [
+          "storedBytes",
+          "storedGb",
+          "includedGb",
+          "billableGb",
+          "billingMode",
+          "ratePerGbMonth",
+          "projectedCharge",
+          "unit"
+        ],
+        "title": "StorageUsageOutDTO",
+        "type": "object"
+      },
+      "StructuredFilterDTO": {
+        "description": "One self-query condition over the ``structured`` JSONB (design §5, D6).\n\nDeliberately narrow: TOP-LEVEL snake_case keys only, a closed op set,\nvalues compiled to bind parameters — the model never writes SQL.",
+        "properties": {
+          "op": {
+            "enum": [
+              "eq",
+              "neq",
+              "gt",
+              "lt",
+              "contains",
+              "exists"
+            ],
+            "title": "Op",
+            "type": "string"
+          },
+          "path": {
+            "pattern": "^[A-Za-z0-9_]{1,64}$",
+            "title": "Path",
+            "type": "string"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value"
+          }
+        },
+        "required": [
+          "path",
+          "op"
+        ],
+        "title": "StructuredFilterDTO",
+        "type": "object"
+      },
       "SubscribeInDTO": {
         "additionalProperties": false,
         "properties": {
@@ -5726,6 +6062,16 @@
               }
             ],
             "title": "Cancelscheduledat"
+          },
+          "chatCreditCost": {
+            "default": "0",
+            "title": "Chatcreditcost",
+            "type": "string"
+          },
+          "chatIncludedPerCycle": {
+            "default": 0,
+            "title": "Chatincludedpercycle",
+            "type": "integer"
           },
           "createdAt": {
             "anyOf": [
@@ -5786,6 +6132,11 @@
             "title": "Dataresidencyenabled",
             "type": "boolean"
           },
+          "documentIntelligenceEnabled": {
+            "default": false,
+            "title": "Documentintelligenceenabled",
+            "type": "boolean"
+          },
           "enhancedPrivacyEnabled": {
             "title": "Enhancedprivacyenabled",
             "type": "boolean"
@@ -5793,6 +6144,11 @@
           "id": {
             "format": "uuid",
             "title": "Id",
+            "type": "string"
+          },
+          "indexCreditCost": {
+            "default": "0",
+            "title": "Indexcreditcost",
             "type": "string"
           },
           "ipAllowlistEnabled": {
@@ -5841,8 +6197,23 @@
             "title": "Pricesnapshotcents",
             "type": "integer"
           },
+          "retrievalRateLimitPerSecond": {
+            "default": 20,
+            "title": "Retrievalratelimitpersecond",
+            "type": "integer"
+          },
           "status": {
             "$ref": "#/components/schemas/SubscriptionStatus"
+          },
+          "storageCreditCostPerGbMonth": {
+            "default": "0",
+            "title": "Storagecreditcostpergbmonth",
+            "type": "string"
+          },
+          "storageIncludedGb": {
+            "default": "0",
+            "title": "Storageincludedgb",
+            "type": "string"
           },
           "supportLevel": {
             "$ref": "#/components/schemas/SupportLevel"
@@ -7235,7 +7606,7 @@
     },
     "/api/v1/chat/query": {
       "post": {
-        "description": "Ask a natural-language question about the tenant's indexed documents.\n\nReturns a grounded answer with documentId citations; ``confident=false``\nmeans the underlying data could not support a reliable answer.",
+        "description": "Ask a natural-language question about the tenant's indexed documents.\n\nReturns a grounded answer with documentId citations; ``confident=false``\nmeans the underlying data could not support a reliable answer. Send back\nthe returned ``sessionId`` to continue the conversation; omit it to start\na new one.",
         "operationId": "chat_query",
         "requestBody": {
           "content": {
@@ -7278,6 +7649,51 @@
           }
         ],
         "summary": "Chat Query",
+        "tags": [
+          "Chat"
+        ]
+      }
+    },
+    "/api/v1/chat/sessions/{session_id}": {
+      "delete": {
+        "description": "End a conversation explicitly ('new chat' hygiene).\n\n404 for unknown, expired, or foreign sessions alike — ids can't be probed.",
+        "operationId": "delete_chat_session",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          },
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Delete Chat Session",
         "tags": [
           "Chat"
         ]
@@ -9947,6 +10363,46 @@
         ]
       }
     },
+    "/api/v1/retrieval/fields": {
+      "get": {
+        "description": "Observed structured field NAMES per document type (self-query catalog).\n\nNames only — no values; tenant-scoped like every retrieval path.",
+        "operationId": "retrieval_fields",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RetrievalFieldsOutDTO"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          },
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Retrieval Fields",
+        "tags": [
+          "Retrieval"
+        ]
+      }
+    },
     "/api/v1/retrieval/query": {
       "post": {
         "description": "Structured filters, semantic or hybrid search over the tenant's index.\n\nAuth: X-API-Key (server-to-server; ``filters.endUserId`` is a trusted\nfilter) OR a Bearer retrieval token (embedded SDK; a token-pinned\nend-user scope is ENFORCED server-side and cannot be widened by the\nrequest body). The tenant boundary always comes from the credential.",
@@ -9999,7 +10455,7 @@
     },
     "/api/v1/retrieval/status": {
       "get": {
-        "description": "How many of the tenant's documents are currently indexed.",
+        "description": "How many of the tenant's documents are currently indexed.\n\nSame dual auth as /query: X-API-Key OR a Bearer retrieval token — but\nonly an *unpinned* (whole-account) token is accepted. An end-user-pinned\ntoken gets 403: the account-wide index size must not leak into a single\nend-user's browser session.",
         "operationId": "retrieval_status",
         "responses": {
           "200": {
@@ -10011,11 +10467,24 @@
               }
             },
             "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
           }
         },
         "security": [
           {
             "APIKeyHeader": []
+          },
+          {
+            "OAuth2PasswordBearer": []
           }
         ],
         "summary": "Retrieval Status",
@@ -10066,6 +10535,56 @@
           }
         ],
         "summary": "Mint Retrieval Token",
+        "tags": [
+          "Sessions"
+        ]
+      }
+    },
+    "/api/v1/sessions/token/user": {
+      "post": {
+        "description": "Browser-safe variant of ``POST /v1/sessions/token`` for logged-in users.\n\nAuthenticates with the caller's JWT (``Authorization: Bearer <jwt>``)\nand treats the ``X-API-Key`` header as the *UUID id* of one of the\nuser's API keys — NOT the raw secret. Ownership is verified server-side\n(``APIKeyModel.id == header AND user_id == jwt``), so the raw secret\nnever leaves the server. Mirrors ``POST /v1/filetag/user``. Deliberately,\nthe key's IP allowlist is NOT enforced on this path: the console runs\nfrom arbitrary user IPs, and JWT auth + server-side ownership is the\ncontrol — the same accepted convention as ``/v1/filetag/user``.\n\nThe minted token is identical to the server-to-server variant: signed,\nquery-only, TTL-clamped, tenant pinned from the key.",
+        "operationId": "mint_retrieval_token_user",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SessionTokenInDTO"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionTokenOutDTO"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          },
+          {
+            "APIKeyHeader": []
+          }
+        ],
+        "summary": "Mint Retrieval Token User",
         "tags": [
           "Sessions"
         ]
@@ -10286,6 +10805,32 @@
           }
         ],
         "summary": "Get Credit History",
+        "tags": [
+          "Subscriptions"
+        ]
+      }
+    },
+    "/api/v1/subscriptions/me/storage": {
+      "get": {
+        "operationId": "get_my_storage_usage",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StorageUsageOutDTO"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "summary": "Get My Storage Usage",
         "tags": [
           "Subscriptions"
         ]

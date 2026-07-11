@@ -205,4 +205,135 @@ public class SessionsApi {
         localVarApiClient.executeAsync(localVarCall, localVarReturnType, _callback);
         return localVarCall;
     }
+    /**
+     * Build call for mintRetrievalTokenUser
+     * @param sessionTokenInDTO  (required)
+     * @param _callback Callback for upload/download progress
+     * @return Call to execute
+     * @throws ApiException If fail to serialize the request body object
+     * @http.response.details
+     <table border="1">
+       <caption>Response Details</caption>
+        <tr><td> Status Code </td><td> Description </td><td> Response Headers </td></tr>
+        <tr><td> 200 </td><td> Successful Response </td><td>  -  </td></tr>
+        <tr><td> 422 </td><td> Validation Error </td><td>  -  </td></tr>
+     </table>
+     */
+    public okhttp3.Call mintRetrievalTokenUserCall(@javax.annotation.Nonnull SessionTokenInDTO sessionTokenInDTO, final ApiCallback _callback) throws ApiException {
+        String basePath = null;
+        // Operation Servers
+        String[] localBasePaths = new String[] {  };
+
+        // Determine Base Path to Use
+        if (localCustomBaseUrl != null){
+            basePath = localCustomBaseUrl;
+        } else if ( localBasePaths.length > 0 ) {
+            basePath = localBasePaths[localHostIndex];
+        } else {
+            basePath = null;
+        }
+
+        Object localVarPostBody = sessionTokenInDTO;
+
+        // create path and map variables
+        String localVarPath = "/api/v1/sessions/token/user";
+
+        List<Pair> localVarQueryParams = new ArrayList<Pair>();
+        List<Pair> localVarCollectionQueryParams = new ArrayList<Pair>();
+        Map<String, String> localVarHeaderParams = new HashMap<String, String>();
+        Map<String, String> localVarCookieParams = new HashMap<String, String>();
+        Map<String, Object> localVarFormParams = new HashMap<String, Object>();
+
+        final String[] localVarAccepts = {
+            "application/json"
+        };
+        final String localVarAccept = localVarApiClient.selectHeaderAccept(localVarAccepts);
+        if (localVarAccept != null) {
+            localVarHeaderParams.put("Accept", localVarAccept);
+        }
+
+        final String[] localVarContentTypes = {
+            "application/json"
+        };
+        final String localVarContentType = localVarApiClient.selectHeaderContentType(localVarContentTypes);
+        if (localVarContentType != null) {
+            localVarHeaderParams.put("Content-Type", localVarContentType);
+        }
+
+        String[] localVarAuthNames = new String[] { "APIKeyHeader", "OAuth2PasswordBearer" };
+        return localVarApiClient.buildCall(basePath, localVarPath, "POST", localVarQueryParams, localVarCollectionQueryParams, localVarPostBody, localVarHeaderParams, localVarCookieParams, localVarFormParams, localVarAuthNames, _callback);
+    }
+
+    @SuppressWarnings("rawtypes")
+    private okhttp3.Call mintRetrievalTokenUserValidateBeforeCall(@javax.annotation.Nonnull SessionTokenInDTO sessionTokenInDTO, final ApiCallback _callback) throws ApiException {
+        // verify the required parameter 'sessionTokenInDTO' is set
+        if (sessionTokenInDTO == null) {
+            throw new ApiException("Missing the required parameter 'sessionTokenInDTO' when calling mintRetrievalTokenUser(Async)");
+        }
+
+        return mintRetrievalTokenUserCall(sessionTokenInDTO, _callback);
+
+    }
+
+    /**
+     * Mint Retrieval Token User
+     * Browser-safe variant of &#x60;&#x60;POST /v1/sessions/token&#x60;&#x60; for logged-in users.  Authenticates with the caller&#39;s JWT (&#x60;&#x60;Authorization: Bearer &lt;jwt&gt;&#x60;&#x60;) and treats the &#x60;&#x60;X-API-Key&#x60;&#x60; header as the *UUID id* of one of the user&#39;s API keys — NOT the raw secret. Ownership is verified server-side (&#x60;&#x60;APIKeyModel.id &#x3D;&#x3D; header AND user_id &#x3D;&#x3D; jwt&#x60;&#x60;), so the raw secret never leaves the server. Mirrors &#x60;&#x60;POST /v1/filetag/user&#x60;&#x60;. Deliberately, the key&#39;s IP allowlist is NOT enforced on this path: the console runs from arbitrary user IPs, and JWT auth + server-side ownership is the control — the same accepted convention as &#x60;&#x60;/v1/filetag/user&#x60;&#x60;.  The minted token is identical to the server-to-server variant: signed, query-only, TTL-clamped, tenant pinned from the key.
+     * @param sessionTokenInDTO  (required)
+     * @return SessionTokenOutDTO
+     * @throws ApiException If fail to call the API, e.g. server error or cannot deserialize the response body
+     * @http.response.details
+     <table border="1">
+       <caption>Response Details</caption>
+        <tr><td> Status Code </td><td> Description </td><td> Response Headers </td></tr>
+        <tr><td> 200 </td><td> Successful Response </td><td>  -  </td></tr>
+        <tr><td> 422 </td><td> Validation Error </td><td>  -  </td></tr>
+     </table>
+     */
+    public SessionTokenOutDTO mintRetrievalTokenUser(@javax.annotation.Nonnull SessionTokenInDTO sessionTokenInDTO) throws ApiException {
+        ApiResponse<SessionTokenOutDTO> localVarResp = mintRetrievalTokenUserWithHttpInfo(sessionTokenInDTO);
+        return localVarResp.getData();
+    }
+
+    /**
+     * Mint Retrieval Token User
+     * Browser-safe variant of &#x60;&#x60;POST /v1/sessions/token&#x60;&#x60; for logged-in users.  Authenticates with the caller&#39;s JWT (&#x60;&#x60;Authorization: Bearer &lt;jwt&gt;&#x60;&#x60;) and treats the &#x60;&#x60;X-API-Key&#x60;&#x60; header as the *UUID id* of one of the user&#39;s API keys — NOT the raw secret. Ownership is verified server-side (&#x60;&#x60;APIKeyModel.id &#x3D;&#x3D; header AND user_id &#x3D;&#x3D; jwt&#x60;&#x60;), so the raw secret never leaves the server. Mirrors &#x60;&#x60;POST /v1/filetag/user&#x60;&#x60;. Deliberately, the key&#39;s IP allowlist is NOT enforced on this path: the console runs from arbitrary user IPs, and JWT auth + server-side ownership is the control — the same accepted convention as &#x60;&#x60;/v1/filetag/user&#x60;&#x60;.  The minted token is identical to the server-to-server variant: signed, query-only, TTL-clamped, tenant pinned from the key.
+     * @param sessionTokenInDTO  (required)
+     * @return ApiResponse&lt;SessionTokenOutDTO&gt;
+     * @throws ApiException If fail to call the API, e.g. server error or cannot deserialize the response body
+     * @http.response.details
+     <table border="1">
+       <caption>Response Details</caption>
+        <tr><td> Status Code </td><td> Description </td><td> Response Headers </td></tr>
+        <tr><td> 200 </td><td> Successful Response </td><td>  -  </td></tr>
+        <tr><td> 422 </td><td> Validation Error </td><td>  -  </td></tr>
+     </table>
+     */
+    public ApiResponse<SessionTokenOutDTO> mintRetrievalTokenUserWithHttpInfo(@javax.annotation.Nonnull SessionTokenInDTO sessionTokenInDTO) throws ApiException {
+        okhttp3.Call localVarCall = mintRetrievalTokenUserValidateBeforeCall(sessionTokenInDTO, null);
+        Type localVarReturnType = new TypeToken<SessionTokenOutDTO>(){}.getType();
+        return localVarApiClient.execute(localVarCall, localVarReturnType);
+    }
+
+    /**
+     * Mint Retrieval Token User (asynchronously)
+     * Browser-safe variant of &#x60;&#x60;POST /v1/sessions/token&#x60;&#x60; for logged-in users.  Authenticates with the caller&#39;s JWT (&#x60;&#x60;Authorization: Bearer &lt;jwt&gt;&#x60;&#x60;) and treats the &#x60;&#x60;X-API-Key&#x60;&#x60; header as the *UUID id* of one of the user&#39;s API keys — NOT the raw secret. Ownership is verified server-side (&#x60;&#x60;APIKeyModel.id &#x3D;&#x3D; header AND user_id &#x3D;&#x3D; jwt&#x60;&#x60;), so the raw secret never leaves the server. Mirrors &#x60;&#x60;POST /v1/filetag/user&#x60;&#x60;. Deliberately, the key&#39;s IP allowlist is NOT enforced on this path: the console runs from arbitrary user IPs, and JWT auth + server-side ownership is the control — the same accepted convention as &#x60;&#x60;/v1/filetag/user&#x60;&#x60;.  The minted token is identical to the server-to-server variant: signed, query-only, TTL-clamped, tenant pinned from the key.
+     * @param sessionTokenInDTO  (required)
+     * @param _callback The callback to be executed when the API call finishes
+     * @return The request call
+     * @throws ApiException If fail to process the API call, e.g. serializing the request body object
+     * @http.response.details
+     <table border="1">
+       <caption>Response Details</caption>
+        <tr><td> Status Code </td><td> Description </td><td> Response Headers </td></tr>
+        <tr><td> 200 </td><td> Successful Response </td><td>  -  </td></tr>
+        <tr><td> 422 </td><td> Validation Error </td><td>  -  </td></tr>
+     </table>
+     */
+    public okhttp3.Call mintRetrievalTokenUserAsync(@javax.annotation.Nonnull SessionTokenInDTO sessionTokenInDTO, final ApiCallback<SessionTokenOutDTO> _callback) throws ApiException {
+
+        okhttp3.Call localVarCall = mintRetrievalTokenUserValidateBeforeCall(sessionTokenInDTO, _callback);
+        Type localVarReturnType = new TypeToken<SessionTokenOutDTO>(){}.getType();
+        localVarApiClient.executeAsync(localVarCall, localVarReturnType, _callback);
+        return localVarCall;
+    }
 }

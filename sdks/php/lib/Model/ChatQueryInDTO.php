@@ -58,7 +58,8 @@ class ChatQueryInDTO implements ModelInterface, ArrayAccess, \JsonSerializable
      */
     protected static $openAPITypes = [
         'end_user_id' => 'string',
-        'message' => 'string'
+        'message' => 'string',
+        'session_id' => 'string'
     ];
 
     /**
@@ -70,7 +71,8 @@ class ChatQueryInDTO implements ModelInterface, ArrayAccess, \JsonSerializable
      */
     protected static $openAPIFormats = [
         'end_user_id' => null,
-        'message' => null
+        'message' => null,
+        'session_id' => 'uuid'
     ];
 
     /**
@@ -80,7 +82,8 @@ class ChatQueryInDTO implements ModelInterface, ArrayAccess, \JsonSerializable
      */
     protected static array $openAPINullables = [
         'end_user_id' => true,
-        'message' => false
+        'message' => false,
+        'session_id' => true
     ];
 
     /**
@@ -170,7 +173,8 @@ class ChatQueryInDTO implements ModelInterface, ArrayAccess, \JsonSerializable
      */
     protected static $attributeMap = [
         'end_user_id' => 'endUserId',
-        'message' => 'message'
+        'message' => 'message',
+        'session_id' => 'sessionId'
     ];
 
     /**
@@ -180,7 +184,8 @@ class ChatQueryInDTO implements ModelInterface, ArrayAccess, \JsonSerializable
      */
     protected static $setters = [
         'end_user_id' => 'setEndUserId',
-        'message' => 'setMessage'
+        'message' => 'setMessage',
+        'session_id' => 'setSessionId'
     ];
 
     /**
@@ -190,7 +195,8 @@ class ChatQueryInDTO implements ModelInterface, ArrayAccess, \JsonSerializable
      */
     protected static $getters = [
         'end_user_id' => 'getEndUserId',
-        'message' => 'getMessage'
+        'message' => 'getMessage',
+        'session_id' => 'getSessionId'
     ];
 
     /**
@@ -252,6 +258,7 @@ class ChatQueryInDTO implements ModelInterface, ArrayAccess, \JsonSerializable
     {
         $this->setIfExists('end_user_id', $data ?? [], null);
         $this->setIfExists('message', $data ?? [], null);
+        $this->setIfExists('session_id', $data ?? [], null);
     }
 
     /**
@@ -379,6 +386,40 @@ class ChatQueryInDTO implements ModelInterface, ArrayAccess, \JsonSerializable
         }
 
         $this->container['message'] = $message;
+
+        return $this;
+    }
+
+    /**
+     * Gets session_id
+     *
+     * @return string|null
+     */
+    public function getSessionId()
+    {
+        return $this->container['session_id'];
+    }
+
+    /**
+     * Sets session_id
+     *
+     * @param string|null $session_id Continue an existing conversation. Omit to start a new one; the response returns the sessionId to send on follow-up turns.
+     *
+     * @return self
+     */
+    public function setSessionId($session_id)
+    {
+        if (is_null($session_id)) {
+            array_push($this->openAPINullablesSetToNull, 'session_id');
+        } else {
+            $nullablesSetToNull = $this->getOpenAPINullablesSetToNull();
+            $index = array_search('session_id', $nullablesSetToNull);
+            if ($index !== FALSE) {
+                unset($nullablesSetToNull[$index]);
+                $this->setOpenAPINullablesSetToNull($nullablesSetToNull);
+            }
+        }
+        $this->container['session_id'] = $session_id;
 
         return $this;
     }

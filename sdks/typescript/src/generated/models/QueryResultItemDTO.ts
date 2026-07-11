@@ -13,6 +13,14 @@
  */
 
 import { mapValues } from '../runtime';
+import type { MatchedChunkDTO } from './MatchedChunkDTO';
+import {
+    MatchedChunkDTOFromJSON,
+    MatchedChunkDTOFromJSONTyped,
+    MatchedChunkDTOToJSON,
+    MatchedChunkDTOToJSONTyped,
+} from './MatchedChunkDTO';
+
 /**
  * 
  * @export
@@ -85,6 +93,12 @@ export interface QueryResultItemDTO {
      * @memberof QueryResultItemDTO
      */
     issueDate?: Date | null;
+    /**
+     * Line-item/section snippets that matched the query (chunk search)
+     * @type {Array<MatchedChunkDTO>}
+     * @memberof QueryResultItemDTO
+     */
+    matchedChunks?: Array<MatchedChunkDTO>;
     /**
      * 
      * @type {number}
@@ -165,6 +179,7 @@ export function QueryResultItemDTOFromJSONTyped(json: any, ignoreDiscriminator: 
         'expenseType': json['expenseType'] == null ? undefined : json['expenseType'],
         'externalId': json['externalId'] == null ? undefined : json['externalId'],
         'issueDate': json['issueDate'] == null ? undefined : (new Date(json['issueDate'])),
+        'matchedChunks': json['matchedChunks'] == null ? undefined : ((json['matchedChunks'] as Array<any>).map(MatchedChunkDTOFromJSON)),
         'netAmount': json['netAmount'] == null ? undefined : json['netAmount'],
         'paymentMethod': json['paymentMethod'] == null ? undefined : json['paymentMethod'],
         'score': json['score'] == null ? undefined : json['score'],
@@ -198,6 +213,7 @@ export function QueryResultItemDTOToJSONTyped(value?: QueryResultItemDTO | null,
         'expenseType': value['expenseType'],
         'externalId': value['externalId'],
         'issueDate': value['issueDate'] == null ? value['issueDate'] : value['issueDate'].toISOString().substring(0,10),
+        'matchedChunks': value['matchedChunks'] == null ? undefined : ((value['matchedChunks'] as Array<any>).map(MatchedChunkDTOToJSON)),
         'netAmount': value['netAmount'],
         'paymentMethod': value['paymentMethod'],
         'score': value['score'],

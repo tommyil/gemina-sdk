@@ -50,6 +50,29 @@ namespace Gemina.Sdk.Api
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <returns>ApiResponse of SessionTokenOutDTO</returns>
         ApiResponse<SessionTokenOutDTO> MintRetrievalTokenWithHttpInfo(SessionTokenInDTO sessionTokenInDTO, int operationIndex = 0);
+        /// <summary>
+        /// Mint Retrieval Token User
+        /// </summary>
+        /// <remarks>
+        /// Browser-safe variant of &#x60;&#x60;POST /v1/sessions/token&#x60;&#x60; for logged-in users.  Authenticates with the caller&#39;s JWT (&#x60;&#x60;Authorization: Bearer &lt;jwt&gt;&#x60;&#x60;) and treats the &#x60;&#x60;X-API-Key&#x60;&#x60; header as the *UUID id* of one of the user&#39;s API keys — NOT the raw secret. Ownership is verified server-side (&#x60;&#x60;APIKeyModel.id &#x3D;&#x3D; header AND user_id &#x3D;&#x3D; jwt&#x60;&#x60;), so the raw secret never leaves the server. Mirrors &#x60;&#x60;POST /v1/filetag/user&#x60;&#x60;. Deliberately, the key&#39;s IP allowlist is NOT enforced on this path: the console runs from arbitrary user IPs, and JWT auth + server-side ownership is the control — the same accepted convention as &#x60;&#x60;/v1/filetag/user&#x60;&#x60;.  The minted token is identical to the server-to-server variant: signed, query-only, TTL-clamped, tenant pinned from the key.
+        /// </remarks>
+        /// <exception cref="Gemina.Sdk.Client.ApiException">Thrown when fails to make API call</exception>
+        /// <param name="sessionTokenInDTO"></param>
+        /// <param name="operationIndex">Index associated with the operation.</param>
+        /// <returns>SessionTokenOutDTO</returns>
+        SessionTokenOutDTO MintRetrievalTokenUser(SessionTokenInDTO sessionTokenInDTO, int operationIndex = 0);
+
+        /// <summary>
+        /// Mint Retrieval Token User
+        /// </summary>
+        /// <remarks>
+        /// Browser-safe variant of &#x60;&#x60;POST /v1/sessions/token&#x60;&#x60; for logged-in users.  Authenticates with the caller&#39;s JWT (&#x60;&#x60;Authorization: Bearer &lt;jwt&gt;&#x60;&#x60;) and treats the &#x60;&#x60;X-API-Key&#x60;&#x60; header as the *UUID id* of one of the user&#39;s API keys — NOT the raw secret. Ownership is verified server-side (&#x60;&#x60;APIKeyModel.id &#x3D;&#x3D; header AND user_id &#x3D;&#x3D; jwt&#x60;&#x60;), so the raw secret never leaves the server. Mirrors &#x60;&#x60;POST /v1/filetag/user&#x60;&#x60;. Deliberately, the key&#39;s IP allowlist is NOT enforced on this path: the console runs from arbitrary user IPs, and JWT auth + server-side ownership is the control — the same accepted convention as &#x60;&#x60;/v1/filetag/user&#x60;&#x60;.  The minted token is identical to the server-to-server variant: signed, query-only, TTL-clamped, tenant pinned from the key.
+        /// </remarks>
+        /// <exception cref="Gemina.Sdk.Client.ApiException">Thrown when fails to make API call</exception>
+        /// <param name="sessionTokenInDTO"></param>
+        /// <param name="operationIndex">Index associated with the operation.</param>
+        /// <returns>ApiResponse of SessionTokenOutDTO</returns>
+        ApiResponse<SessionTokenOutDTO> MintRetrievalTokenUserWithHttpInfo(SessionTokenInDTO sessionTokenInDTO, int operationIndex = 0);
         #endregion Synchronous Operations
     }
 
@@ -84,6 +107,31 @@ namespace Gemina.Sdk.Api
         /// <param name="cancellationToken">Cancellation Token to cancel the request.</param>
         /// <returns>Task of ApiResponse (SessionTokenOutDTO)</returns>
         System.Threading.Tasks.Task<ApiResponse<SessionTokenOutDTO>> MintRetrievalTokenWithHttpInfoAsync(SessionTokenInDTO sessionTokenInDTO, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default);
+        /// <summary>
+        /// Mint Retrieval Token User
+        /// </summary>
+        /// <remarks>
+        /// Browser-safe variant of &#x60;&#x60;POST /v1/sessions/token&#x60;&#x60; for logged-in users.  Authenticates with the caller&#39;s JWT (&#x60;&#x60;Authorization: Bearer &lt;jwt&gt;&#x60;&#x60;) and treats the &#x60;&#x60;X-API-Key&#x60;&#x60; header as the *UUID id* of one of the user&#39;s API keys — NOT the raw secret. Ownership is verified server-side (&#x60;&#x60;APIKeyModel.id &#x3D;&#x3D; header AND user_id &#x3D;&#x3D; jwt&#x60;&#x60;), so the raw secret never leaves the server. Mirrors &#x60;&#x60;POST /v1/filetag/user&#x60;&#x60;. Deliberately, the key&#39;s IP allowlist is NOT enforced on this path: the console runs from arbitrary user IPs, and JWT auth + server-side ownership is the control — the same accepted convention as &#x60;&#x60;/v1/filetag/user&#x60;&#x60;.  The minted token is identical to the server-to-server variant: signed, query-only, TTL-clamped, tenant pinned from the key.
+        /// </remarks>
+        /// <exception cref="Gemina.Sdk.Client.ApiException">Thrown when fails to make API call</exception>
+        /// <param name="sessionTokenInDTO"></param>
+        /// <param name="operationIndex">Index associated with the operation.</param>
+        /// <param name="cancellationToken">Cancellation Token to cancel the request.</param>
+        /// <returns>Task of SessionTokenOutDTO</returns>
+        System.Threading.Tasks.Task<SessionTokenOutDTO> MintRetrievalTokenUserAsync(SessionTokenInDTO sessionTokenInDTO, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Mint Retrieval Token User
+        /// </summary>
+        /// <remarks>
+        /// Browser-safe variant of &#x60;&#x60;POST /v1/sessions/token&#x60;&#x60; for logged-in users.  Authenticates with the caller&#39;s JWT (&#x60;&#x60;Authorization: Bearer &lt;jwt&gt;&#x60;&#x60;) and treats the &#x60;&#x60;X-API-Key&#x60;&#x60; header as the *UUID id* of one of the user&#39;s API keys — NOT the raw secret. Ownership is verified server-side (&#x60;&#x60;APIKeyModel.id &#x3D;&#x3D; header AND user_id &#x3D;&#x3D; jwt&#x60;&#x60;), so the raw secret never leaves the server. Mirrors &#x60;&#x60;POST /v1/filetag/user&#x60;&#x60;. Deliberately, the key&#39;s IP allowlist is NOT enforced on this path: the console runs from arbitrary user IPs, and JWT auth + server-side ownership is the control — the same accepted convention as &#x60;&#x60;/v1/filetag/user&#x60;&#x60;.  The minted token is identical to the server-to-server variant: signed, query-only, TTL-clamped, tenant pinned from the key.
+        /// </remarks>
+        /// <exception cref="Gemina.Sdk.Client.ApiException">Thrown when fails to make API call</exception>
+        /// <param name="sessionTokenInDTO"></param>
+        /// <param name="operationIndex">Index associated with the operation.</param>
+        /// <param name="cancellationToken">Cancellation Token to cancel the request.</param>
+        /// <returns>Task of ApiResponse (SessionTokenOutDTO)</returns>
+        System.Threading.Tasks.Task<ApiResponse<SessionTokenOutDTO>> MintRetrievalTokenUserWithHttpInfoAsync(SessionTokenInDTO sessionTokenInDTO, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default);
         #endregion Asynchronous Operations
     }
 
@@ -352,6 +400,195 @@ namespace Gemina.Sdk.Api
             if (this.ExceptionFactory != null)
             {
                 Exception _exception = this.ExceptionFactory("MintRetrievalToken", localVarResponse);
+                if (_exception != null)
+                {
+                    throw _exception;
+                }
+            }
+
+            return localVarResponse;
+        }
+
+        /// <summary>
+        /// Mint Retrieval Token User Browser-safe variant of &#x60;&#x60;POST /v1/sessions/token&#x60;&#x60; for logged-in users.  Authenticates with the caller&#39;s JWT (&#x60;&#x60;Authorization: Bearer &lt;jwt&gt;&#x60;&#x60;) and treats the &#x60;&#x60;X-API-Key&#x60;&#x60; header as the *UUID id* of one of the user&#39;s API keys — NOT the raw secret. Ownership is verified server-side (&#x60;&#x60;APIKeyModel.id &#x3D;&#x3D; header AND user_id &#x3D;&#x3D; jwt&#x60;&#x60;), so the raw secret never leaves the server. Mirrors &#x60;&#x60;POST /v1/filetag/user&#x60;&#x60;. Deliberately, the key&#39;s IP allowlist is NOT enforced on this path: the console runs from arbitrary user IPs, and JWT auth + server-side ownership is the control — the same accepted convention as &#x60;&#x60;/v1/filetag/user&#x60;&#x60;.  The minted token is identical to the server-to-server variant: signed, query-only, TTL-clamped, tenant pinned from the key.
+        /// </summary>
+        /// <exception cref="Gemina.Sdk.Client.ApiException">Thrown when fails to make API call</exception>
+        /// <param name="sessionTokenInDTO"></param>
+        /// <param name="operationIndex">Index associated with the operation.</param>
+        /// <returns>SessionTokenOutDTO</returns>
+        public SessionTokenOutDTO MintRetrievalTokenUser(SessionTokenInDTO sessionTokenInDTO, int operationIndex = 0)
+        {
+            Gemina.Sdk.Client.ApiResponse<SessionTokenOutDTO> localVarResponse = MintRetrievalTokenUserWithHttpInfo(sessionTokenInDTO);
+            return localVarResponse.Data;
+        }
+
+        /// <summary>
+        /// Mint Retrieval Token User Browser-safe variant of &#x60;&#x60;POST /v1/sessions/token&#x60;&#x60; for logged-in users.  Authenticates with the caller&#39;s JWT (&#x60;&#x60;Authorization: Bearer &lt;jwt&gt;&#x60;&#x60;) and treats the &#x60;&#x60;X-API-Key&#x60;&#x60; header as the *UUID id* of one of the user&#39;s API keys — NOT the raw secret. Ownership is verified server-side (&#x60;&#x60;APIKeyModel.id &#x3D;&#x3D; header AND user_id &#x3D;&#x3D; jwt&#x60;&#x60;), so the raw secret never leaves the server. Mirrors &#x60;&#x60;POST /v1/filetag/user&#x60;&#x60;. Deliberately, the key&#39;s IP allowlist is NOT enforced on this path: the console runs from arbitrary user IPs, and JWT auth + server-side ownership is the control — the same accepted convention as &#x60;&#x60;/v1/filetag/user&#x60;&#x60;.  The minted token is identical to the server-to-server variant: signed, query-only, TTL-clamped, tenant pinned from the key.
+        /// </summary>
+        /// <exception cref="Gemina.Sdk.Client.ApiException">Thrown when fails to make API call</exception>
+        /// <param name="sessionTokenInDTO"></param>
+        /// <param name="operationIndex">Index associated with the operation.</param>
+        /// <returns>ApiResponse of SessionTokenOutDTO</returns>
+        public Gemina.Sdk.Client.ApiResponse<SessionTokenOutDTO> MintRetrievalTokenUserWithHttpInfo(SessionTokenInDTO sessionTokenInDTO, int operationIndex = 0)
+        {
+            // verify the required parameter 'sessionTokenInDTO' is set
+            if (sessionTokenInDTO == null)
+            {
+                throw new Gemina.Sdk.Client.ApiException(400, "Missing required parameter 'sessionTokenInDTO' when calling SessionsApi->MintRetrievalTokenUser");
+            }
+
+            Gemina.Sdk.Client.RequestOptions localVarRequestOptions = new Gemina.Sdk.Client.RequestOptions();
+
+            string[] _contentTypes = new string[] {
+                "application/json"
+            };
+
+            // to determine the Accept header
+            string[] _accepts = new string[] {
+                "application/json"
+            };
+
+            var localVarContentType = Gemina.Sdk.Client.ClientUtils.SelectHeaderContentType(_contentTypes);
+            var localVarMultipartFormData = localVarContentType == "multipart/form-data";
+            if (localVarContentType != null)
+            {
+                localVarRequestOptions.HeaderParameters.Add("Content-Type", localVarContentType);
+            }
+
+            var localVarAccept = Gemina.Sdk.Client.ClientUtils.SelectHeaderAccept(_accepts);
+            if (localVarAccept != null)
+            {
+                localVarRequestOptions.HeaderParameters.Add("Accept", localVarAccept);
+            }
+
+            localVarRequestOptions.Data = sessionTokenInDTO;
+
+            localVarRequestOptions.Operation = "SessionsApi.MintRetrievalTokenUser";
+            localVarRequestOptions.OperationIndex = operationIndex;
+
+            // authentication (APIKeyHeader) required
+            if (!string.IsNullOrEmpty(this.Configuration.GetApiKeyWithPrefix("X-API-Key")))
+            {
+                localVarRequestOptions.HeaderParameters.Add("X-API-Key", this.Configuration.GetApiKeyWithPrefix("X-API-Key"));
+            }
+            // authentication (OAuth2PasswordBearer) required
+            // oauth required
+            if (!localVarRequestOptions.HeaderParameters.ContainsKey("Authorization"))
+            {
+                if (!string.IsNullOrEmpty(this.Configuration.AccessToken))
+                {
+                    localVarRequestOptions.HeaderParameters.Add("Authorization", "Bearer " + this.Configuration.AccessToken);
+                }
+                else if (!string.IsNullOrEmpty(this.Configuration.OAuthTokenUrl) &&
+                         !string.IsNullOrEmpty(this.Configuration.OAuthClientId) &&
+                         !string.IsNullOrEmpty(this.Configuration.OAuthClientSecret) &&
+                         this.Configuration.OAuthFlow != null)
+                {
+                    localVarRequestOptions.OAuth = true;
+                }
+            }
+
+            // make the HTTP request
+            var localVarResponse = this.Client.Post<SessionTokenOutDTO>("/api/v1/sessions/token/user", localVarRequestOptions, this.Configuration);
+            if (this.ExceptionFactory != null)
+            {
+                Exception _exception = this.ExceptionFactory("MintRetrievalTokenUser", localVarResponse);
+                if (_exception != null)
+                {
+                    throw _exception;
+                }
+            }
+
+            return localVarResponse;
+        }
+
+        /// <summary>
+        /// Mint Retrieval Token User Browser-safe variant of &#x60;&#x60;POST /v1/sessions/token&#x60;&#x60; for logged-in users.  Authenticates with the caller&#39;s JWT (&#x60;&#x60;Authorization: Bearer &lt;jwt&gt;&#x60;&#x60;) and treats the &#x60;&#x60;X-API-Key&#x60;&#x60; header as the *UUID id* of one of the user&#39;s API keys — NOT the raw secret. Ownership is verified server-side (&#x60;&#x60;APIKeyModel.id &#x3D;&#x3D; header AND user_id &#x3D;&#x3D; jwt&#x60;&#x60;), so the raw secret never leaves the server. Mirrors &#x60;&#x60;POST /v1/filetag/user&#x60;&#x60;. Deliberately, the key&#39;s IP allowlist is NOT enforced on this path: the console runs from arbitrary user IPs, and JWT auth + server-side ownership is the control — the same accepted convention as &#x60;&#x60;/v1/filetag/user&#x60;&#x60;.  The minted token is identical to the server-to-server variant: signed, query-only, TTL-clamped, tenant pinned from the key.
+        /// </summary>
+        /// <exception cref="Gemina.Sdk.Client.ApiException">Thrown when fails to make API call</exception>
+        /// <param name="sessionTokenInDTO"></param>
+        /// <param name="operationIndex">Index associated with the operation.</param>
+        /// <param name="cancellationToken">Cancellation Token to cancel the request.</param>
+        /// <returns>Task of SessionTokenOutDTO</returns>
+        public async System.Threading.Tasks.Task<SessionTokenOutDTO> MintRetrievalTokenUserAsync(SessionTokenInDTO sessionTokenInDTO, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default)
+        {
+            Gemina.Sdk.Client.ApiResponse<SessionTokenOutDTO> localVarResponse = await MintRetrievalTokenUserWithHttpInfoAsync(sessionTokenInDTO, operationIndex, cancellationToken).ConfigureAwait(false);
+            return localVarResponse.Data;
+        }
+
+        /// <summary>
+        /// Mint Retrieval Token User Browser-safe variant of &#x60;&#x60;POST /v1/sessions/token&#x60;&#x60; for logged-in users.  Authenticates with the caller&#39;s JWT (&#x60;&#x60;Authorization: Bearer &lt;jwt&gt;&#x60;&#x60;) and treats the &#x60;&#x60;X-API-Key&#x60;&#x60; header as the *UUID id* of one of the user&#39;s API keys — NOT the raw secret. Ownership is verified server-side (&#x60;&#x60;APIKeyModel.id &#x3D;&#x3D; header AND user_id &#x3D;&#x3D; jwt&#x60;&#x60;), so the raw secret never leaves the server. Mirrors &#x60;&#x60;POST /v1/filetag/user&#x60;&#x60;. Deliberately, the key&#39;s IP allowlist is NOT enforced on this path: the console runs from arbitrary user IPs, and JWT auth + server-side ownership is the control — the same accepted convention as &#x60;&#x60;/v1/filetag/user&#x60;&#x60;.  The minted token is identical to the server-to-server variant: signed, query-only, TTL-clamped, tenant pinned from the key.
+        /// </summary>
+        /// <exception cref="Gemina.Sdk.Client.ApiException">Thrown when fails to make API call</exception>
+        /// <param name="sessionTokenInDTO"></param>
+        /// <param name="operationIndex">Index associated with the operation.</param>
+        /// <param name="cancellationToken">Cancellation Token to cancel the request.</param>
+        /// <returns>Task of ApiResponse (SessionTokenOutDTO)</returns>
+        public async System.Threading.Tasks.Task<Gemina.Sdk.Client.ApiResponse<SessionTokenOutDTO>> MintRetrievalTokenUserWithHttpInfoAsync(SessionTokenInDTO sessionTokenInDTO, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default)
+        {
+            // verify the required parameter 'sessionTokenInDTO' is set
+            if (sessionTokenInDTO == null)
+            {
+                throw new Gemina.Sdk.Client.ApiException(400, "Missing required parameter 'sessionTokenInDTO' when calling SessionsApi->MintRetrievalTokenUser");
+            }
+
+
+            Gemina.Sdk.Client.RequestOptions localVarRequestOptions = new Gemina.Sdk.Client.RequestOptions();
+
+            string[] _contentTypes = new string[] {
+                "application/json"
+            };
+
+            // to determine the Accept header
+            string[] _accepts = new string[] {
+                "application/json"
+            };
+
+            var localVarContentType = Gemina.Sdk.Client.ClientUtils.SelectHeaderContentType(_contentTypes);
+            if (localVarContentType != null)
+            {
+                localVarRequestOptions.HeaderParameters.Add("Content-Type", localVarContentType);
+            }
+
+            var localVarAccept = Gemina.Sdk.Client.ClientUtils.SelectHeaderAccept(_accepts);
+            if (localVarAccept != null)
+            {
+                localVarRequestOptions.HeaderParameters.Add("Accept", localVarAccept);
+            }
+
+            localVarRequestOptions.Data = sessionTokenInDTO;
+
+            localVarRequestOptions.Operation = "SessionsApi.MintRetrievalTokenUser";
+            localVarRequestOptions.OperationIndex = operationIndex;
+
+            // authentication (APIKeyHeader) required
+            if (!string.IsNullOrEmpty(this.Configuration.GetApiKeyWithPrefix("X-API-Key")))
+            {
+                localVarRequestOptions.HeaderParameters.Add("X-API-Key", this.Configuration.GetApiKeyWithPrefix("X-API-Key"));
+            }
+            // authentication (OAuth2PasswordBearer) required
+            // oauth required
+            if (!localVarRequestOptions.HeaderParameters.ContainsKey("Authorization"))
+            {
+                if (!string.IsNullOrEmpty(this.Configuration.AccessToken))
+                {
+                    localVarRequestOptions.HeaderParameters.Add("Authorization", "Bearer " + this.Configuration.AccessToken);
+                }
+                else if (!string.IsNullOrEmpty(this.Configuration.OAuthTokenUrl) &&
+                         !string.IsNullOrEmpty(this.Configuration.OAuthClientId) &&
+                         !string.IsNullOrEmpty(this.Configuration.OAuthClientSecret) &&
+                         this.Configuration.OAuthFlow != null)
+                {
+                    localVarRequestOptions.OAuth = true;
+                }
+            }
+
+            // make the HTTP request
+            var localVarResponse = await this.AsynchronousClient.PostAsync<SessionTokenOutDTO>("/api/v1/sessions/token/user", localVarRequestOptions, this.Configuration, cancellationToken).ConfigureAwait(false);
+
+            if (this.ExceptionFactory != null)
+            {
+                Exception _exception = this.ExceptionFactory("MintRetrievalTokenUser", localVarResponse);
                 if (_exception != null)
                 {
                     throw _exception;

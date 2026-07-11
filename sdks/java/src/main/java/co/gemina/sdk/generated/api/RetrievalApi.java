@@ -30,6 +30,7 @@ import java.io.IOException;
 import co.gemina.sdk.generated.model.HTTPValidationError;
 import co.gemina.sdk.generated.model.RetrievalAggregateInDTO;
 import co.gemina.sdk.generated.model.RetrievalAggregateOutDTO;
+import co.gemina.sdk.generated.model.RetrievalFieldsOutDTO;
 import co.gemina.sdk.generated.model.RetrievalQueryInDTO;
 import co.gemina.sdk.generated.model.RetrievalQueryOutDTO;
 import co.gemina.sdk.generated.model.RetrievalStatusOutDTO;
@@ -209,6 +210,127 @@ public class RetrievalApi {
         return localVarCall;
     }
     /**
+     * Build call for retrievalFields
+     * @param _callback Callback for upload/download progress
+     * @return Call to execute
+     * @throws ApiException If fail to serialize the request body object
+     * @http.response.details
+     <table border="1">
+       <caption>Response Details</caption>
+        <tr><td> Status Code </td><td> Description </td><td> Response Headers </td></tr>
+        <tr><td> 200 </td><td> Successful Response </td><td>  -  </td></tr>
+        <tr><td> 422 </td><td> Validation Error </td><td>  -  </td></tr>
+     </table>
+     */
+    public okhttp3.Call retrievalFieldsCall(final ApiCallback _callback) throws ApiException {
+        String basePath = null;
+        // Operation Servers
+        String[] localBasePaths = new String[] {  };
+
+        // Determine Base Path to Use
+        if (localCustomBaseUrl != null){
+            basePath = localCustomBaseUrl;
+        } else if ( localBasePaths.length > 0 ) {
+            basePath = localBasePaths[localHostIndex];
+        } else {
+            basePath = null;
+        }
+
+        Object localVarPostBody = null;
+
+        // create path and map variables
+        String localVarPath = "/api/v1/retrieval/fields";
+
+        List<Pair> localVarQueryParams = new ArrayList<Pair>();
+        List<Pair> localVarCollectionQueryParams = new ArrayList<Pair>();
+        Map<String, String> localVarHeaderParams = new HashMap<String, String>();
+        Map<String, String> localVarCookieParams = new HashMap<String, String>();
+        Map<String, Object> localVarFormParams = new HashMap<String, Object>();
+
+        final String[] localVarAccepts = {
+            "application/json"
+        };
+        final String localVarAccept = localVarApiClient.selectHeaderAccept(localVarAccepts);
+        if (localVarAccept != null) {
+            localVarHeaderParams.put("Accept", localVarAccept);
+        }
+
+        final String[] localVarContentTypes = {
+        };
+        final String localVarContentType = localVarApiClient.selectHeaderContentType(localVarContentTypes);
+        if (localVarContentType != null) {
+            localVarHeaderParams.put("Content-Type", localVarContentType);
+        }
+
+        String[] localVarAuthNames = new String[] { "APIKeyHeader", "OAuth2PasswordBearer" };
+        return localVarApiClient.buildCall(basePath, localVarPath, "GET", localVarQueryParams, localVarCollectionQueryParams, localVarPostBody, localVarHeaderParams, localVarCookieParams, localVarFormParams, localVarAuthNames, _callback);
+    }
+
+    @SuppressWarnings("rawtypes")
+    private okhttp3.Call retrievalFieldsValidateBeforeCall(final ApiCallback _callback) throws ApiException {
+        return retrievalFieldsCall(_callback);
+
+    }
+
+    /**
+     * Retrieval Fields
+     * Observed structured field NAMES per document type (self-query catalog).  Names only — no values; tenant-scoped like every retrieval path.
+     * @return RetrievalFieldsOutDTO
+     * @throws ApiException If fail to call the API, e.g. server error or cannot deserialize the response body
+     * @http.response.details
+     <table border="1">
+       <caption>Response Details</caption>
+        <tr><td> Status Code </td><td> Description </td><td> Response Headers </td></tr>
+        <tr><td> 200 </td><td> Successful Response </td><td>  -  </td></tr>
+        <tr><td> 422 </td><td> Validation Error </td><td>  -  </td></tr>
+     </table>
+     */
+    public RetrievalFieldsOutDTO retrievalFields() throws ApiException {
+        ApiResponse<RetrievalFieldsOutDTO> localVarResp = retrievalFieldsWithHttpInfo();
+        return localVarResp.getData();
+    }
+
+    /**
+     * Retrieval Fields
+     * Observed structured field NAMES per document type (self-query catalog).  Names only — no values; tenant-scoped like every retrieval path.
+     * @return ApiResponse&lt;RetrievalFieldsOutDTO&gt;
+     * @throws ApiException If fail to call the API, e.g. server error or cannot deserialize the response body
+     * @http.response.details
+     <table border="1">
+       <caption>Response Details</caption>
+        <tr><td> Status Code </td><td> Description </td><td> Response Headers </td></tr>
+        <tr><td> 200 </td><td> Successful Response </td><td>  -  </td></tr>
+        <tr><td> 422 </td><td> Validation Error </td><td>  -  </td></tr>
+     </table>
+     */
+    public ApiResponse<RetrievalFieldsOutDTO> retrievalFieldsWithHttpInfo() throws ApiException {
+        okhttp3.Call localVarCall = retrievalFieldsValidateBeforeCall(null);
+        Type localVarReturnType = new TypeToken<RetrievalFieldsOutDTO>(){}.getType();
+        return localVarApiClient.execute(localVarCall, localVarReturnType);
+    }
+
+    /**
+     * Retrieval Fields (asynchronously)
+     * Observed structured field NAMES per document type (self-query catalog).  Names only — no values; tenant-scoped like every retrieval path.
+     * @param _callback The callback to be executed when the API call finishes
+     * @return The request call
+     * @throws ApiException If fail to process the API call, e.g. serializing the request body object
+     * @http.response.details
+     <table border="1">
+       <caption>Response Details</caption>
+        <tr><td> Status Code </td><td> Description </td><td> Response Headers </td></tr>
+        <tr><td> 200 </td><td> Successful Response </td><td>  -  </td></tr>
+        <tr><td> 422 </td><td> Validation Error </td><td>  -  </td></tr>
+     </table>
+     */
+    public okhttp3.Call retrievalFieldsAsync(final ApiCallback<RetrievalFieldsOutDTO> _callback) throws ApiException {
+
+        okhttp3.Call localVarCall = retrievalFieldsValidateBeforeCall(_callback);
+        Type localVarReturnType = new TypeToken<RetrievalFieldsOutDTO>(){}.getType();
+        localVarApiClient.executeAsync(localVarCall, localVarReturnType, _callback);
+        return localVarCall;
+    }
+    /**
      * Build call for retrievalQuery
      * @param retrievalQueryInDTO  (required)
      * @param _callback Callback for upload/download progress
@@ -349,6 +471,7 @@ public class RetrievalApi {
        <caption>Response Details</caption>
         <tr><td> Status Code </td><td> Description </td><td> Response Headers </td></tr>
         <tr><td> 200 </td><td> Successful Response </td><td>  -  </td></tr>
+        <tr><td> 422 </td><td> Validation Error </td><td>  -  </td></tr>
      </table>
      */
     public okhttp3.Call retrievalStatusCall(final ApiCallback _callback) throws ApiException {
@@ -391,7 +514,7 @@ public class RetrievalApi {
             localVarHeaderParams.put("Content-Type", localVarContentType);
         }
 
-        String[] localVarAuthNames = new String[] { "APIKeyHeader" };
+        String[] localVarAuthNames = new String[] { "APIKeyHeader", "OAuth2PasswordBearer" };
         return localVarApiClient.buildCall(basePath, localVarPath, "GET", localVarQueryParams, localVarCollectionQueryParams, localVarPostBody, localVarHeaderParams, localVarCookieParams, localVarFormParams, localVarAuthNames, _callback);
     }
 
@@ -403,7 +526,7 @@ public class RetrievalApi {
 
     /**
      * Retrieval Status
-     * How many of the tenant&#39;s documents are currently indexed.
+     * How many of the tenant&#39;s documents are currently indexed.  Same dual auth as /query: X-API-Key OR a Bearer retrieval token — but only an *unpinned* (whole-account) token is accepted. An end-user-pinned token gets 403: the account-wide index size must not leak into a single end-user&#39;s browser session.
      * @return RetrievalStatusOutDTO
      * @throws ApiException If fail to call the API, e.g. server error or cannot deserialize the response body
      * @http.response.details
@@ -411,6 +534,7 @@ public class RetrievalApi {
        <caption>Response Details</caption>
         <tr><td> Status Code </td><td> Description </td><td> Response Headers </td></tr>
         <tr><td> 200 </td><td> Successful Response </td><td>  -  </td></tr>
+        <tr><td> 422 </td><td> Validation Error </td><td>  -  </td></tr>
      </table>
      */
     public RetrievalStatusOutDTO retrievalStatus() throws ApiException {
@@ -420,7 +544,7 @@ public class RetrievalApi {
 
     /**
      * Retrieval Status
-     * How many of the tenant&#39;s documents are currently indexed.
+     * How many of the tenant&#39;s documents are currently indexed.  Same dual auth as /query: X-API-Key OR a Bearer retrieval token — but only an *unpinned* (whole-account) token is accepted. An end-user-pinned token gets 403: the account-wide index size must not leak into a single end-user&#39;s browser session.
      * @return ApiResponse&lt;RetrievalStatusOutDTO&gt;
      * @throws ApiException If fail to call the API, e.g. server error or cannot deserialize the response body
      * @http.response.details
@@ -428,6 +552,7 @@ public class RetrievalApi {
        <caption>Response Details</caption>
         <tr><td> Status Code </td><td> Description </td><td> Response Headers </td></tr>
         <tr><td> 200 </td><td> Successful Response </td><td>  -  </td></tr>
+        <tr><td> 422 </td><td> Validation Error </td><td>  -  </td></tr>
      </table>
      */
     public ApiResponse<RetrievalStatusOutDTO> retrievalStatusWithHttpInfo() throws ApiException {
@@ -438,7 +563,7 @@ public class RetrievalApi {
 
     /**
      * Retrieval Status (asynchronously)
-     * How many of the tenant&#39;s documents are currently indexed.
+     * How many of the tenant&#39;s documents are currently indexed.  Same dual auth as /query: X-API-Key OR a Bearer retrieval token — but only an *unpinned* (whole-account) token is accepted. An end-user-pinned token gets 403: the account-wide index size must not leak into a single end-user&#39;s browser session.
      * @param _callback The callback to be executed when the API call finishes
      * @return The request call
      * @throws ApiException If fail to process the API call, e.g. serializing the request body object
@@ -447,6 +572,7 @@ public class RetrievalApi {
        <caption>Response Details</caption>
         <tr><td> Status Code </td><td> Description </td><td> Response Headers </td></tr>
         <tr><td> 200 </td><td> Successful Response </td><td>  -  </td></tr>
+        <tr><td> 422 </td><td> Validation Error </td><td>  -  </td></tr>
      </table>
      */
     public okhttp3.Call retrievalStatusAsync(final ApiCallback<RetrievalStatusOutDTO> _callback) throws ApiException {

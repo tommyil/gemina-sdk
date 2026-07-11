@@ -33,6 +33,10 @@ export interface ChatQueryRequest {
     chatQueryInDTO: ChatQueryInDTO;
 }
 
+export interface DeleteChatSessionRequest {
+    sessionId: string;
+}
+
 /**
  * 
  */
@@ -77,7 +81,7 @@ export class ChatApi extends runtime.BaseAPI {
     }
 
     /**
-     * Ask a natural-language question about the tenant\'s indexed documents.  Returns a grounded answer with documentId citations; ``confident=false`` means the underlying data could not support a reliable answer.
+     * Ask a natural-language question about the tenant\'s indexed documents.  Returns a grounded answer with documentId citations; ``confident=false`` means the underlying data could not support a reliable answer. Send back the returned ``sessionId`` to continue the conversation; omit it to start a new one.
      * Chat Query
      */
     async chatQueryRaw(requestParameters: ChatQueryRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<ChatQueryOutDTO>> {
@@ -88,12 +92,67 @@ export class ChatApi extends runtime.BaseAPI {
     }
 
     /**
-     * Ask a natural-language question about the tenant\'s indexed documents.  Returns a grounded answer with documentId citations; ``confident=false`` means the underlying data could not support a reliable answer.
+     * Ask a natural-language question about the tenant\'s indexed documents.  Returns a grounded answer with documentId citations; ``confident=false`` means the underlying data could not support a reliable answer. Send back the returned ``sessionId`` to continue the conversation; omit it to start a new one.
      * Chat Query
      */
     async chatQuery(requestParameters: ChatQueryRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<ChatQueryOutDTO> {
         const response = await this.chatQueryRaw(requestParameters, initOverrides);
         return await response.value();
+    }
+
+    /**
+     * Creates request options for deleteChatSession without sending the request
+     */
+    async deleteChatSessionRequestOpts(requestParameters: DeleteChatSessionRequest): Promise<runtime.RequestOpts> {
+        if (requestParameters['sessionId'] == null) {
+            throw new runtime.RequiredError(
+                'sessionId',
+                'Required parameter "sessionId" was null or undefined when calling deleteChatSession().'
+            );
+        }
+
+        const queryParameters: any = {};
+
+        const headerParameters: runtime.HTTPHeaders = {};
+
+        if (this.configuration && this.configuration.apiKey) {
+            headerParameters["X-API-Key"] = await this.configuration.apiKey("X-API-Key"); // APIKeyHeader authentication
+        }
+
+        if (this.configuration && this.configuration.accessToken) {
+            // oauth required
+            headerParameters["Authorization"] = await this.configuration.accessToken("OAuth2PasswordBearer", []);
+        }
+
+
+        let urlPath = `/api/v1/chat/sessions/{session_id}`;
+        urlPath = urlPath.replace('{session_id}', encodeURIComponent(String(requestParameters['sessionId'])));
+
+        return {
+            path: urlPath,
+            method: 'DELETE',
+            headers: headerParameters,
+            query: queryParameters,
+        };
+    }
+
+    /**
+     * End a conversation explicitly (\'new chat\' hygiene).  404 for unknown, expired, or foreign sessions alike — ids can\'t be probed.
+     * Delete Chat Session
+     */
+    async deleteChatSessionRaw(requestParameters: DeleteChatSessionRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<void>> {
+        const requestOptions = await this.deleteChatSessionRequestOpts(requestParameters);
+        const response = await this.request(requestOptions, initOverrides);
+
+        return new runtime.VoidApiResponse(response);
+    }
+
+    /**
+     * End a conversation explicitly (\'new chat\' hygiene).  404 for unknown, expired, or foreign sessions alike — ids can\'t be probed.
+     * Delete Chat Session
+     */
+    async deleteChatSession(requestParameters: DeleteChatSessionRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<void> {
+        await this.deleteChatSessionRaw(requestParameters, initOverrides);
     }
 
 }

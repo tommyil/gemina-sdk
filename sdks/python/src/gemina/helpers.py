@@ -15,6 +15,7 @@ import time
 import uuid
 from dataclasses import dataclass
 from typing import Any, List, Optional, Tuple, Union
+from uuid import UUID
 
 import httpx
 
@@ -23,6 +24,8 @@ from gemina.errors import GeminaError, GeminaProcessingError, GeminaTimeoutError
 from gemina.generated.api_client import ApiClient
 from gemina.generated.configuration import Configuration
 from gemina.generated.exceptions import ApiException
+from gemina.generated.models.chat_query_in_dto import ChatQueryInDTO
+from gemina.generated.models.chat_query_out_dto import ChatQueryOutDTO
 from gemina.generated.models.document_processing_result_out_dto import (
     DocumentProcessingResultOutDTO,
 )
@@ -60,6 +63,58 @@ class UrlSource:
     """
 
     url: str
+
+
+class GeminaChatConversation:
+    """A stateful chat conversation that threads the server-issued
+    ``session_id`` across turns, so follow-up questions keep context — you
+    never touch the id yourself::
+
+        chat = client.conversation()
+        await chat.send("How much did I spend at Acme in Q1?")
+        await chat.send("And the biggest invoice?")  # remembers Acme / Q1
+        await chat.delete()                           # end it server-side
+
+    A turn that carries a stale session (24h idle TTL, or after ``reset``)
+    fails with the API's ``404 CHAT_SESSION_NOT_FOUND``; catch it, call
+    ``reset()``, and resend to continue in a fresh conversation.
+    """
+
+    def __init__(self, chat: Any, end_user_id: Optional[str] = None) -> None:
+        self._chat = chat
+        self._end_user_id = end_user_id
+        self._current_session_id: Optional[UUID] = None
+
+    @property
+    def session_id(self) -> Optional[UUID]:
+        """The current conversation id — ``None`` before the first turn or
+        after a ``reset``."""
+        return self._current_session_id
+
+    async def send(self, message: str) -> ChatQueryOutDTO:
+        """Send one turn; its answer continues this conversation."""
+        result = await self._chat.chat_query(
+            ChatQueryInDTO(
+                message=message,
+                end_user_id=self._end_user_id,
+                session_id=self._current_session_id,
+            )
+        )
+        if result.session_id is not None:
+            self._current_session_id = result.session_id
+        return result
+
+    def reset(self) -> None:
+        """Forget the conversation locally; the next ``send`` starts a new one."""
+        self._current_session_id = None
+
+    async def delete(self) -> None:
+        """End the conversation: delete it server-side (mirrors a 'New chat'
+        action) and forget it locally. No-op if no turn has been sent yet."""
+        session_id = self._current_session_id
+        self._current_session_id = None
+        if session_id is not None:
+            await self._chat.delete_chat_session(session_id)
 
 
 class GeminaClient:
@@ -218,6 +273,23 @@ class GeminaClient:
 
             self._billing = BillingApi(self.api_client)
         return self._billing
+
+    # -- stateful chat convenience -------------------------------------------
+
+    def conversation(
+        self, *, end_user_id: Optional[str] = None
+    ) -> GeminaChatConversation:
+        """Start a stateful chat ``GeminaChatConversation`` that threads the
+        conversation ``session_id`` across turns for you, so follow-up
+        questions keep context. The full one-shot surface stays on
+        ``client.chat``.
+
+        Args:
+            end_user_id: End-user id forwarded with each turn (API-key path
+                only; on the session-token path the token's signed scope wins
+                server-side).
+        """
+        return GeminaChatConversation(self.chat, end_user_id)
 
     # -- the headline one-call flow ------------------------------------------
 

@@ -49,6 +49,18 @@ export interface ContractOutDTO {
     billingCycleDay: number;
     /**
      * 
+     * @type {number}
+     * @memberof ContractOutDTO
+     */
+    chatIncludedPerCycle?: number;
+    /**
+     * 
+     * @type {string}
+     * @memberof ContractOutDTO
+     */
+    chatPriceCents?: string;
+    /**
+     * 
      * @type {string}
      * @memberof ContractOutDTO
      */
@@ -67,10 +79,22 @@ export interface ContractOutDTO {
     createdAtTimestamp?: number | null;
     /**
      * 
+     * @type {boolean}
+     * @memberof ContractOutDTO
+     */
+    documentIntelligenceEnabled?: boolean;
+    /**
+     * 
      * @type {string}
      * @memberof ContractOutDTO
      */
     id: string;
+    /**
+     * 
+     * @type {string}
+     * @memberof ContractOutDTO
+     */
+    indexPriceCents?: string;
     /**
      * 
      * @type {number}
@@ -109,10 +133,28 @@ export interface ContractOutDTO {
     requiresManualApproval: boolean;
     /**
      * 
+     * @type {number}
+     * @memberof ContractOutDTO
+     */
+    retrievalRateLimitPerSecond?: number;
+    /**
+     * 
      * @type {ContractStatus}
      * @memberof ContractOutDTO
      */
     status: ContractStatus;
+    /**
+     * 
+     * @type {string}
+     * @memberof ContractOutDTO
+     */
+    storageIncludedGb?: string;
+    /**
+     * 
+     * @type {string}
+     * @memberof ContractOutDTO
+     */
+    storagePricePerGbMonthCents?: string;
     /**
      * 
      * @type {string}
@@ -158,17 +200,24 @@ export function ContractOutDTOFromJSONTyped(json: any, ignoreDiscriminator: bool
     return {
         
         'billingCycleDay': json['billingCycleDay'],
+        'chatIncludedPerCycle': json['chatIncludedPerCycle'] == null ? undefined : json['chatIncludedPerCycle'],
+        'chatPriceCents': json['chatPriceCents'] == null ? undefined : json['chatPriceCents'],
         'checkoutUrl': json['checkoutUrl'] == null ? undefined : json['checkoutUrl'],
         'createdAt': json['createdAt'] == null ? undefined : (new Date(json['createdAt'])),
         'createdAtTimestamp': json['createdAtTimestamp'] == null ? undefined : json['createdAtTimestamp'],
+        'documentIntelligenceEnabled': json['documentIntelligenceEnabled'] == null ? undefined : json['documentIntelligenceEnabled'],
         'id': json['id'],
+        'indexPriceCents': json['indexPriceCents'] == null ? undefined : json['indexPriceCents'],
         'maxMonthlyExtractions': json['maxMonthlyExtractions'] == null ? undefined : json['maxMonthlyExtractions'],
         'monthlyFiletagCredits': json['monthlyFiletagCredits'] == null ? undefined : json['monthlyFiletagCredits'],
         'paddleSubscriptionId': json['paddleSubscriptionId'] == null ? undefined : json['paddleSubscriptionId'],
         'rateCardTemplateId': json['rateCardTemplateId'] == null ? undefined : json['rateCardTemplateId'],
         'rateCards': json['rateCards'] == null ? undefined : ((json['rateCards'] as Array<any>).map(RateCardOutDTOFromJSON)),
         'requiresManualApproval': json['requiresManualApproval'],
+        'retrievalRateLimitPerSecond': json['retrievalRateLimitPerSecond'] == null ? undefined : json['retrievalRateLimitPerSecond'],
         'status': ContractStatusFromJSON(json['status']),
+        'storageIncludedGb': json['storageIncludedGb'] == null ? undefined : json['storageIncludedGb'],
+        'storagePricePerGbMonthCents': json['storagePricePerGbMonthCents'] == null ? undefined : json['storagePricePerGbMonthCents'],
         'userEmail': json['userEmail'] == null ? undefined : json['userEmail'],
         'userId': json['userId'],
         'volumeDiscountTiers': json['volumeDiscountTiers'] == null ? undefined : ((json['volumeDiscountTiers'] as Array<any>).map(VolumeDiscountTierOutDTOFromJSON)),
@@ -187,17 +236,24 @@ export function ContractOutDTOToJSONTyped(value?: ContractOutDTO | null, ignoreD
     return {
         
         'billingCycleDay': value['billingCycleDay'],
+        'chatIncludedPerCycle': value['chatIncludedPerCycle'],
+        'chatPriceCents': value['chatPriceCents'],
         'checkoutUrl': value['checkoutUrl'],
         'createdAt': value['createdAt'] == null ? value['createdAt'] : value['createdAt'].toISOString(),
         'createdAtTimestamp': value['createdAtTimestamp'],
+        'documentIntelligenceEnabled': value['documentIntelligenceEnabled'],
         'id': value['id'],
+        'indexPriceCents': value['indexPriceCents'],
         'maxMonthlyExtractions': value['maxMonthlyExtractions'],
         'monthlyFiletagCredits': value['monthlyFiletagCredits'],
         'paddleSubscriptionId': value['paddleSubscriptionId'],
         'rateCardTemplateId': value['rateCardTemplateId'],
         'rateCards': value['rateCards'] == null ? undefined : ((value['rateCards'] as Array<any>).map(RateCardOutDTOToJSON)),
         'requiresManualApproval': value['requiresManualApproval'],
+        'retrievalRateLimitPerSecond': value['retrievalRateLimitPerSecond'],
         'status': ContractStatusToJSON(value['status']),
+        'storageIncludedGb': value['storageIncludedGb'],
+        'storagePricePerGbMonthCents': value['storagePricePerGbMonthCents'],
         'userEmail': value['userEmail'],
         'userId': value['userId'],
         'volumeDiscountTiers': value['volumeDiscountTiers'] == null ? undefined : ((value['volumeDiscountTiers'] as Array<any>).map(VolumeDiscountTierOutDTOToJSON)),

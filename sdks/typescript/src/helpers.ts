@@ -12,6 +12,7 @@ import {
   SubscriptionsApi,
   TemplatesApi,
   ResponseStatus,
+  type ChatQueryOutDTO,
   type DocumentProcessingResultOutDTO,
   type ExtractionTypeModel,
   type FetchAPI,
@@ -139,6 +140,71 @@ function normalizeBaseUrl(baseUrl: string): string {
   return baseUrl.replace(/\/+$/, '');
 }
 
+/** Options for {@link GeminaClient.conversation}. */
+export interface ConversationOptions {
+  /**
+   * End-user id forwarded with each turn (API-key path only; on the
+   * session-token path the token's signed scope wins server-side).
+   */
+  endUserId?: string;
+}
+
+/**
+ * A stateful chat conversation that threads the server-issued `sessionId`
+ * across turns, so follow-up questions keep context — you never touch the id.
+ *
+ * ```ts
+ * const chat = client.conversation();
+ * await chat.send("How much did I spend at Acme in Q1?");
+ * await chat.send("And the biggest invoice?"); // remembers Acme / Q1
+ * await chat.delete();                          // end it server-side
+ * ```
+ *
+ * A turn that carries a stale session (24h idle TTL, or after `reset`) fails
+ * with the API's 404 `CHAT_SESSION_NOT_FOUND`; catch it, call `reset()`, and
+ * resend to continue in a fresh conversation.
+ */
+export class GeminaChatConversation {
+  private currentSessionId: string | undefined;
+
+  constructor(
+    private readonly chat: ChatApi,
+    private readonly endUserId?: string,
+  ) {}
+
+  /** The current conversation id — `undefined` before the first turn or after a reset. */
+  get sessionId(): string | undefined {
+    return this.currentSessionId;
+  }
+
+  /** Send one turn; its answer continues this conversation. */
+  async send(message: string): Promise<ChatQueryOutDTO> {
+    const sessionId = this.currentSessionId;
+    const result = await this.chat.chatQuery({
+      chatQueryInDTO: { message, endUserId: this.endUserId, ...(sessionId ? { sessionId } : {}) },
+    });
+    this.currentSessionId = result.sessionId ?? this.currentSessionId;
+    return result;
+  }
+
+  /** Forget the conversation locally; the next `send` starts a new one. */
+  reset(): void {
+    this.currentSessionId = undefined;
+  }
+
+  /**
+   * End the conversation: delete it server-side (mirrors a "New chat" action)
+   * and forget it locally. No-op if no turn has been sent yet.
+   */
+  async delete(): Promise<void> {
+    const sessionId = this.currentSessionId;
+    this.currentSessionId = undefined;
+    if (sessionId !== undefined) {
+      await this.chat.deleteChatSession({ sessionId });
+    }
+  }
+}
+
 /**
  * Convenience facade over the generated Gemina API client.
  *
@@ -244,6 +310,17 @@ export class GeminaClient {
   get billing(): BillingApi {
     return (this.apiCache.billing ??=
       this.apiOverrides.billing ?? new BillingApi(this.configuration));
+  }
+
+  // --- Stateful chat convenience ---
+
+  /**
+   * Start a stateful chat {@link GeminaChatConversation} that threads the
+   * conversation `sessionId` across turns for you, so follow-up questions keep
+   * context. The full one-shot surface stays on `client.chat`.
+   */
+  conversation(options: ConversationOptions = {}): GeminaChatConversation {
+    return new GeminaChatConversation(this.chat, options.endUserId);
   }
 
   // --- The headline one-call flow ---

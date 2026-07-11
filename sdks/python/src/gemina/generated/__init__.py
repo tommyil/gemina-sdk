@@ -107,6 +107,7 @@ __all__ = [
     "InvoiceStatus",
     "InvoiceType",
     "LocationInner",
+    "MatchedChunkDTO",
     "ModelType",
     "NextActionOutDTO",
     "NumberOfStoredDocumentsOutDTO",
@@ -125,6 +126,8 @@ __all__ = [
     "ResponseStatus",
     "RetrievalAggregateInDTO",
     "RetrievalAggregateOutDTO",
+    "RetrievalFieldItemDTO",
+    "RetrievalFieldsOutDTO",
     "RetrievalFiltersDTO",
     "RetrievalQueryInDTO",
     "RetrievalQueryOutDTO",
@@ -132,6 +135,8 @@ __all__ = [
     "SessionTokenInDTO",
     "SessionTokenOutDTO",
     "SortMethodModel",
+    "StorageUsageOutDTO",
+    "StructuredFilterDTO",
     "SubscribeInDTO",
     "SubscriptionOutDTO",
     "SubscriptionStatus",
@@ -156,6 +161,7 @@ __all__ = [
     "UsageSummaryOutDTO",
     "ValidationError",
     "ValidationSchemaModel",
+    "Value",
     "ValuesValue",
     "ViewMetaOutDTO",
     "VolumeDiscountTierOutDTO",
@@ -257,6 +263,7 @@ from gemina.generated.models.invoice_pdf_out_dto import InvoicePdfOutDTO as Invo
 from gemina.generated.models.invoice_status import InvoiceStatus as InvoiceStatus
 from gemina.generated.models.invoice_type import InvoiceType as InvoiceType
 from gemina.generated.models.location_inner import LocationInner as LocationInner
+from gemina.generated.models.matched_chunk_dto import MatchedChunkDTO as MatchedChunkDTO
 from gemina.generated.models.model_type import ModelType as ModelType
 from gemina.generated.models.next_action_out_dto import NextActionOutDTO as NextActionOutDTO
 from gemina.generated.models.number_of_stored_documents_out_dto import NumberOfStoredDocumentsOutDTO as NumberOfStoredDocumentsOutDTO
@@ -275,6 +282,8 @@ from gemina.generated.models.response_change_plan import ResponseChangePlan as R
 from gemina.generated.models.response_status import ResponseStatus as ResponseStatus
 from gemina.generated.models.retrieval_aggregate_in_dto import RetrievalAggregateInDTO as RetrievalAggregateInDTO
 from gemina.generated.models.retrieval_aggregate_out_dto import RetrievalAggregateOutDTO as RetrievalAggregateOutDTO
+from gemina.generated.models.retrieval_field_item_dto import RetrievalFieldItemDTO as RetrievalFieldItemDTO
+from gemina.generated.models.retrieval_fields_out_dto import RetrievalFieldsOutDTO as RetrievalFieldsOutDTO
 from gemina.generated.models.retrieval_filters_dto import RetrievalFiltersDTO as RetrievalFiltersDTO
 from gemina.generated.models.retrieval_query_in_dto import RetrievalQueryInDTO as RetrievalQueryInDTO
 from gemina.generated.models.retrieval_query_out_dto import RetrievalQueryOutDTO as RetrievalQueryOutDTO
@@ -282,6 +291,8 @@ from gemina.generated.models.retrieval_status_out_dto import RetrievalStatusOutD
 from gemina.generated.models.session_token_in_dto import SessionTokenInDTO as SessionTokenInDTO
 from gemina.generated.models.session_token_out_dto import SessionTokenOutDTO as SessionTokenOutDTO
 from gemina.generated.models.sort_method_model import SortMethodModel as SortMethodModel
+from gemina.generated.models.storage_usage_out_dto import StorageUsageOutDTO as StorageUsageOutDTO
+from gemina.generated.models.structured_filter_dto import StructuredFilterDTO as StructuredFilterDTO
 from gemina.generated.models.subscribe_in_dto import SubscribeInDTO as SubscribeInDTO
 from gemina.generated.models.subscription_out_dto import SubscriptionOutDTO as SubscriptionOutDTO
 from gemina.generated.models.subscription_status import SubscriptionStatus as SubscriptionStatus
@@ -306,6 +317,7 @@ from gemina.generated.models.usage_line_item_out_dto import UsageLineItemOutDTO 
 from gemina.generated.models.usage_summary_out_dto import UsageSummaryOutDTO as UsageSummaryOutDTO
 from gemina.generated.models.validation_error import ValidationError as ValidationError
 from gemina.generated.models.validation_schema_model import ValidationSchemaModel as ValidationSchemaModel
+from gemina.generated.models.value import Value as Value
 from gemina.generated.models.values_value import ValuesValue as ValuesValue
 from gemina.generated.models.view_meta_out_dto import ViewMetaOutDTO as ViewMetaOutDTO
 from gemina.generated.models.volume_discount_tier_out_dto import VolumeDiscountTierOutDTO as VolumeDiscountTierOutDTO

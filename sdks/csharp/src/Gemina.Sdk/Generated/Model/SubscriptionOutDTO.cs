@@ -58,6 +58,8 @@ namespace Gemina.Sdk.Model
         /// Initializes a new instance of the <see cref="SubscriptionOutDTO" /> class.
         /// </summary>
         /// <param name="cancelScheduledAt">cancelScheduledAt.</param>
+        /// <param name="chatCreditCost">chatCreditCost (default to &quot;0&quot;).</param>
+        /// <param name="chatIncludedPerCycle">chatIncludedPerCycle (default to 0).</param>
         /// <param name="createdAt">createdAt.</param>
         /// <param name="createdAtTimestamp">createdAtTimestamp.</param>
         /// <param name="creditsRemaining">creditsRemaining (required).</param>
@@ -65,8 +67,10 @@ namespace Gemina.Sdk.Model
         /// <param name="currentPeriodEnd">currentPeriodEnd.</param>
         /// <param name="currentPeriodStart">currentPeriodStart.</param>
         /// <param name="dataResidencyEnabled">dataResidencyEnabled (required).</param>
+        /// <param name="documentIntelligenceEnabled">documentIntelligenceEnabled (default to false).</param>
         /// <param name="enhancedPrivacyEnabled">enhancedPrivacyEnabled (required).</param>
         /// <param name="id">id (required).</param>
+        /// <param name="indexCreditCost">indexCreditCost (default to &quot;0&quot;).</param>
         /// <param name="ipAllowlistEnabled">ipAllowlistEnabled (required).</param>
         /// <param name="maxDataRetentionPeriod">maxDataRetentionPeriod (required).</param>
         /// <param name="maxTemplates">maxTemplates (required).</param>
@@ -75,12 +79,15 @@ namespace Gemina.Sdk.Model
         /// <param name="planId">planId (required).</param>
         /// <param name="planName">planName.</param>
         /// <param name="priceSnapshotCents">priceSnapshotCents (required).</param>
+        /// <param name="retrievalRateLimitPerSecond">retrievalRateLimitPerSecond (default to 20).</param>
         /// <param name="status">status (required).</param>
+        /// <param name="storageCreditCostPerGbMonth">storageCreditCostPerGbMonth (default to &quot;0&quot;).</param>
+        /// <param name="storageIncludedGb">storageIncludedGb (default to &quot;0&quot;).</param>
         /// <param name="supportLevel">supportLevel (required).</param>
         /// <param name="userEmail">userEmail.</param>
         /// <param name="userId">userId (required).</param>
         /// <param name="webhooksEnabled">webhooksEnabled (required).</param>
-        public SubscriptionOutDTO(DateTime? cancelScheduledAt = default, DateTime? createdAt = default, decimal? createdAtTimestamp = default, string creditsRemaining = default, int creditsSnapshot = default, DateTime? currentPeriodEnd = default, DateTime? currentPeriodStart = default, bool dataResidencyEnabled = default, bool enhancedPrivacyEnabled = default, Guid id = default, bool ipAllowlistEnabled = default, DataRetentionPeriodModel maxDataRetentionPeriod = default, int maxTemplates = default, int monthlyFiletagCredits = default, string paddleSubscriptionId = default, Guid planId = default, string planName = default, int priceSnapshotCents = default, SubscriptionStatus status = default, SupportLevel supportLevel = default, string userEmail = default, Guid userId = default, bool webhooksEnabled = default)
+        public SubscriptionOutDTO(DateTime? cancelScheduledAt = default, string chatCreditCost = @"0", int chatIncludedPerCycle = 0, DateTime? createdAt = default, decimal? createdAtTimestamp = default, string creditsRemaining = default, int creditsSnapshot = default, DateTime? currentPeriodEnd = default, DateTime? currentPeriodStart = default, bool dataResidencyEnabled = default, bool documentIntelligenceEnabled = false, bool enhancedPrivacyEnabled = default, Guid id = default, string indexCreditCost = @"0", bool ipAllowlistEnabled = default, DataRetentionPeriodModel maxDataRetentionPeriod = default, int maxTemplates = default, int monthlyFiletagCredits = default, string paddleSubscriptionId = default, Guid planId = default, string planName = default, int priceSnapshotCents = default, int retrievalRateLimitPerSecond = 20, SubscriptionStatus status = default, string storageCreditCostPerGbMonth = @"0", string storageIncludedGb = @"0", SupportLevel supportLevel = default, string userEmail = default, Guid userId = default, bool webhooksEnabled = default)
         {
             // to ensure "creditsRemaining" is required (not null)
             if (creditsRemaining == null)
@@ -103,12 +110,23 @@ namespace Gemina.Sdk.Model
             this.UserId = userId;
             this.WebhooksEnabled = webhooksEnabled;
             this.CancelScheduledAt = cancelScheduledAt;
+            // use default value if no "chatCreditCost" provided
+            this.ChatCreditCost = chatCreditCost ?? @"0";
+            this.ChatIncludedPerCycle = chatIncludedPerCycle;
             this.CreatedAt = createdAt;
             this.CreatedAtTimestamp = createdAtTimestamp;
             this.CurrentPeriodEnd = currentPeriodEnd;
             this.CurrentPeriodStart = currentPeriodStart;
+            this.DocumentIntelligenceEnabled = documentIntelligenceEnabled;
+            // use default value if no "indexCreditCost" provided
+            this.IndexCreditCost = indexCreditCost ?? @"0";
             this.PaddleSubscriptionId = paddleSubscriptionId;
             this.PlanName = planName;
+            this.RetrievalRateLimitPerSecond = retrievalRateLimitPerSecond;
+            // use default value if no "storageCreditCostPerGbMonth" provided
+            this.StorageCreditCostPerGbMonth = storageCreditCostPerGbMonth ?? @"0";
+            // use default value if no "storageIncludedGb" provided
+            this.StorageIncludedGb = storageIncludedGb ?? @"0";
             this.UserEmail = userEmail;
         }
 
@@ -117,6 +135,18 @@ namespace Gemina.Sdk.Model
         /// </summary>
         [DataMember(Name = "cancelScheduledAt", EmitDefaultValue = true)]
         public DateTime? CancelScheduledAt { get; set; }
+
+        /// <summary>
+        /// Gets or Sets ChatCreditCost
+        /// </summary>
+        [DataMember(Name = "chatCreditCost", EmitDefaultValue = false)]
+        public string ChatCreditCost { get; set; }
+
+        /// <summary>
+        /// Gets or Sets ChatIncludedPerCycle
+        /// </summary>
+        [DataMember(Name = "chatIncludedPerCycle", EmitDefaultValue = false)]
+        public int ChatIncludedPerCycle { get; set; }
 
         /// <summary>
         /// Gets or Sets CreatedAt
@@ -161,6 +191,12 @@ namespace Gemina.Sdk.Model
         public bool DataResidencyEnabled { get; set; }
 
         /// <summary>
+        /// Gets or Sets DocumentIntelligenceEnabled
+        /// </summary>
+        [DataMember(Name = "documentIntelligenceEnabled", EmitDefaultValue = true)]
+        public bool DocumentIntelligenceEnabled { get; set; }
+
+        /// <summary>
         /// Gets or Sets EnhancedPrivacyEnabled
         /// </summary>
         [DataMember(Name = "enhancedPrivacyEnabled", IsRequired = true, EmitDefaultValue = true)]
@@ -171,6 +207,12 @@ namespace Gemina.Sdk.Model
         /// </summary>
         [DataMember(Name = "id", IsRequired = true, EmitDefaultValue = true)]
         public Guid Id { get; set; }
+
+        /// <summary>
+        /// Gets or Sets IndexCreditCost
+        /// </summary>
+        [DataMember(Name = "indexCreditCost", EmitDefaultValue = false)]
+        public string IndexCreditCost { get; set; }
 
         /// <summary>
         /// Gets or Sets IpAllowlistEnabled
@@ -215,6 +257,24 @@ namespace Gemina.Sdk.Model
         public int PriceSnapshotCents { get; set; }
 
         /// <summary>
+        /// Gets or Sets RetrievalRateLimitPerSecond
+        /// </summary>
+        [DataMember(Name = "retrievalRateLimitPerSecond", EmitDefaultValue = false)]
+        public int RetrievalRateLimitPerSecond { get; set; }
+
+        /// <summary>
+        /// Gets or Sets StorageCreditCostPerGbMonth
+        /// </summary>
+        [DataMember(Name = "storageCreditCostPerGbMonth", EmitDefaultValue = false)]
+        public string StorageCreditCostPerGbMonth { get; set; }
+
+        /// <summary>
+        /// Gets or Sets StorageIncludedGb
+        /// </summary>
+        [DataMember(Name = "storageIncludedGb", EmitDefaultValue = false)]
+        public string StorageIncludedGb { get; set; }
+
+        /// <summary>
         /// Gets or Sets UserEmail
         /// </summary>
         [DataMember(Name = "userEmail", EmitDefaultValue = true)]
@@ -241,6 +301,8 @@ namespace Gemina.Sdk.Model
             StringBuilder sb = new StringBuilder();
             sb.Append("class SubscriptionOutDTO {\n");
             sb.Append("  CancelScheduledAt: ").Append(CancelScheduledAt).Append("\n");
+            sb.Append("  ChatCreditCost: ").Append(ChatCreditCost).Append("\n");
+            sb.Append("  ChatIncludedPerCycle: ").Append(ChatIncludedPerCycle).Append("\n");
             sb.Append("  CreatedAt: ").Append(CreatedAt).Append("\n");
             sb.Append("  CreatedAtTimestamp: ").Append(CreatedAtTimestamp).Append("\n");
             sb.Append("  CreditsRemaining: ").Append(CreditsRemaining).Append("\n");
@@ -248,8 +310,10 @@ namespace Gemina.Sdk.Model
             sb.Append("  CurrentPeriodEnd: ").Append(CurrentPeriodEnd).Append("\n");
             sb.Append("  CurrentPeriodStart: ").Append(CurrentPeriodStart).Append("\n");
             sb.Append("  DataResidencyEnabled: ").Append(DataResidencyEnabled).Append("\n");
+            sb.Append("  DocumentIntelligenceEnabled: ").Append(DocumentIntelligenceEnabled).Append("\n");
             sb.Append("  EnhancedPrivacyEnabled: ").Append(EnhancedPrivacyEnabled).Append("\n");
             sb.Append("  Id: ").Append(Id).Append("\n");
+            sb.Append("  IndexCreditCost: ").Append(IndexCreditCost).Append("\n");
             sb.Append("  IpAllowlistEnabled: ").Append(IpAllowlistEnabled).Append("\n");
             sb.Append("  MaxDataRetentionPeriod: ").Append(MaxDataRetentionPeriod).Append("\n");
             sb.Append("  MaxTemplates: ").Append(MaxTemplates).Append("\n");
@@ -258,7 +322,10 @@ namespace Gemina.Sdk.Model
             sb.Append("  PlanId: ").Append(PlanId).Append("\n");
             sb.Append("  PlanName: ").Append(PlanName).Append("\n");
             sb.Append("  PriceSnapshotCents: ").Append(PriceSnapshotCents).Append("\n");
+            sb.Append("  RetrievalRateLimitPerSecond: ").Append(RetrievalRateLimitPerSecond).Append("\n");
             sb.Append("  Status: ").Append(Status).Append("\n");
+            sb.Append("  StorageCreditCostPerGbMonth: ").Append(StorageCreditCostPerGbMonth).Append("\n");
+            sb.Append("  StorageIncludedGb: ").Append(StorageIncludedGb).Append("\n");
             sb.Append("  SupportLevel: ").Append(SupportLevel).Append("\n");
             sb.Append("  UserEmail: ").Append(UserEmail).Append("\n");
             sb.Append("  UserId: ").Append(UserId).Append("\n");

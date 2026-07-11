@@ -101,7 +101,49 @@ The polling wait must be injectable (a sleep function / scheduler / clock
 parameter with a production default) so unit tests can assert the backoff
 schedule without real waiting.
 
-## 3. Unit tests (per language, mocked transport — no network)
+## 3. `conversation` — multi-turn chat threading
+
+A thin STATEFUL helper over the one-shot `chat` group that threads the
+server-issued `sessionId` across turns, so follow-up questions keep context.
+It wraps `chat_query`; the one-shot call stays the primitive and callers may
+still thread the id themselves.
+
+Factory on the facade (idiomatic per language):
+
+```
+client.conversation(options?) -> Conversation
+```
+
+- `options` (all optional): `endUserId` (forwarded on every turn, for
+  session-token / per-end-user contexts).
+- Holds a single mutable `sessionId`, unset until the first turn returns.
+
+### Methods
+
+- `send(message) -> ChatQueryOutDTO` — the only method that hits the network.
+  Calls `chat_query` with `message` (plus `endUserId`) and the current
+  `sessionId` when set (omitted on the first turn). Stores the `sessionId`
+  from the response before returning, so the next `send` threads it; if the
+  response omits one, the previous id is kept.
+- `sessionId` — read accessor for the current server session id (unset before
+  the first `send` or after `reset`/`delete`), for logging/persistence.
+- `reset()` — forget the session locally (clear `sessionId`); the next `send`
+  starts a fresh server session. No network call.
+- `delete()` — end the session server-side via the `chat` group's
+  `delete_chat_session` (mirrors a "New chat" action) AND clear it locally.
+  A no-op when no turn has been sent yet.
+
+### Threading & staleness semantics
+
+- A server session expires after **24h of inactivity**. A `send` carrying a
+  stale id (idle-expired, or an id from a deleted session) surfaces the API's
+  `404 CHAT_SESSION_NOT_FOUND` **unchanged** — the helper does **NOT**
+  auto-retry or silently open a new session (that would drop the thread's
+  context invisibly). Callers recover explicitly: `reset()` then `send` again.
+- Requires a Document Intelligence plan, same as `chat_query` (402/403
+  otherwise).
+
+## 4. Unit tests (per language, mocked transport — no network)
 
 Mock at the generated-API boundary (or HTTP layer where more natural) and
 cover at minimum:
@@ -116,7 +158,7 @@ cover at minimum:
    RNG or assert bounds).
 5. **URL source** routes to the `/requests/web` endpoint.
 
-## 4. Versioning
+## 5. Versioning
 
 Package version lives in the hand-written manifest and in ONE hand-written
 constants file per language (e.g. `version.ts`, `_version.py`) consumed by

@@ -21,6 +21,7 @@ from datetime import date
 from pydantic import BaseModel, ConfigDict, Field, StrictFloat, StrictInt, StrictStr
 from typing import Any, ClassVar, Dict, List, Optional, Union
 from uuid import UUID
+from gemina.generated.models.matched_chunk_dto import MatchedChunkDTO
 from typing import Optional, Set
 from typing_extensions import Self
 from pydantic_core import to_jsonable_python
@@ -40,6 +41,7 @@ class QueryResultItemDTO(BaseModel):
     expense_type: Optional[StrictStr] = Field(default=None, alias="expenseType")
     external_id: Optional[StrictStr] = Field(default=None, alias="externalId")
     issue_date: Optional[date] = Field(default=None, alias="issueDate")
+    matched_chunks: Optional[List[MatchedChunkDTO]] = Field(default=None, description="Line-item/section snippets that matched the query (chunk search)", alias="matchedChunks")
     net_amount: Optional[Union[StrictFloat, StrictInt]] = Field(default=None, alias="netAmount")
     payment_method: Optional[StrictStr] = Field(default=None, alias="paymentMethod")
     score: Optional[Union[StrictFloat, StrictInt]] = Field(default=None, description="Similarity score (semantic mode only)")
@@ -48,7 +50,7 @@ class QueryResultItemDTO(BaseModel):
     vat_amount: Optional[Union[StrictFloat, StrictInt]] = Field(default=None, alias="vatAmount")
     vendor_name: Optional[StrictStr] = Field(default=None, alias="vendorName")
     vendor_tax_id: Optional[StrictStr] = Field(default=None, alias="vendorTaxId")
-    __properties: ClassVar[List[str]] = ["buyerName", "currency", "docNumber", "documentExtractionId", "documentId", "documentType", "dueDate", "endUserId", "expenseType", "externalId", "issueDate", "netAmount", "paymentMethod", "score", "structured", "totalAmount", "vatAmount", "vendorName", "vendorTaxId"]
+    __properties: ClassVar[List[str]] = ["buyerName", "currency", "docNumber", "documentExtractionId", "documentId", "documentType", "dueDate", "endUserId", "expenseType", "externalId", "issueDate", "matchedChunks", "netAmount", "paymentMethod", "score", "structured", "totalAmount", "vatAmount", "vendorName", "vendorTaxId"]
 
     model_config = ConfigDict(
         validate_by_name=True,
@@ -89,6 +91,13 @@ class QueryResultItemDTO(BaseModel):
             exclude=excluded_fields,
             exclude_none=True,
         )
+        # override the default output from pydantic by calling `to_dict()` of each item in matched_chunks (list)
+        _items = []
+        if self.matched_chunks:
+            for _item_matched_chunks in self.matched_chunks:
+                if _item_matched_chunks:
+                    _items.append(_item_matched_chunks.to_dict())
+            _dict['matchedChunks'] = _items
         # set to None if buyer_name (nullable) is None
         # and model_fields_set contains the field
         if self.buyer_name is None and "buyer_name" in self.model_fields_set:
@@ -197,6 +206,7 @@ class QueryResultItemDTO(BaseModel):
             "expenseType": obj.get("expenseType"),
             "externalId": obj.get("externalId"),
             "issueDate": obj.get("issueDate"),
+            "matchedChunks": [MatchedChunkDTO.from_dict(_item) for _item in obj["matchedChunks"]] if obj.get("matchedChunks") is not None else None,
             "netAmount": obj.get("netAmount"),
             "paymentMethod": obj.get("paymentMethod"),
             "score": obj.get("score"),

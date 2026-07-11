@@ -49,6 +49,18 @@ export interface SubscriptionOutDTO {
     cancelScheduledAt?: Date | null;
     /**
      * 
+     * @type {string}
+     * @memberof SubscriptionOutDTO
+     */
+    chatCreditCost?: string;
+    /**
+     * 
+     * @type {number}
+     * @memberof SubscriptionOutDTO
+     */
+    chatIncludedPerCycle?: number;
+    /**
+     * 
      * @type {Date}
      * @memberof SubscriptionOutDTO
      */
@@ -94,6 +106,12 @@ export interface SubscriptionOutDTO {
      * @type {boolean}
      * @memberof SubscriptionOutDTO
      */
+    documentIntelligenceEnabled?: boolean;
+    /**
+     * 
+     * @type {boolean}
+     * @memberof SubscriptionOutDTO
+     */
     enhancedPrivacyEnabled: boolean;
     /**
      * 
@@ -101,6 +119,12 @@ export interface SubscriptionOutDTO {
      * @memberof SubscriptionOutDTO
      */
     id: string;
+    /**
+     * 
+     * @type {string}
+     * @memberof SubscriptionOutDTO
+     */
+    indexCreditCost?: string;
     /**
      * 
      * @type {boolean}
@@ -151,10 +175,28 @@ export interface SubscriptionOutDTO {
     priceSnapshotCents: number;
     /**
      * 
+     * @type {number}
+     * @memberof SubscriptionOutDTO
+     */
+    retrievalRateLimitPerSecond?: number;
+    /**
+     * 
      * @type {SubscriptionStatus}
      * @memberof SubscriptionOutDTO
      */
     status: SubscriptionStatus;
+    /**
+     * 
+     * @type {string}
+     * @memberof SubscriptionOutDTO
+     */
+    storageCreditCostPerGbMonth?: string;
+    /**
+     * 
+     * @type {string}
+     * @memberof SubscriptionOutDTO
+     */
+    storageIncludedGb?: string;
     /**
      * 
      * @type {SupportLevel}
@@ -216,6 +258,8 @@ export function SubscriptionOutDTOFromJSONTyped(json: any, ignoreDiscriminator: 
     return {
         
         'cancelScheduledAt': json['cancelScheduledAt'] == null ? undefined : (new Date(json['cancelScheduledAt'])),
+        'chatCreditCost': json['chatCreditCost'] == null ? undefined : json['chatCreditCost'],
+        'chatIncludedPerCycle': json['chatIncludedPerCycle'] == null ? undefined : json['chatIncludedPerCycle'],
         'createdAt': json['createdAt'] == null ? undefined : (new Date(json['createdAt'])),
         'createdAtTimestamp': json['createdAtTimestamp'] == null ? undefined : json['createdAtTimestamp'],
         'creditsRemaining': json['creditsRemaining'],
@@ -223,8 +267,10 @@ export function SubscriptionOutDTOFromJSONTyped(json: any, ignoreDiscriminator: 
         'currentPeriodEnd': json['currentPeriodEnd'] == null ? undefined : (new Date(json['currentPeriodEnd'])),
         'currentPeriodStart': json['currentPeriodStart'] == null ? undefined : (new Date(json['currentPeriodStart'])),
         'dataResidencyEnabled': json['dataResidencyEnabled'],
+        'documentIntelligenceEnabled': json['documentIntelligenceEnabled'] == null ? undefined : json['documentIntelligenceEnabled'],
         'enhancedPrivacyEnabled': json['enhancedPrivacyEnabled'],
         'id': json['id'],
+        'indexCreditCost': json['indexCreditCost'] == null ? undefined : json['indexCreditCost'],
         'ipAllowlistEnabled': json['ipAllowlistEnabled'],
         'maxDataRetentionPeriod': DataRetentionPeriodModelFromJSON(json['maxDataRetentionPeriod']),
         'maxTemplates': json['maxTemplates'],
@@ -233,7 +279,10 @@ export function SubscriptionOutDTOFromJSONTyped(json: any, ignoreDiscriminator: 
         'planId': json['planId'],
         'planName': json['planName'] == null ? undefined : json['planName'],
         'priceSnapshotCents': json['priceSnapshotCents'],
+        'retrievalRateLimitPerSecond': json['retrievalRateLimitPerSecond'] == null ? undefined : json['retrievalRateLimitPerSecond'],
         'status': SubscriptionStatusFromJSON(json['status']),
+        'storageCreditCostPerGbMonth': json['storageCreditCostPerGbMonth'] == null ? undefined : json['storageCreditCostPerGbMonth'],
+        'storageIncludedGb': json['storageIncludedGb'] == null ? undefined : json['storageIncludedGb'],
         'supportLevel': SupportLevelFromJSON(json['supportLevel']),
         'userEmail': json['userEmail'] == null ? undefined : json['userEmail'],
         'userId': json['userId'],
@@ -253,6 +302,8 @@ export function SubscriptionOutDTOToJSONTyped(value?: SubscriptionOutDTO | null,
     return {
         
         'cancelScheduledAt': value['cancelScheduledAt'] == null ? value['cancelScheduledAt'] : value['cancelScheduledAt'].toISOString(),
+        'chatCreditCost': value['chatCreditCost'],
+        'chatIncludedPerCycle': value['chatIncludedPerCycle'],
         'createdAt': value['createdAt'] == null ? value['createdAt'] : value['createdAt'].toISOString(),
         'createdAtTimestamp': value['createdAtTimestamp'],
         'creditsRemaining': value['creditsRemaining'],
@@ -260,8 +311,10 @@ export function SubscriptionOutDTOToJSONTyped(value?: SubscriptionOutDTO | null,
         'currentPeriodEnd': value['currentPeriodEnd'] == null ? value['currentPeriodEnd'] : value['currentPeriodEnd'].toISOString(),
         'currentPeriodStart': value['currentPeriodStart'] == null ? value['currentPeriodStart'] : value['currentPeriodStart'].toISOString(),
         'dataResidencyEnabled': value['dataResidencyEnabled'],
+        'documentIntelligenceEnabled': value['documentIntelligenceEnabled'],
         'enhancedPrivacyEnabled': value['enhancedPrivacyEnabled'],
         'id': value['id'],
+        'indexCreditCost': value['indexCreditCost'],
         'ipAllowlistEnabled': value['ipAllowlistEnabled'],
         'maxDataRetentionPeriod': DataRetentionPeriodModelToJSON(value['maxDataRetentionPeriod']),
         'maxTemplates': value['maxTemplates'],
@@ -270,7 +323,10 @@ export function SubscriptionOutDTOToJSONTyped(value?: SubscriptionOutDTO | null,
         'planId': value['planId'],
         'planName': value['planName'],
         'priceSnapshotCents': value['priceSnapshotCents'],
+        'retrievalRateLimitPerSecond': value['retrievalRateLimitPerSecond'],
         'status': SubscriptionStatusToJSON(value['status']),
+        'storageCreditCostPerGbMonth': value['storageCreditCostPerGbMonth'],
+        'storageIncludedGb': value['storageIncludedGb'],
         'supportLevel': SupportLevelToJSON(value['supportLevel']),
         'userEmail': value['userEmail'],
         'userId': value['userId'],

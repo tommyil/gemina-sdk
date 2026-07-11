@@ -49,6 +49,11 @@ import {
     ResponseChangePlanToJSON,
 } from '../models/ResponseChangePlan';
 import {
+    type StorageUsageOutDTO,
+    StorageUsageOutDTOFromJSON,
+    StorageUsageOutDTOToJSON,
+} from '../models/StorageUsageOutDTO';
+import {
     type SubscribeInDTO,
     SubscribeInDTOFromJSON,
     SubscribeInDTOToJSON,
@@ -298,6 +303,48 @@ export class SubscriptionsApi extends runtime.BaseAPI {
      */
     async getCreditUsage(initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<UsageBreakdownListOutDTO> {
         const response = await this.getCreditUsageRaw(initOverrides);
+        return await response.value();
+    }
+
+    /**
+     * Creates request options for getMyStorageUsage without sending the request
+     */
+    async getMyStorageUsageRequestOpts(): Promise<runtime.RequestOpts> {
+        const queryParameters: any = {};
+
+        const headerParameters: runtime.HTTPHeaders = {};
+
+        if (this.configuration && this.configuration.accessToken) {
+            // oauth required
+            headerParameters["Authorization"] = await this.configuration.accessToken("OAuth2PasswordBearer", []);
+        }
+
+
+        let urlPath = `/api/v1/subscriptions/me/storage`;
+
+        return {
+            path: urlPath,
+            method: 'GET',
+            headers: headerParameters,
+            query: queryParameters,
+        };
+    }
+
+    /**
+     * Get My Storage Usage
+     */
+    async getMyStorageUsageRaw(initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<StorageUsageOutDTO>> {
+        const requestOptions = await this.getMyStorageUsageRequestOpts();
+        const response = await this.request(requestOptions, initOverrides);
+
+        return new runtime.JSONApiResponse(response, (jsonValue) => StorageUsageOutDTOFromJSON(jsonValue));
+    }
+
+    /**
+     * Get My Storage Usage
+     */
+    async getMyStorageUsage(initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<StorageUsageOutDTO> {
+        const response = await this.getMyStorageUsageRaw(initOverrides);
         return await response.value();
     }
 

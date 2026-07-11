@@ -14,6 +14,7 @@
 package co.gemina.sdk.generated.model;
 
 import java.util.Objects;
+import co.gemina.sdk.generated.model.MatchedChunkDTO;
 import com.google.gson.TypeAdapter;
 import com.google.gson.annotations.JsonAdapter;
 import com.google.gson.annotations.SerializedName;
@@ -22,8 +23,10 @@ import com.google.gson.stream.JsonWriter;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import org.openapitools.jackson.nullable.JsonNullable;
@@ -110,6 +113,11 @@ public class QueryResultItemDTO {
   @SerializedName(SERIALIZED_NAME_ISSUE_DATE)
   @javax.annotation.Nullable
   private LocalDate issueDate;
+
+  public static final String SERIALIZED_NAME_MATCHED_CHUNKS = "matchedChunks";
+  @SerializedName(SERIALIZED_NAME_MATCHED_CHUNKS)
+  @javax.annotation.Nullable
+  private List<MatchedChunkDTO> matchedChunks = new ArrayList<>();
 
   public static final String SERIALIZED_NAME_NET_AMOUNT = "netAmount";
   @SerializedName(SERIALIZED_NAME_NET_AMOUNT)
@@ -363,6 +371,33 @@ public class QueryResultItemDTO {
   }
 
 
+  public QueryResultItemDTO matchedChunks(@javax.annotation.Nullable List<MatchedChunkDTO> matchedChunks) {
+    this.matchedChunks = matchedChunks;
+    return this;
+  }
+
+  public QueryResultItemDTO addMatchedChunksItem(MatchedChunkDTO matchedChunksItem) {
+    if (this.matchedChunks == null) {
+      this.matchedChunks = new ArrayList<>();
+    }
+    this.matchedChunks.add(matchedChunksItem);
+    return this;
+  }
+
+  /**
+   * Line-item/section snippets that matched the query (chunk search)
+   * @return matchedChunks
+   */
+  @javax.annotation.Nullable
+  public List<MatchedChunkDTO> getMatchedChunks() {
+    return matchedChunks;
+  }
+
+  public void setMatchedChunks(@javax.annotation.Nullable List<MatchedChunkDTO> matchedChunks) {
+    this.matchedChunks = matchedChunks;
+  }
+
+
   public QueryResultItemDTO netAmount(@javax.annotation.Nullable BigDecimal netAmount) {
     this.netAmount = netAmount;
     return this;
@@ -544,6 +579,7 @@ public class QueryResultItemDTO {
         Objects.equals(this.expenseType, queryResultItemDTO.expenseType) &&
         Objects.equals(this.externalId, queryResultItemDTO.externalId) &&
         Objects.equals(this.issueDate, queryResultItemDTO.issueDate) &&
+        Objects.equals(this.matchedChunks, queryResultItemDTO.matchedChunks) &&
         Objects.equals(this.netAmount, queryResultItemDTO.netAmount) &&
         Objects.equals(this.paymentMethod, queryResultItemDTO.paymentMethod) &&
         Objects.equals(this.score, queryResultItemDTO.score) &&
@@ -560,7 +596,7 @@ public class QueryResultItemDTO {
 
   @Override
   public int hashCode() {
-    return Objects.hash(buyerName, currency, docNumber, documentExtractionId, documentId, documentType, dueDate, endUserId, expenseType, externalId, issueDate, netAmount, paymentMethod, score, structured, totalAmount, vatAmount, vendorName, vendorTaxId);
+    return Objects.hash(buyerName, currency, docNumber, documentExtractionId, documentId, documentType, dueDate, endUserId, expenseType, externalId, issueDate, matchedChunks, netAmount, paymentMethod, score, structured, totalAmount, vatAmount, vendorName, vendorTaxId);
   }
 
   private static <T> int hashCodeNullable(JsonNullable<T> a) {
@@ -585,6 +621,7 @@ public class QueryResultItemDTO {
     sb.append("    expenseType: ").append(toIndentedString(expenseType)).append("\n");
     sb.append("    externalId: ").append(toIndentedString(externalId)).append("\n");
     sb.append("    issueDate: ").append(toIndentedString(issueDate)).append("\n");
+    sb.append("    matchedChunks: ").append(toIndentedString(matchedChunks)).append("\n");
     sb.append("    netAmount: ").append(toIndentedString(netAmount)).append("\n");
     sb.append("    paymentMethod: ").append(toIndentedString(paymentMethod)).append("\n");
     sb.append("    score: ").append(toIndentedString(score)).append("\n");
@@ -611,7 +648,7 @@ public class QueryResultItemDTO {
 
   static {
     // a set of all properties/fields (JSON key names)
-    openapiFields = new HashSet<String>(Arrays.asList("buyerName", "currency", "docNumber", "documentExtractionId", "documentId", "documentType", "dueDate", "endUserId", "expenseType", "externalId", "issueDate", "netAmount", "paymentMethod", "score", "structured", "totalAmount", "vatAmount", "vendorName", "vendorTaxId"));
+    openapiFields = new HashSet<String>(Arrays.asList("buyerName", "currency", "docNumber", "documentExtractionId", "documentId", "documentType", "dueDate", "endUserId", "expenseType", "externalId", "issueDate", "matchedChunks", "netAmount", "paymentMethod", "score", "structured", "totalAmount", "vatAmount", "vendorName", "vendorTaxId"));
 
     // a set of required properties/fields (JSON key names)
     openapiRequiredFields = new HashSet<String>(Arrays.asList("documentExtractionId", "documentId"));
@@ -671,6 +708,20 @@ public class QueryResultItemDTO {
       }
       if ((jsonObj.get("externalId") != null && !jsonObj.get("externalId").isJsonNull()) && !jsonObj.get("externalId").isJsonPrimitive()) {
         throw new IllegalArgumentException(String.format(java.util.Locale.ROOT, "Expected the field `externalId` to be a primitive type in the JSON string but got `%s`", jsonObj.get("externalId").toString()));
+      }
+      if (jsonObj.get("matchedChunks") != null && !jsonObj.get("matchedChunks").isJsonNull()) {
+        JsonArray jsonArraymatchedChunks = jsonObj.getAsJsonArray("matchedChunks");
+        if (jsonArraymatchedChunks != null) {
+          // ensure the json data is an array
+          if (!jsonObj.get("matchedChunks").isJsonArray()) {
+            throw new IllegalArgumentException(String.format(java.util.Locale.ROOT, "Expected the field `matchedChunks` to be an array in the JSON string but got `%s`", jsonObj.get("matchedChunks").toString()));
+          }
+
+          // validate the optional field `matchedChunks` (array)
+          for (int i = 0; i < jsonArraymatchedChunks.size(); i++) {
+            MatchedChunkDTO.validateJsonElement(jsonArraymatchedChunks.get(i));
+          };
+        }
       }
       if ((jsonObj.get("paymentMethod") != null && !jsonObj.get("paymentMethod").isJsonNull()) && !jsonObj.get("paymentMethod").isJsonPrimitive()) {
         throw new IllegalArgumentException(String.format(java.util.Locale.ROOT, "Expected the field `paymentMethod` to be a primitive type in the JSON string but got `%s`", jsonObj.get("paymentMethod").toString()));
