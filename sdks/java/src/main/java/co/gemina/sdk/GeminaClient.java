@@ -12,6 +12,7 @@ import java.util.concurrent.CompletionException;
 
 import co.gemina.sdk.generated.ApiClient;
 import co.gemina.sdk.generated.ApiException;
+import co.gemina.sdk.generated.JSON;
 import co.gemina.sdk.generated.api.BillingApi;
 import co.gemina.sdk.generated.api.ChatApi;
 import co.gemina.sdk.generated.api.DocumentApi;
@@ -68,6 +69,18 @@ public class GeminaClient {
             .optionalEnd()
             .parseDefaulting(ChronoField.OFFSET_SECONDS, 0)
             .toFormatter();
+
+    static {
+        // JSON's adapters are static/global, so installing once at class load
+        // covers every construction path — including the
+        // GeminaClient(ApiClient) constructor with a caller-supplied client,
+        // which previously kept the generated default (strict
+        // ISO_OFFSET_DATE_TIME) and failed on the API's offset-less
+        // timestamps. Raw generated-client usage that never touches this
+        // facade is out of scope, same as the multipart fix in
+        // GeminaApiClient.
+        JSON.setOffsetDateTimeFormat(LENIENT_OFFSET_DATE_TIME);
+    }
 
     private final ApiClient apiClient;
 
@@ -133,7 +146,8 @@ public class GeminaClient {
         ApiClient generatedClient = new GeminaApiClient();
         generatedClient.setBasePath(trimTrailingSlash(baseUrl));
         generatedClient.setUserAgent("gemina-sdk-java/" + SdkVersion.VERSION);
-        generatedClient.setOffsetDateTimeFormat(LENIENT_OFFSET_DATE_TIME);
+        // Lenient datetime format is installed globally by this class's
+        // static initializer; no per-client call needed.
         return generatedClient;
     }
 
