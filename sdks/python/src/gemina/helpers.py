@@ -43,7 +43,9 @@ DEFAULT_BASE_URL = "https://api.gemina.co"
 # of those formats were platform-dependent — the generated client would guess
 # application/octet-stream, which the content-type-driven FileTag endpoint
 # rejects with a 415. Registering here (the module every import path goes
-# through) makes the guess deterministic everywhere.
+# through) makes the guess deterministic everywhere. Note this mutates the
+# process-global ``mimetypes`` registry, visible to the host application —
+# the mappings are the IANA-registered ones, so the side effect is benign.
 mimetypes.add_type("image/heic", ".heic")
 mimetypes.add_type("image/heic", ".hif")
 mimetypes.add_type("image/heif", ".heif")
@@ -492,6 +494,8 @@ _FTYP_BRAND_EXTENSIONS = {
     b"heim": ".heif",
     b"heis": ".heif",
     b"avif": ".avif",
+    # avis (animated AVIF) is deliberately mapped, unlike the HEIF sequence
+    # brands: the API accepts animated AVIF and processes its first frame.
     b"avis": ".avif",
 }
 

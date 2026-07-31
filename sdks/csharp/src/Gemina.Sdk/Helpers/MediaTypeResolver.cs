@@ -72,6 +72,9 @@ namespace Gemina.Sdk
                             sniffedExtension = ".heif";
                             break;
                         case "avif":
+                        // avis (animated AVIF) is deliberately mapped, unlike
+                        // the HEIF sequence brands: the API accepts animated
+                        // AVIF and processes its first frame.
                         case "avis":
                             sniffedType = "image/avif";
                             sniffedExtension = ".avif";

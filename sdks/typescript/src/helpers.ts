@@ -137,6 +137,8 @@ const FTYP_BRAND_FORMATS: Record<string, SniffedFormat> = {
   heim: { ext: '.heif', type: 'image/heif' },
   heis: { ext: '.heif', type: 'image/heif' },
   avif: { ext: '.avif', type: 'image/avif' },
+  // avis (animated AVIF) is deliberately mapped, unlike the HEIF sequence
+  // brands: the API accepts animated AVIF and processes its first frame.
   avis: { ext: '.avif', type: 'image/avif' },
 };
 

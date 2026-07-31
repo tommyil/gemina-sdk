@@ -428,6 +428,10 @@ describe('GeminaClient.processDocument — real multipart wire capture', () => {
       const client = new GeminaClient('test-api-key', `http://127.0.0.1:${port}`);
       await client.processDocument(source, EXTRACTION_TYPES);
     } finally {
+      // Node 18's close() waits out idle keep-alive sockets (~5s) — it only
+      // started closing them itself in Node 19 — which collides with the test
+      // timeout. closeAllConnections() exists since 18.2.
+      server.closeAllConnections();
       await new Promise<void>((resolve) => server.close(() => resolve()));
     }
     const match = raw.match(

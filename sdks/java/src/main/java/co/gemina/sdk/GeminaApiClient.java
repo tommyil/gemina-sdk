@@ -84,6 +84,9 @@ public class GeminaApiClient extends ApiClient {
         if (name.endsWith(".avif")) {
             return "image/avif";
         }
-        return contentType;
+        // Literal rather than contentType: super currently coerces null to
+        // octet-stream, but a future regeneration must not be able to make
+        // this method return null (MediaType.parse(null) would NPE).
+        return "application/octet-stream";
     }
 }
