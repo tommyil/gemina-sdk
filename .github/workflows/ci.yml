@@ -23,11 +23,16 @@ jobs:
 
   typescript:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        # 18 = oldest supported engine and has no global File, so the SDK's
+        # blob normalization must degrade to pass-through there; 22 = current.
+        node-version: [18, 22]
     defaults: { run: { working-directory: sdks/typescript } }
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
-        with: { node-version: 22 }
+        with: { node-version: "${{ matrix.node-version }}" }
       - run: npm ci
       - run: npm run build
       - run: npx tsc --noEmit
@@ -74,11 +79,14 @@ jobs:
 
   elements:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version: [18, 22]
     defaults: { run: { working-directory: packages/elements } }
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
-        with: { node-version: 22 }
+        with: { node-version: "${{ matrix.node-version }}" }
       # @gemina/sdk resolves from the npm registry (lockfile-pinned).
       - run: npm ci
       - run: npm run build
