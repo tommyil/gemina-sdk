@@ -33,7 +33,7 @@ import co.gemina.sdk.generated.ApiException;
 import co.gemina.sdk.generated.api.DocumentApi;
 import co.gemina.sdk.generated.model.DocumentProcessingMetaOutDTO;
 import co.gemina.sdk.generated.model.DocumentProcessingResultOutDTO;
-import co.gemina.sdk.generated.model.ExtractionTypeModel;
+import co.gemina.sdk.generated.model.UploadExtractionTypeEnum;
 import co.gemina.sdk.generated.model.ResponseStatus;
 import co.gemina.sdk.generated.model.WebDocumentUploadInDTO;
 
@@ -43,8 +43,8 @@ import co.gemina.sdk.generated.model.WebDocumentUploadInDTO;
  */
 class GeminaClientTest {
 
-    private static final List<ExtractionTypeModel> TYPES =
-            Collections.singletonList(ExtractionTypeModel.INVOICE_HEADERS);
+    private static final List<UploadExtractionTypeEnum> TYPES =
+            Collections.singletonList(UploadExtractionTypeEnum.INVOICE_HEADERS);
 
     private GeminaClient client;
     private DocumentApi documentApi;
@@ -451,7 +451,7 @@ class GeminaClientTest {
         assertThrows(IllegalArgumentException.class,
                 () -> client.processDocument(
                         GeminaDocumentSource.fromFile(new File("invoice.png")),
-                        Collections.<ExtractionTypeModel>emptyList(), options().build()));
+                        Collections.<UploadExtractionTypeEnum>emptyList(), options().build()));
     }
 
     @Test

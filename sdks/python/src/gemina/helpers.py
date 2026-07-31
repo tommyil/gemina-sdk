@@ -29,7 +29,7 @@ from gemina.generated.models.chat_query_out_dto import ChatQueryOutDTO
 from gemina.generated.models.document_processing_result_out_dto import (
     DocumentProcessingResultOutDTO,
 )
-from gemina.generated.models.extraction_type_model import ExtractionTypeModel
+from gemina.generated.models.upload_extraction_type_enum import UploadExtractionTypeEnum
 from gemina.generated.models.model_type import ModelType
 from gemina.generated.models.response_status import ResponseStatus
 from gemina.generated.models.web_document_upload_in_dto import WebDocumentUploadInDTO
@@ -125,7 +125,7 @@ class GeminaClient:
 
         async with GeminaClient("YOUR_API_KEY") as client:
             result = await client.process_document(
-                "invoice.png", [ExtractionTypeModel.INVOICE_HEADERS]
+                "invoice.png", [UploadExtractionTypeEnum.INVOICE_HEADERS]
             )
 
     The generated API groups are exposed as lazily-constructed attributes
@@ -296,7 +296,7 @@ class GeminaClient:
     async def process_document(
         self,
         source: Union[bytes, "os.PathLike[str]", str, Any, UrlSource],
-        extraction_types: List[ExtractionTypeModel],
+        extraction_types: List[UploadExtractionTypeEnum],
         *,
         external_id: Optional[str] = None,
         template_id: Optional[Any] = None,
@@ -320,7 +320,9 @@ class GeminaClient:
                 a URL reference. Files go to ``POST /v1/documents/requests``;
                 URLs to ``POST /v1/documents/requests/web``.
             extraction_types: Required, non-empty list of
-                ``ExtractionTypeModel`` values.
+                ``UploadExtractionTypeEnum`` values -- the upload endpoints' own
+                enum, which omits ``filetag`` (the API rejects it here;
+                FileTag has its own endpoints).
             external_id: Your identifier for the document (1-100 chars). The
                 API requires one; a random UUID hex is generated if omitted.
             timeout_seconds: Overall polling deadline (default 300s). On

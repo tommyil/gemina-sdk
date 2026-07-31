@@ -42,7 +42,10 @@ processDocument(source, extractionTypes, options?) -> DocumentProcessingResultOu
   `POST /v1/documents/requests` (multipart, `create_document_processing_request`);
   URLs via `POST /v1/documents/requests/web`
   (`create_web_document_processing_request`).
-- `extractionTypes`: required, non-empty list of `ExtractionTypeModel`.
+- `extractionTypes`: required, non-empty list of `UploadExtractionTypeEnum` --
+  the upload endpoints' own enum. It omits `filetag`, which those endpoints
+  reject; FileTag is reached through the `fileTag` group instead. (Response
+  models keep the wider `ExtractionTypeModel`.)
 - `options` (all optional, mirror the endpoint form fields): `externalId`,
   `templateId`, `modelType`, `thinking`, `evaluation`, `correction`,
   `includeCoordinates`, `endUserId`, plus polling knobs below.

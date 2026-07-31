@@ -22,7 +22,7 @@ namespace Gemina.Sdk
             Stream file,
             string fileName,
             string externalId,
-            List<ExtractionTypeModel> extractionTypes,
+            List<UploadExtractionTypeEnum> extractionTypes,
             ProcessDocumentOptions options,
             CancellationToken cancellationToken);
 
@@ -97,7 +97,7 @@ namespace Gemina.Sdk
             Stream file,
             string fileName,
             string externalId,
-            List<ExtractionTypeModel> extractionTypes,
+            List<UploadExtractionTypeEnum> extractionTypes,
             ProcessDocumentOptions options,
             CancellationToken cancellationToken)
         {

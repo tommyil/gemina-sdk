@@ -14,11 +14,11 @@ import {
   ResponseStatus,
   type ChatQueryOutDTO,
   type DocumentProcessingResultOutDTO,
-  type ExtractionTypeModel,
   type FetchAPI,
   type HTTPHeaders,
   type Middleware,
   type ModelType,
+  type UploadExtractionTypeEnum,
 } from './generated';
 import { GeminaError, GeminaProcessingError, GeminaTimeoutError } from './errors';
 
@@ -340,12 +340,15 @@ export class GeminaClient {
    *   never retried.
    *
    * @param source          A `Blob`/`File`, or `{ url }` for a web document.
-   * @param extractionTypes Non-empty list of extraction types to run.
+   * @param extractionTypes Non-empty list of extraction types to run. Typed as
+   *                        `UploadExtractionTypeEnum`, which is the upload
+   *                        endpoints' own enum -- it omits `filetag`, which the
+   *                        API rejects here (FileTag has its own endpoints).
    * @param options         Endpoint form fields + polling knobs.
    */
   async processDocument(
     source: DocumentSource,
-    extractionTypes: ExtractionTypeModel[],
+    extractionTypes: UploadExtractionTypeEnum[],
     options: ProcessDocumentOptions = {},
   ): Promise<DocumentProcessingResultOutDTO> {
     if (!Array.isArray(extractionTypes) || extractionTypes.length === 0) {

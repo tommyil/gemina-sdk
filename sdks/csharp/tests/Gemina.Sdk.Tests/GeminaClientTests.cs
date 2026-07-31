@@ -14,8 +14,8 @@ namespace Gemina.Sdk.Tests
 {
     public class GeminaClientTests
     {
-        private static readonly List<ExtractionTypeModel> InvoiceHeaders =
-            new List<ExtractionTypeModel> { ExtractionTypeModel.InvoiceHeaders };
+        private static readonly List<UploadExtractionTypeEnum> InvoiceHeaders =
+            new List<UploadExtractionTypeEnum> { UploadExtractionTypeEnum.InvoiceHeaders };
 
         private static DocumentProcessingResultOutDTO Result(ResponseStatus status, Guid? correlationId = null)
         {
@@ -39,7 +39,7 @@ namespace Gemina.Sdk.Tests
             transport
                 .Setup(t => t.SubmitMultipartAsync(
                     It.IsAny<Stream>(), It.IsAny<string>(), It.IsAny<string>(),
-                    It.IsAny<List<ExtractionTypeModel>>(), It.IsAny<ProcessDocumentOptions>(),
+                    It.IsAny<List<UploadExtractionTypeEnum>>(), It.IsAny<ProcessDocumentOptions>(),
                     It.IsAny<CancellationToken>()))
                 .ReturnsAsync(submitResult);
             return transport;
@@ -304,7 +304,7 @@ namespace Gemina.Sdk.Tests
             transport.Verify(
                 t => t.SubmitMultipartAsync(
                     It.IsAny<Stream>(), It.IsAny<string>(), It.IsAny<string>(),
-                    It.IsAny<List<ExtractionTypeModel>>(), It.IsAny<ProcessDocumentOptions>(),
+                    It.IsAny<List<UploadExtractionTypeEnum>>(), It.IsAny<ProcessDocumentOptions>(),
                     It.IsAny<CancellationToken>()),
                 Times.Never);
         }
@@ -317,14 +317,14 @@ namespace Gemina.Sdk.Tests
             var templateId = Guid.NewGuid();
             string capturedExternalId = null;
             ProcessDocumentOptions capturedOptions = null;
-            List<ExtractionTypeModel> capturedTypes = null;
+            List<UploadExtractionTypeEnum> capturedTypes = null;
             var transport = new Mock<IDocumentTransport>(MockBehavior.Strict);
             transport
                 .Setup(t => t.SubmitMultipartAsync(
                     It.IsAny<Stream>(), It.IsAny<string>(), It.IsAny<string>(),
-                    It.IsAny<List<ExtractionTypeModel>>(), It.IsAny<ProcessDocumentOptions>(),
+                    It.IsAny<List<UploadExtractionTypeEnum>>(), It.IsAny<ProcessDocumentOptions>(),
                     It.IsAny<CancellationToken>()))
-                .Callback<Stream, string, string, List<ExtractionTypeModel>, ProcessDocumentOptions, CancellationToken>(
+                .Callback<Stream, string, string, List<UploadExtractionTypeEnum>, ProcessDocumentOptions, CancellationToken>(
                     (_, __, externalId, types, opts, ___) =>
                     {
                         capturedExternalId = externalId;
@@ -478,7 +478,7 @@ namespace Gemina.Sdk.Tests
             transport
                 .Setup(t => t.SubmitMultipartAsync(
                     It.IsAny<Stream>(), It.IsAny<string>(), It.IsAny<string>(),
-                    It.IsAny<List<ExtractionTypeModel>>(), It.IsAny<ProcessDocumentOptions>(),
+                    It.IsAny<List<UploadExtractionTypeEnum>>(), It.IsAny<ProcessDocumentOptions>(),
                     It.IsAny<CancellationToken>()))
                 .ThrowsAsync(submitError);
 
@@ -493,7 +493,7 @@ namespace Gemina.Sdk.Tests
             transport.Verify(
                 t => t.SubmitMultipartAsync(
                     It.IsAny<Stream>(), It.IsAny<string>(), It.IsAny<string>(),
-                    It.IsAny<List<ExtractionTypeModel>>(), It.IsAny<ProcessDocumentOptions>(),
+                    It.IsAny<List<UploadExtractionTypeEnum>>(), It.IsAny<ProcessDocumentOptions>(),
                     It.IsAny<CancellationToken>()),
                 Times.Once);
         }
@@ -564,7 +564,7 @@ namespace Gemina.Sdk.Tests
             using (var stream = new MemoryStream(new byte[] { 1 }))
             {
                 await Assert.ThrowsAsync<ArgumentException>(
-                    () => client.ProcessDocumentAsync(stream, new List<ExtractionTypeModel>()));
+                    () => client.ProcessDocumentAsync(stream, new List<UploadExtractionTypeEnum>()));
                 await Assert.ThrowsAsync<ArgumentException>(
                     () => client.ProcessDocumentAsync(stream, null));
             }

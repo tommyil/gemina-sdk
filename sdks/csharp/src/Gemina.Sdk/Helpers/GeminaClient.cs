@@ -98,7 +98,7 @@ namespace Gemina.Sdk
     /// <summary>
     /// Facade over the generated Gemina API client: one-line construction
     /// with an API key, lazily-built accessors for every API group, and the
-    /// <see cref="ProcessDocumentAsync(GeminaDocumentSource, List{ExtractionTypeModel}, ProcessDocumentOptions, CancellationToken)"/>
+    /// <see cref="ProcessDocumentAsync(GeminaDocumentSource, List{UploadExtractionTypeEnum}, ProcessDocumentOptions, CancellationToken)"/>
     /// submit-and-poll convenience flow.
     /// </summary>
     public class GeminaClient
@@ -263,7 +263,7 @@ namespace Gemina.Sdk
 
         /// <summary>
         /// The transport used by
-        /// <see cref="ProcessDocumentAsync(GeminaDocumentSource, List{ExtractionTypeModel}, ProcessDocumentOptions, CancellationToken)"/>
+        /// <see cref="ProcessDocumentAsync(GeminaDocumentSource, List{UploadExtractionTypeEnum}, ProcessDocumentOptions, CancellationToken)"/>
         /// for the multipart submit and result polling; see
         /// <see cref="DocumentTransport"/> for why these bypass the generated
         /// <c>DocumentApi</c> methods. Injectable in tests.
@@ -278,7 +278,7 @@ namespace Gemina.Sdk
         /// Processes a document stream end to end: submits it to the async
         /// endpoint, polls with backoff until a terminal status, and returns
         /// the typed result. See
-        /// <see cref="ProcessDocumentAsync(GeminaDocumentSource, List{ExtractionTypeModel}, ProcessDocumentOptions, CancellationToken)"/>.
+        /// <see cref="ProcessDocumentAsync(GeminaDocumentSource, List{UploadExtractionTypeEnum}, ProcessDocumentOptions, CancellationToken)"/>.
         /// </summary>
         /// <param name="file">A readable stream of the document (image or PDF).</param>
         /// <param name="extractionTypes">Non-empty list of extractions to run.</param>
@@ -286,7 +286,7 @@ namespace Gemina.Sdk
         /// <param name="cancellationToken">Cancels both the HTTP calls and the waits.</param>
         public Task<DocumentProcessingResultOutDTO> ProcessDocumentAsync(
             Stream file,
-            List<ExtractionTypeModel> extractionTypes,
+            List<UploadExtractionTypeEnum> extractionTypes,
             ProcessDocumentOptions options = null,
             CancellationToken cancellationToken = default)
         {
@@ -319,7 +319,7 @@ namespace Gemina.Sdk
         /// <param name="cancellationToken">Cancels both the HTTP calls and the waits.</param>
         public async Task<DocumentProcessingResultOutDTO> ProcessDocumentAsync(
             GeminaDocumentSource source,
-            List<ExtractionTypeModel> extractionTypes,
+            List<UploadExtractionTypeEnum> extractionTypes,
             ProcessDocumentOptions options = null,
             CancellationToken cancellationToken = default)
         {
@@ -437,7 +437,7 @@ namespace Gemina.Sdk
 
         private async Task<DocumentProcessingResultOutDTO> SubmitAsync(
             GeminaDocumentSource source,
-            List<ExtractionTypeModel> extractionTypes,
+            List<UploadExtractionTypeEnum> extractionTypes,
             ProcessDocumentOptions options,
             CancellationToken cancellationToken)
         {

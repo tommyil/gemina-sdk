@@ -64,7 +64,9 @@ const result = await client.processDocument(
 - `meta.documentId` — the stored document's ID (use it with `client.documents`).
 - `meta.correlationId` — the async processing correlation ID.
 
-Extraction types (`ExtractionTypeModel`):
+Extraction types (`UploadExtractionTypeEnum`) — note `filetag` is not one of
+them: FileTag has its own endpoints (`client.fileTag`), and the upload endpoints
+reject it.
 
 | Type | What it extracts |
 |------|------------------|
@@ -74,7 +76,6 @@ Extraction types (`ExtractionTypeModel`):
 | `document_details_hebrew` | Hebrew document details |
 | `document_line_items_hebrew` | Hebrew document line items |
 | `custom_template` | Fields defined by your custom template (pass `templateId`) |
-| `filetag` | File classification metadata (FileTag) |
 
 ## Search & aggregate your documents
 
@@ -135,6 +136,37 @@ Discover which fields you can filter on with `client.retrieval.retrievalFields()
 const { fields } = await client.retrieval.retrievalFields();
 // -> [{ documentType: "invoice", field: "vendor_name", count: 42 }, ...]
 ```
+
+## What did an extraction cost?
+
+Credits are charged *after* the result is delivered, so cost is a separate
+lookup rather than a field on the extraction response. Ask for one extraction,
+or up to 100 at a time:
+
+```ts
+const { data } = await client.documents.getExtractionCost({
+  documentExtractionId: extractionId,
+});
+console.log(data.state, data.creditsConsumed);   // "settled"  "2.5"
+
+const bulk = await client.documents.getExtractionCosts({
+  ids: [extractionId, otherExtractionId],
+});
+for (const cost of bulk.data.costs) {
+  console.log(cost.extractionId, cost.state, cost.creditsConsumed);
+}
+```
+
+`state` tells you whether the number is final:
+
+- `settled` — the charge is on record; this is the authoritative number.
+- `pending` — billing has not run yet. Retry.
+- `not_charged` — billing finished without a charge. This never resolves, so
+  don't poll it.
+
+Enterprise accounts are billed in contract dollars: `creditsConsumed` is null
+and `costCents` carries the amount. The bulk call silently omits ids you don't
+own, so key the response by `extractionId` rather than assuming input order.
 
 ## Chat with your documents
 

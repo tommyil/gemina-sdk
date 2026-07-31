@@ -44,7 +44,7 @@ import java.util.Map;
 import co.gemina.sdk.GeminaClient;
 import co.gemina.sdk.GeminaDocumentSource;
 import co.gemina.sdk.generated.model.DocumentProcessingResultOutDTO;
-import co.gemina.sdk.generated.model.ExtractionTypeModel;
+import co.gemina.sdk.generated.model.UploadExtractionTypeEnum;
 
 public class Quickstart {
     public static void main(String[] args) throws Exception {
@@ -52,7 +52,7 @@ public class Quickstart {
 
         DocumentProcessingResultOutDTO result = client.processDocument(
                 GeminaDocumentSource.fromFile(new File("invoice.pdf")),
-                Collections.singletonList(ExtractionTypeModel.INVOICE_HEADERS));
+                Collections.singletonList(UploadExtractionTypeEnum.INVOICE_HEADERS));
 
         System.out.println("status: " + result.getStatus());
 
@@ -76,7 +76,7 @@ Processing a document at a URL works the same way — Gemina fetches it for you:
 ```java
 DocumentProcessingResultOutDTO result = client.processDocument(
         GeminaDocumentSource.fromUrl("https://example.com/invoice.pdf"),
-        Collections.singletonList(ExtractionTypeModel.INVOICE_HEADERS));
+        Collections.singletonList(UploadExtractionTypeEnum.INVOICE_HEADERS));
 ```
 
 There is also a non-blocking variant, `processDocumentAsync(...)`, which
@@ -108,6 +108,33 @@ Available extraction types:
 | `DOCUMENT_LINE_ITEMS_HEBREW` (`document_line_items_hebrew`) | Hebrew line items |
 | `CUSTOM_TEMPLATE` (`custom_template`) | Fields defined by your own template (pass `templateId`) |
 | `FILETAG` (`filetag`) | File classification and tagging |
+
+## What did an extraction cost?
+
+Credits are charged *after* the result is delivered, so cost is a separate
+lookup rather than a field on the extraction response. Ask for one extraction,
+or up to 100 at a time:
+
+```java
+ExtractionCostOutResultDTO single = client.documents().getExtractionCost(extractionId);
+System.out.println(single.getData().getState() + " " + single.getData().getCreditsConsumed());
+
+ExtractionCostsOutDTO bulk =
+        client.documents().getExtractionCosts(Arrays.asList(extractionId, otherId));
+bulk.getData().getCosts().forEach(cost ->
+        System.out.println(cost.getExtractionId() + " " + cost.getState()));
+```
+
+`state` tells you whether the number is final:
+
+- `settled` — the charge is on record; this is the authoritative number.
+- `pending` — billing has not run yet. Retry.
+- `not_charged` — billing finished without a charge. This never resolves, so
+  don't poll it.
+
+Enterprise accounts are billed in contract dollars: `creditsConsumed` is null
+and `costCents` carries the amount. The bulk call silently omits ids you don't
+own, so key the response by `extractionId` rather than assuming input order.
 
 ## Search & aggregate your documents
 

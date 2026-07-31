@@ -39,13 +39,13 @@ typed result — one call, no polling loop to write:
 
 ```python
 import asyncio
-from gemina import GeminaClient, ExtractionTypeModel
+from gemina import GeminaClient, UploadExtractionTypeEnum
 
 async def main():
     async with GeminaClient("YOUR_API_KEY") as client:
         result = await client.process_document(
             "invoice.png",  # path, bytes, or a binary file object
-            [ExtractionTypeModel.INVOICE_HEADERS],
+            [UploadExtractionTypeEnum.INVOICE_HEADERS],
         )
         values = result.data.extractions[0].values
         print("Supplier:", values["vendorName"]["value"])
@@ -58,13 +58,13 @@ asyncio.run(main())
 To process a document that lives at a URL, wrap it in `UrlSource`:
 
 ```python
-from gemina import GeminaClient, ExtractionTypeModel, UrlSource
+from gemina import GeminaClient, UploadExtractionTypeEnum, UrlSource
 
 async def from_url():
     async with GeminaClient("YOUR_API_KEY") as client:
         result = await client.process_document(
             UrlSource("https://example.com/invoice.pdf"),
-            [ExtractionTypeModel.INVOICE_HEADERS],
+            [UploadExtractionTypeEnum.INVOICE_HEADERS],
         )
         print(result.status)
 ```
@@ -189,6 +189,33 @@ async def list_fields():
             # e.g. invoice  vendor_name  42
 ```
 
+## What did an extraction cost?
+
+Credits are charged *after* the result is delivered, so cost is a separate
+lookup rather than a field on the extraction response. Ask for one extraction,
+or up to 100 at a time:
+
+```python
+single = await client.documents.get_extraction_cost(extraction_id)
+print(single.data.state, single.data.credits_consumed)   # "settled"  "2.5"
+
+bulk = await client.documents.get_extraction_costs([extraction_id, other_id])
+for cost in bulk.data.costs:
+    print(cost.extraction_id, cost.state, cost.credits_consumed)
+```
+
+`state` tells you whether the number is final:
+
+- `settled` — the charge is on record; this is the authoritative number.
+- `pending` — billing has not run yet. Retry.
+- `not_charged` — billing finished without a charge. This never resolves, so
+  don't poll it.
+
+Enterprise accounts are billed in contract dollars: `credits_consumed` is
+``None`` and `cost_cents` carries the amount. The bulk call silently omits ids
+you don't own, so key the response by `extraction_id` rather than assuming
+input order.
+
 ## Chat with your documents
 
 Ask questions in natural language; answers come back with a `confident` flag
@@ -285,7 +312,7 @@ async def robust():
         try:
             result = await client.process_document(
                 "invoice.pdf",
-                [ExtractionTypeModel.INVOICE_HEADERS],
+                [UploadExtractionTypeEnum.INVOICE_HEADERS],
                 timeout_seconds=120,
             )
         except GeminaProcessingError as exc:

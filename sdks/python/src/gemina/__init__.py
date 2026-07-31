@@ -3,12 +3,12 @@
 Quickstart::
 
     import asyncio
-    from gemina import GeminaClient, ExtractionTypeModel
+    from gemina import GeminaClient, UploadExtractionTypeEnum
 
     async def main():
         async with GeminaClient("YOUR_API_KEY") as client:
             result = await client.process_document(
-                "invoice.png", [ExtractionTypeModel.INVOICE_HEADERS]
+                "invoice.png", [UploadExtractionTypeEnum.INVOICE_HEADERS]
             )
             print(result.status)
 
@@ -44,6 +44,9 @@ from gemina.generated.models.document_processing_result_out_dto import (
 from gemina.generated.models.extraction_type_model import (
     ExtractionTypeModel as ExtractionTypeModel,
 )
+from gemina.generated.models.upload_extraction_type_enum import (
+    UploadExtractionTypeEnum as UploadExtractionTypeEnum,
+)
 from gemina.generated.models.model_type import ModelType as ModelType
 from gemina.generated.models.response_status import ResponseStatus as ResponseStatus
 from gemina.generated.models.retrieval_aggregate_in_dto import (
@@ -71,6 +74,7 @@ __all__ = [
     "ChatQueryOutDTO",
     "DocumentProcessingResultOutDTO",
     "ExtractionTypeModel",
+    "UploadExtractionTypeEnum",
     "ModelType",
     "ResponseStatus",
     "RetrievalAggregateInDTO",

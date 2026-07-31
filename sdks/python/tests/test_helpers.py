@@ -26,7 +26,7 @@ from gemina.generated.models.document_processing_meta_out_dto import (
 from gemina.generated.models.document_processing_result_out_dto import (
     DocumentProcessingResultOutDTO,
 )
-from gemina.generated.models.extraction_type_model import ExtractionTypeModel
+from gemina.generated.models.upload_extraction_type_enum import UploadExtractionTypeEnum
 from gemina.generated.models.response_status import ResponseStatus
 
 CORRELATION_ID = uuid.uuid4()
@@ -124,7 +124,7 @@ async def test_happy_path_submit_two_nonterminal_polls_then_success(client):
 
     result = await client.process_document(
         b"%PDF-fake",
-        [ExtractionTypeModel.INVOICE_HEADERS],
+        [UploadExtractionTypeEnum.INVOICE_HEADERS],
         _sleep=recorder.sleep,
         _random=lambda: 0.5,  # jitter factor exactly 1.0
     )
@@ -145,7 +145,7 @@ async def test_submit_already_terminal_skips_polling(client):
     install(client, fake)
 
     result = await client.process_document(
-        b"data", [ExtractionTypeModel.OCR], _sleep=None, _random=None
+        b"data", [UploadExtractionTypeEnum.OCR], _sleep=None, _random=None
     )
 
     assert result is success
@@ -167,7 +167,7 @@ async def test_failed_raises_processing_error_with_result(client):
     with pytest.raises(GeminaProcessingError) as excinfo:
         await client.process_document(
             b"data",
-            [ExtractionTypeModel.INVOICE_HEADERS],
+            [UploadExtractionTypeEnum.INVOICE_HEADERS],
             _sleep=recorder.sleep,
             _random=lambda: 0.5,
         )
@@ -183,7 +183,7 @@ async def test_failed_on_submit_raises_without_polling(client):
 
     with pytest.raises(GeminaProcessingError) as excinfo:
         await client.process_document(
-            b"data", [ExtractionTypeModel.INVOICE_HEADERS], _sleep=None, _random=None
+            b"data", [UploadExtractionTypeEnum.INVOICE_HEADERS], _sleep=None, _random=None
         )
 
     assert excinfo.value.result is failed
@@ -209,7 +209,7 @@ async def test_timeout_raises_with_correlation_id_and_last_result(
     with pytest.raises(GeminaTimeoutError) as excinfo:
         await client.process_document(
             b"data",
-            [ExtractionTypeModel.INVOICE_HEADERS],
+            [UploadExtractionTypeEnum.INVOICE_HEADERS],
             timeout_seconds=4.0,
             _sleep=recorder.sleep,
             _random=lambda: 0.5,
@@ -237,7 +237,7 @@ async def test_backoff_schedule_grows_1_5x_capped_at_max(client):
 
     await client.process_document(
         b"data",
-        [ExtractionTypeModel.INVOICE_HEADERS],
+        [UploadExtractionTypeEnum.INVOICE_HEADERS],
         _sleep=recorder.sleep,
         _random=lambda: 0.5,  # jitter factor exactly 1.0
     )
@@ -261,7 +261,7 @@ async def test_backoff_jitter_stays_within_bounds(client):
 
     await client.process_document(
         b"data",
-        [ExtractionTypeModel.INVOICE_HEADERS],
+        [UploadExtractionTypeEnum.INVOICE_HEADERS],
         _sleep=recorder.sleep,
         _random=lambda: next(values),
     )
@@ -285,7 +285,7 @@ async def test_custom_polling_knobs(client):
 
     await client.process_document(
         b"data",
-        [ExtractionTypeModel.INVOICE_HEADERS],
+        [UploadExtractionTypeEnum.INVOICE_HEADERS],
         initial_interval_seconds=1.0,
         max_interval_seconds=2.0,
         _sleep=recorder.sleep,
@@ -304,7 +304,7 @@ async def test_url_source_routes_to_web_endpoint(client):
 
     await client.process_document(
         UrlSource("https://example.com/invoice.pdf"),
-        [ExtractionTypeModel.INVOICE_HEADERS],
+        [UploadExtractionTypeEnum.INVOICE_HEADERS],
         external_id="inv-42",
         end_user_id="user-7",
         _sleep=None,
@@ -317,7 +317,7 @@ async def test_url_source_routes_to_web_endpoint(client):
     assert dto.url == "https://example.com/invoice.pdf"
     assert dto.external_id == "inv-42"
     assert dto.end_user_id == "user-7"
-    assert dto.extraction_types == [ExtractionTypeModel.INVOICE_HEADERS]
+    assert dto.extraction_types == [UploadExtractionTypeEnum.INVOICE_HEADERS]
 
 
 async def test_file_path_routes_to_multipart_endpoint(client, tmp_path):
@@ -328,7 +328,7 @@ async def test_file_path_routes_to_multipart_endpoint(client, tmp_path):
 
     await client.process_document(
         doc,  # pathlib.Path
-        [ExtractionTypeModel.INVOICE_HEADERS],
+        [UploadExtractionTypeEnum.INVOICE_HEADERS],
         _sleep=None,
         _random=None,
     )
@@ -337,7 +337,7 @@ async def test_file_path_routes_to_multipart_endpoint(client, tmp_path):
     assert len(fake.submit_calls) == 1
     call = fake.submit_calls[0]
     assert call["file"] == str(doc)  # generated client opens paths itself
-    assert call["extraction_types"] == [ExtractionTypeModel.INVOICE_HEADERS]
+    assert call["extraction_types"] == [UploadExtractionTypeEnum.INVOICE_HEADERS]
     assert call["external_id"]  # auto-generated when omitted
 
 
@@ -350,7 +350,7 @@ async def test_file_like_source_uses_name_and_bytes(client, tmp_path):
     with open(doc, "rb") as handle:
         await client.process_document(
             handle,
-            [ExtractionTypeModel.INVOICE_HEADERS],
+            [UploadExtractionTypeEnum.INVOICE_HEADERS],
             _sleep=None,
             _random=None,
         )
@@ -382,7 +382,7 @@ async def test_failed_result_served_as_http_error_raises_processing_error(client
     with pytest.raises(GeminaProcessingError) as excinfo:
         await client.process_document(
             b"data",
-            [ExtractionTypeModel.INVOICE_HEADERS],
+            [UploadExtractionTypeEnum.INVOICE_HEADERS],
             _sleep=recorder.sleep,
             _random=lambda: 0.5,
         )
@@ -420,7 +420,7 @@ async def test_transient_poll_errors_retried_then_success(client):
 
     result = await client.process_document(
         b"data",
-        [ExtractionTypeModel.INVOICE_HEADERS],
+        [UploadExtractionTypeEnum.INVOICE_HEADERS],
         _sleep=recorder.sleep,
         _random=lambda: 0.5,
     )
@@ -450,7 +450,7 @@ async def test_three_consecutive_transient_errors_rethrow_last_unchanged(client)
     with pytest.raises(ServiceException) as excinfo:
         await client.process_document(
             b"data",
-            [ExtractionTypeModel.INVOICE_HEADERS],
+            [UploadExtractionTypeEnum.INVOICE_HEADERS],
             _sleep=recorder.sleep,
             _random=lambda: 0.5,
         )
@@ -484,7 +484,7 @@ async def test_transient_failure_counter_resets_on_successful_poll(client):
 
     result = await client.process_document(
         b"data",
-        [ExtractionTypeModel.INVOICE_HEADERS],
+        [UploadExtractionTypeEnum.INVOICE_HEADERS],
         _sleep=recorder.sleep,
         _random=lambda: 0.5,
     )
@@ -510,7 +510,7 @@ async def test_submit_errors_are_not_retried(client):
 
     with pytest.raises(ServiceException) as excinfo:
         await client.process_document(
-            b"data", [ExtractionTypeModel.INVOICE_HEADERS], _sleep=None, _random=None
+            b"data", [UploadExtractionTypeEnum.INVOICE_HEADERS], _sleep=None, _random=None
         )
 
     assert excinfo.value is boom
@@ -529,7 +529,7 @@ async def test_nonterminal_submit_without_correlation_id_raises(client):
 
     with pytest.raises(GeminaError) as excinfo:
         await client.process_document(
-            b"data", [ExtractionTypeModel.INVOICE_HEADERS], _sleep=None, _random=None
+            b"data", [UploadExtractionTypeEnum.INVOICE_HEADERS], _sleep=None, _random=None
         )
     assert not isinstance(excinfo.value, (GeminaProcessingError, GeminaTimeoutError))
 

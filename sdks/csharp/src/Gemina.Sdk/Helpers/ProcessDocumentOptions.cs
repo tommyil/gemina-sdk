@@ -6,7 +6,7 @@ using Gemina.Sdk.Model;
 namespace Gemina.Sdk
 {
     /// <summary>
-    /// Optional settings for <see cref="GeminaClient.ProcessDocumentAsync(GeminaDocumentSource, System.Collections.Generic.List{ExtractionTypeModel}, ProcessDocumentOptions, CancellationToken)"/>:
+    /// Optional settings for <see cref="GeminaClient.ProcessDocumentAsync(GeminaDocumentSource, System.Collections.Generic.List{UploadExtractionTypeEnum}, ProcessDocumentOptions, CancellationToken)"/>:
     /// endpoint form fields plus polling knobs.
     /// </summary>
     public class ProcessDocumentOptions

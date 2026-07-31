@@ -24,7 +24,7 @@ import co.gemina.sdk.generated.api.TemplatesApi;
 import co.gemina.sdk.generated.model.ChatQueryInDTO;
 import co.gemina.sdk.generated.model.ChatQueryOutDTO;
 import co.gemina.sdk.generated.model.DocumentProcessingResultOutDTO;
-import co.gemina.sdk.generated.model.ExtractionTypeModel;
+import co.gemina.sdk.generated.model.UploadExtractionTypeEnum;
 import co.gemina.sdk.generated.model.ResponseStatus;
 import co.gemina.sdk.generated.model.WebDocumentUploadInDTO;
 
@@ -40,7 +40,7 @@ import co.gemina.sdk.generated.model.WebDocumentUploadInDTO;
  * GeminaClient client = new GeminaClient(System.getenv("GEMINA_API_KEY"));
  * DocumentProcessingResultOutDTO result = client.processDocument(
  *         GeminaDocumentSource.fromFile(new File("invoice.pdf")),
- *         Arrays.asList(ExtractionTypeModel.INVOICE_HEADERS),
+ *         Arrays.asList(UploadExtractionTypeEnum.INVOICE_HEADERS),
  *         null);
  * }</pre>
  */
@@ -363,7 +363,7 @@ public class GeminaClient {
 
     /** {@link #processDocument(GeminaDocumentSource, List, ProcessDocumentOptions)} with default options. */
     public DocumentProcessingResultOutDTO processDocument(
-            GeminaDocumentSource source, List<ExtractionTypeModel> extractionTypes) throws ApiException {
+            GeminaDocumentSource source, List<UploadExtractionTypeEnum> extractionTypes) throws ApiException {
         return processDocument(source, extractionTypes, null);
     }
 
@@ -406,7 +406,7 @@ public class GeminaClient {
      */
     public DocumentProcessingResultOutDTO processDocument(
             GeminaDocumentSource source,
-            List<ExtractionTypeModel> extractionTypes,
+            List<UploadExtractionTypeEnum> extractionTypes,
             ProcessDocumentOptions options) throws ApiException {
         if (source == null) {
             throw new IllegalArgumentException("source must not be null");
@@ -522,7 +522,7 @@ public class GeminaClient {
      */
     public CompletableFuture<DocumentProcessingResultOutDTO> processDocumentAsync(
             GeminaDocumentSource source,
-            List<ExtractionTypeModel> extractionTypes,
+            List<UploadExtractionTypeEnum> extractionTypes,
             ProcessDocumentOptions options) {
         return CompletableFuture.supplyAsync(() -> {
             try {
@@ -535,7 +535,7 @@ public class GeminaClient {
 
     private DocumentProcessingResultOutDTO submit(
             GeminaDocumentSource source,
-            List<ExtractionTypeModel> extractionTypes,
+            List<UploadExtractionTypeEnum> extractionTypes,
             ProcessDocumentOptions opts) throws ApiException {
         // external_id is a required form field (1-100 chars); generate one when unset.
         String externalId = opts.getExternalId() != null

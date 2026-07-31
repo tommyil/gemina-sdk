@@ -8,7 +8,7 @@ import {
   ResponseStatus,
   type DocumentApi,
   type DocumentProcessingResultOutDTO,
-  type ExtractionTypeModel,
+  type UploadExtractionTypeEnum,
 } from '../src/index';
 
 const CORRELATION_ID = 'corr-123';
@@ -79,7 +79,7 @@ function makeFakeSleep(): { sleepFn: (seconds: number) => Promise<void>; waits: 
   };
 }
 
-const EXTRACTION_TYPES: ExtractionTypeModel[] = ['invoice_headers'];
+const EXTRACTION_TYPES: UploadExtractionTypeEnum[] = ['invoice_headers'];
 const BLOB_SOURCE = new Blob(['fake-image-bytes'], { type: 'image/png' });
 
 describe('GeminaClient.processDocument', () => {

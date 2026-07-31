@@ -46,7 +46,7 @@ var client = new GeminaClient("YOUR_API_KEY");
 
 var result = await client.ProcessDocumentAsync(
     GeminaDocumentSource.FromFile("invoice.png"),
-    new List<ExtractionTypeModel> { ExtractionTypeModel.InvoiceHeaders });
+    new List<UploadExtractionTypeEnum> { UploadExtractionTypeEnum.InvoiceHeaders });
 
 var headers = result.Data.Extractions[0];
 Console.WriteLine($"Status:   {result.Status}");
@@ -61,7 +61,7 @@ server-side:
 ```csharp
 var result = await client.ProcessDocumentAsync(
     GeminaDocumentSource.FromUrl("https://example.com/invoice.pdf"),
-    new List<ExtractionTypeModel> { ExtractionTypeModel.InvoiceHeaders });
+    new List<UploadExtractionTypeEnum> { UploadExtractionTypeEnum.InvoiceHeaders });
 ```
 
 Streams work too: `client.ProcessDocumentAsync(stream, extractionTypes)` or
@@ -83,17 +83,44 @@ Streams work too: `client.ProcessDocumentAsync(stream, extractionTypes)` or
 - `Meta.DocumentId` — the stored document's id; `Meta.CorrelationId` — the
   processing request's id (useful for resuming polls).
 
-Available extraction types:
+Available extraction types. `filetag` is deliberately absent: FileTag has its
+own endpoints (`client.FileTag`), and the upload endpoints reject it.
 
 | Extraction type | Enum member | What it extracts |
 |---|---|---|
-| `ocr` | `ExtractionTypeModel.Ocr` | Full-text OCR |
-| `invoice_headers` | `ExtractionTypeModel.InvoiceHeaders` | Vendor, buyer, dates, amounts, taxes |
-| `invoice_line_items` | `ExtractionTypeModel.InvoiceLineItems` | Line items with quantities and prices |
-| `document_details_hebrew` | `ExtractionTypeModel.DocumentDetailsHebrew` | Hebrew document headers |
-| `document_line_items_hebrew` | `ExtractionTypeModel.DocumentLineItemsHebrew` | Hebrew document line items |
-| `custom_template` | `ExtractionTypeModel.CustomTemplate` | Your own template fields (pass `TemplateId`) |
-| `filetag` | `ExtractionTypeModel.Filetag` | Document classification tags |
+| `ocr` | `UploadExtractionTypeEnum.Ocr` | Full-text OCR |
+| `invoice_headers` | `UploadExtractionTypeEnum.InvoiceHeaders` | Vendor, buyer, dates, amounts, taxes |
+| `invoice_line_items` | `UploadExtractionTypeEnum.InvoiceLineItems` | Line items with quantities and prices |
+| `document_details_hebrew` | `UploadExtractionTypeEnum.DocumentDetailsHebrew` | Hebrew document headers |
+| `document_line_items_hebrew` | `UploadExtractionTypeEnum.DocumentLineItemsHebrew` | Hebrew document line items |
+| `custom_template` | `UploadExtractionTypeEnum.CustomTemplate` | Your own template fields (pass `TemplateId`) |
+
+## What did an extraction cost?
+
+Credits are charged *after* the result is delivered, so cost is a separate
+lookup rather than a field on the extraction response. Ask for one extraction,
+or up to 100 at a time:
+
+```csharp
+var single = await client.Documents.GetExtractionCostAsync(extractionId);
+Console.WriteLine($"{single.Data.State} {single.Data.CreditsConsumed}");
+
+var bulk = await client.Documents.GetExtractionCostsAsync(
+    new List<Guid?> { extractionId, otherId });
+foreach (var cost in bulk.Data.Costs)
+    Console.WriteLine($"{cost.ExtractionId} {cost.State} {cost.CreditsConsumed}");
+```
+
+`State` tells you whether the number is final:
+
+- `settled` — the charge is on record; this is the authoritative number.
+- `pending` — billing has not run yet. Retry.
+- `not_charged` — billing finished without a charge. This never resolves, so
+  don't poll it.
+
+Enterprise accounts are billed in contract dollars: `CreditsConsumed` is null
+and `CostCents` carries the amount. The bulk call silently omits ids you don't
+own, so key the response by `ExtractionId` rather than assuming input order.
 
 ## Search & aggregate your documents
 
