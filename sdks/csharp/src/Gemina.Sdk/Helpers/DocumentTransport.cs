@@ -147,7 +147,7 @@ namespace Gemina.Sdk
             }
 
             var bytes = ClientUtils.ReadAsBytes(file);
-            var contentType = ResolveContentTypeAndFileName(bytes, ref fileName);
+            var contentType = MediaTypeResolver.ResolveContentTypeAndFileName(bytes, ref fileName);
             request.AddFile("file", bytes, fileName, contentType);
 
             return ExecuteAsync(request, "CreateDocumentProcessingRequest", cancellationToken);
@@ -282,67 +282,5 @@ namespace Gemina.Sdk
             }
         }
 
-        /// <summary>
-        /// Picks the multipart file part's content type (and a fallback file
-        /// name) from magic bytes, falling back to the file name's extension.
-        /// The API accepts an upload when either the MIME type or the file
-        /// extension is recognised.
-        /// </summary>
-        private static string ResolveContentTypeAndFileName(byte[] bytes, ref string fileName)
-        {
-            string sniffedType = null;
-            string sniffedExtension = null;
-
-            if (bytes.Length >= 12)
-            {
-                if (bytes[0] == 0x89 && bytes[1] == 0x50 && bytes[2] == 0x4E && bytes[3] == 0x47)
-                {
-                    sniffedType = "image/png";
-                    sniffedExtension = ".png";
-                }
-                else if (bytes[0] == 0xFF && bytes[1] == 0xD8 && bytes[2] == 0xFF)
-                {
-                    sniffedType = "image/jpeg";
-                    sniffedExtension = ".jpg";
-                }
-                else if (bytes[0] == 0x47 && bytes[1] == 0x49 && bytes[2] == 0x46 && bytes[3] == 0x38)
-                {
-                    sniffedType = "image/gif";
-                    sniffedExtension = ".gif";
-                }
-                else if (bytes[0] == 0x25 && bytes[1] == 0x50 && bytes[2] == 0x44 && bytes[3] == 0x46)
-                {
-                    sniffedType = "application/pdf";
-                    sniffedExtension = ".pdf";
-                }
-                else if (bytes[0] == 0x52 && bytes[1] == 0x49 && bytes[2] == 0x46 && bytes[3] == 0x46
-                         && bytes[8] == 0x57 && bytes[9] == 0x45 && bytes[10] == 0x42 && bytes[11] == 0x50)
-                {
-                    sniffedType = "image/webp";
-                    sniffedExtension = ".webp";
-                }
-            }
-
-            if (string.IsNullOrEmpty(fileName))
-            {
-                fileName = "document" + (sniffedExtension ?? string.Empty);
-            }
-
-            if (sniffedType != null)
-            {
-                return sniffedType;
-            }
-
-            switch (Path.GetExtension(fileName).ToLowerInvariant())
-            {
-                case ".png": return "image/png";
-                case ".jpg":
-                case ".jpeg": return "image/jpeg";
-                case ".gif": return "image/gif";
-                case ".webp": return "image/webp";
-                case ".pdf": return "application/pdf";
-                default: return "application/octet-stream";
-            }
-        }
     }
 }

@@ -216,10 +216,17 @@ namespace Gemina.Sdk
             internal set => _files = value;
         }
 
-        /// <summary>FileTag document tagging.</summary>
+        /// <summary>
+        /// FileTag document tagging. Returns a decorator that fixes the
+        /// upload calls — the generated multipart path sends every file as
+        /// <c>application/octet-stream</c>, which the content-type-driven
+        /// FileTag endpoint rejects (see <see cref="FileTagApiWithTypedUploads"/>).
+        /// The internal setter accepts any <see cref="IFileTagApi"/> unwrapped,
+        /// for tests.
+        /// </summary>
         public IFileTagApi FileTag
         {
-            get => _fileTag ?? (_fileTag = new FileTagApi(Configuration));
+            get => _fileTag ?? (_fileTag = new FileTagApiWithTypedUploads(Configuration));
             internal set => _fileTag = value;
         }
 

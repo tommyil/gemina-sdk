@@ -618,5 +618,25 @@ namespace Gemina.Sdk.Tests
             Assert.NotNull(client.Subscriptions);
             Assert.NotNull(client.Billing);
         }
+
+        [Fact]
+        public void FileTag_DefaultsToTypedUploadsDecorator()
+        {
+            var client = new GeminaClient("my-key");
+
+            Assert.IsType<FileTagApiWithTypedUploads>(client.FileTag);
+            Assert.Same(client.FileTag, client.FileTag);
+        }
+
+        [Fact]
+        public void FileTag_InternalSetter_AcceptsAnyImplementationUnwrapped()
+        {
+            var client = new GeminaClient("my-key");
+            var fake = new Mock<IFileTagApi>(MockBehavior.Strict).Object;
+
+            client.FileTag = fake;
+
+            Assert.Same(fake, client.FileTag);
+        }
     }
 }
