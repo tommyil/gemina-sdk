@@ -198,8 +198,10 @@ namespace Gemina.Sdk
             {
                 var response = await client.ExecuteAsync(request, cancellationToken).ConfigureAwait(false);
 
-                // Pure transport failures (DNS, TLS, connect) pass through unwrapped,
-                // matching the generated client's behaviour.
+                // Pure transport failures (DNS, TLS, connect) are rethrown.
+                // (Deliberately BETTER than the generated client, which would
+                // surface a silent status-0 ApiResponse: RestSharp captures the
+                // exception and the default ExceptionFactory ignores status 0.)
                 if (response.ErrorException != null && (int)response.StatusCode == 0)
                 {
                     throw response.ErrorException;

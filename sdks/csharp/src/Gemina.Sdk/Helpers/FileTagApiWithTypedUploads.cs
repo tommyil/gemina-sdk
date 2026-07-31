@@ -53,9 +53,11 @@ namespace Gemina.Sdk
             set
             {
                 _inner.Configuration = value;
-                // Keep the transport on the same configuration the generated
-                // members use.
-                _transport = new FileTagTransport(value);
+                // Rebuild from the inner api's own property rather than `value`:
+                // if regeneration ever makes that setter merge/normalize its
+                // input (like the generated ctor does), the transport stays on
+                // the configuration the generated members actually use.
+                _transport = new FileTagTransport(_inner.Configuration);
             }
         }
 
