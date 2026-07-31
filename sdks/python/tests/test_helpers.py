@@ -358,6 +358,79 @@ async def test_file_like_source_uses_name_and_bytes(client, tmp_path):
     assert fake.submit_calls[0]["file"] == ("receipt.pdf", b"%PDF-fake")
 
 
+# -- 5b. anonymous byte sources get a sniffed filename ------------------------
+#
+# Bare bytes reach the generated multipart encoder as filename="file" with
+# application/octet-stream — extensionless and untyped, so the documents
+# ingress (declared MIME OR extension) 415s even for supported formats.
+
+HEIC_BYTES = b"\x00\x00\x00\x18ftypheic\x00\x00\x00\x00mif1heic"
+PNG_BYTES = b"\x89PNG\r\n\x1a\n" + b"\x00" * 8
+
+
+def test_heic_bytes_get_synthetic_filename():
+    assert helpers._coerce_file_source(HEIC_BYTES) == ("document.heic", HEIC_BYTES)
+
+
+def test_png_bytes_get_synthetic_filename():
+    assert helpers._coerce_file_source(PNG_BYTES) == ("document.png", PNG_BYTES)
+
+
+@pytest.mark.parametrize(
+    ("data", "ext"),
+    [
+        (b"%PDF-1.7 fake", ".pdf"),
+        (b"\xff\xd8\xff\xe0 fake-jpeg", ".jpg"),
+        (b"GIF89a fake", ".gif"),
+        (b"RIFF\x00\x00\x00\x00WEBPVP8 ", ".webp"),
+        (b"\x00\x00\x00\x18ftypheix" + b"\x00" * 8, ".heic"),
+        (b"\x00\x00\x00\x18ftypmif1" + b"\x00" * 8, ".heif"),
+        (b"\x00\x00\x00\x18ftypavif" + b"\x00" * 8, ".avif"),
+    ],
+)
+def test_sniffed_formats_map_to_extensions(data, ext):
+    assert helpers._coerce_file_source(data) == (f"document{ext}", data)
+
+
+def test_unknown_bytes_pass_through_unchanged():
+    # Unrecognized data keeps the historical bare-bytes behavior.
+    assert helpers._coerce_file_source(b"data") == b"data"
+
+
+def test_sequence_brand_bytes_pass_through_unchanged():
+    # msf1 is an image-SEQUENCE (burst) brand: the API rejects burst
+    # containers, so mislabeling it as a still would trade a clean 415 for a
+    # confusing processing failure. Deliberately unmapped.
+    msf1 = b"\x00\x00\x00\x18ftypmsf1" + b"\x00" * 8
+    assert helpers._coerce_file_source(msf1) == msf1
+
+
+def test_nameless_file_like_gets_synthetic_filename():
+    import io
+
+    assert helpers._coerce_file_source(io.BytesIO(HEIC_BYTES)) == (
+        "document.heic",
+        HEIC_BYTES,
+    )
+
+
+def test_nameless_file_like_with_unknown_bytes_passes_through():
+    import io
+
+    assert helpers._coerce_file_source(io.BytesIO(b"data")) == b"data"
+
+
+def test_heic_family_registered_with_mimetypes():
+    # Importing gemina must make PATH-based guesses deterministic: stock
+    # CPython lacks these on some platforms (Windows/macOS especially).
+    import mimetypes
+
+    assert mimetypes.guess_type("x.heic")[0] == "image/heic"
+    assert mimetypes.guess_type("x.hif")[0] == "image/heic"
+    assert mimetypes.guess_type("x.heif")[0] == "image/heif"
+    assert mimetypes.guess_type("x.avif")[0] == "image/avif"
+
+
 async def test_failed_result_served_as_http_error_raises_processing_error(client):
     # The live API serves terminal `failed` results with an HTTP 500, which
     # the generated client turns into ServiceException before terminal

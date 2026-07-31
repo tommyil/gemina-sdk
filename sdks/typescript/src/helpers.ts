@@ -77,7 +77,9 @@ export interface GeminaClientOptions {
  * A document to process: a `Blob`/`File` (uploaded via multipart
  * `POST /v1/documents/requests`) or a `{ url }` reference (submitted via
  * `POST /v1/documents/requests/web`). In Node, wrap a `Buffer` with
- * `new Blob([buf])`.
+ * `new Blob([buf])` — a filename and content type are derived automatically
+ * from the data's magic bytes when the blob doesn't carry them, so you don't
+ * need to construct a `File` yourself.
  */
 export type DocumentSource = Blob | { url: string };
 
@@ -113,6 +115,91 @@ export interface ProcessDocumentOptions {
   sleepFn?: (seconds: number) => Promise<void>;
   /** Random source in [0, 1) for the jitter factor. Defaults to `Math.random`. */
   random?: () => number;
+}
+
+/** A magic-byte-sniffed document format. */
+interface SniffedFormat {
+  ext: string;
+  type: string;
+}
+
+/**
+ * ISO-BMFF `ftyp` major brands mapped to still-image formats. Sequence/burst
+ * brands (`msf1`, `hevc`, `hevx`) are deliberately NOT mapped: the API
+ * rejects burst containers, and an anonymous octet-stream part produces a
+ * clean 415 instead of mislabeling them as stills the server would then
+ * choke on.
+ */
+const FTYP_BRAND_FORMATS: Record<string, SniffedFormat> = {
+  heic: { ext: '.heic', type: 'image/heic' },
+  heix: { ext: '.heic', type: 'image/heic' },
+  mif1: { ext: '.heif', type: 'image/heif' },
+  heim: { ext: '.heif', type: 'image/heif' },
+  heis: { ext: '.heif', type: 'image/heif' },
+  avif: { ext: '.avif', type: 'image/avif' },
+  avis: { ext: '.avif', type: 'image/avif' },
+};
+
+/**
+ * Best-effort magic-byte sniff of the API-supported formats. Returns
+ * `undefined` for anything unrecognized.
+ */
+function sniffFormat(bytes: Uint8Array): SniffedFormat | undefined {
+  const ascii = (start: number, end: number): string =>
+    bytes.length >= end ? String.fromCharCode(...bytes.subarray(start, end)) : '';
+  if (ascii(0, 4) === '%PDF') return { ext: '.pdf', type: 'application/pdf' };
+  if (bytes[0] === 0x89 && ascii(1, 4) === 'PNG') return { ext: '.png', type: 'image/png' };
+  if (bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) {
+    return { ext: '.jpg', type: 'image/jpeg' };
+  }
+  if (ascii(0, 4) === 'GIF8') return { ext: '.gif', type: 'image/gif' };
+  if (ascii(0, 4) === 'RIFF' && ascii(8, 12) === 'WEBP') {
+    return { ext: '.webp', type: 'image/webp' };
+  }
+  if (ascii(4, 8) === 'ftyp') return FTYP_BRAND_FORMATS[ascii(8, 12)];
+  return undefined;
+}
+
+/**
+ * `application/octet-stream` is what encoders default to when they know
+ * nothing — it carries no information, so treat it like an empty type and
+ * re-sniff.
+ */
+function hasUsefulType(type: string): boolean {
+  return type !== '' && type !== 'application/octet-stream';
+}
+
+/**
+ * Give an anonymous blob a real filename/content type before it hits the
+ * multipart encoder. A bare `Blob` reaches `FormData` as filename `"blob"`
+ * with type `application/octet-stream` — extensionless and untyped, so the
+ * documents ingress (declared MIME OR extension) 415s even for supported
+ * formats. Sniffs the magic bytes and wraps the blob in a named, typed
+ * `File`; blobs that don't sniff (and have nothing to gain) pass through
+ * unchanged. The fast path — a `File` that already has a name and a useful
+ * type — is allocation-free.
+ *
+ * On runtimes without a global `File` (Node 18: `Blob` is global but `File`
+ * is not), the blob is passed through unwrapped — there is nothing portable
+ * to wrap it in, and the server-side declared-MIME/extension fallbacks cover
+ * those users exactly as before this normalization existed.
+ */
+async function normalizeBlobSource(source: Blob): Promise<Blob> {
+  if (typeof File === 'undefined') {
+    return source; // Node 18: no global File to wrap with — pass through
+  }
+  const isFile = source instanceof File;
+  if (isFile && hasUsefulType(source.type)) {
+    return source; // fast path: already named and typed
+  }
+  const head = new Uint8Array(await source.slice(0, 32).arrayBuffer());
+  const sniffed = sniffFormat(head);
+  if (sniffed === undefined) {
+    return source; // unrecognized data: submit unchanged (historical behavior)
+  }
+  const name = isFile && source.name !== '' ? source.name : `document${sniffed.ext}`;
+  const type = hasUsefulType(source.type) ? source.type : sniffed.type;
+  return new File([source], name, { type });
 }
 
 function defaultSleep(seconds: number): Promise<void> {
@@ -361,7 +448,7 @@ export class GeminaClient {
     if (typeof Blob !== 'undefined' && source instanceof Blob) {
       try {
         submitted = await this.documents.createDocumentProcessingRequest({
-          file: source,
+          file: await normalizeBlobSource(source),
           externalId,
           extractionTypes,
           templateId: options.templateId,

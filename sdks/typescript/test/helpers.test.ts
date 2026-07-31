@@ -1,3 +1,5 @@
+import { createServer } from 'node:http';
+import type { AddressInfo } from 'node:net';
 import { describe, expect, it } from 'vitest';
 import {
   GeminaClient,
@@ -81,6 +83,18 @@ function makeFakeSleep(): { sleepFn: (seconds: number) => Promise<void>; waits: 
 
 const EXTRACTION_TYPES: UploadExtractionTypeEnum[] = ['invoice_headers'];
 const BLOB_SOURCE = new Blob(['fake-image-bytes'], { type: 'image/png' });
+
+// Minimal ISO-BMFF prefix: box size + 'ftyp' + major brand. Untyped return:
+// `new Uint8Array([...])` infers Uint8Array<ArrayBuffer>, which BlobPart
+// requires (a bare `Uint8Array` annotation widens to ArrayBufferLike).
+const ftypBytes = (brand: string) =>
+  new Uint8Array([
+    0x00, 0x00, 0x00, 0x18,
+    ...'ftyp'.split('').map((c) => c.charCodeAt(0)),
+    ...brand.split('').map((c) => c.charCodeAt(0)),
+    0x00, 0x00, 0x00, 0x00,
+  ]);
+const PNG_BYTES = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 
 describe('GeminaClient.processDocument', () => {
   it('happy path: submit, two non-terminal polls, then success', async () => {
@@ -289,6 +303,168 @@ describe('GeminaClient.processDocument', () => {
     await expect(promise).rejects.toBeInstanceOf(GeminaError);
     await expect(promise).rejects.not.toBeInstanceOf(GeminaTimeoutError);
     await expect(promise).rejects.not.toBeInstanceOf(GeminaProcessingError);
+  });
+});
+
+// Node 18 has a global Blob but no global File: normalization can't wrap
+// there and must pass blobs through unchanged. Tests asserting wrapping (or
+// constructing File sources) only run where File exists; the degraded
+// behavior has its own suite below.
+const HAS_FILE_GLOBAL = typeof File !== 'undefined';
+
+async function submitAndGetFile(source: Blob): Promise<unknown> {
+  const { documents, calls } = makeFakeDocuments(makeResult(ResponseStatus.Success), []);
+  await makeClient(documents).processDocument(source, EXTRACTION_TYPES);
+  expect(calls.submitFile).toHaveLength(1);
+  return (calls.submitFile[0] as { file: unknown }).file;
+}
+
+describe.runIf(HAS_FILE_GLOBAL)('GeminaClient.processDocument — anonymous blob normalization', () => {
+  it('bare HEIC Blob is submitted as a File named document.heic typed image/heic', async () => {
+    const file = (await submitAndGetFile(new Blob([ftypBytes('heic')]))) as File;
+    expect(file).toBeInstanceOf(File);
+    expect(file.name).toBe('document.heic');
+    expect(file.type).toBe('image/heic');
+  });
+
+  it('bare AVIF Blob is submitted as document.avif / image/avif', async () => {
+    const file = (await submitAndGetFile(new Blob([ftypBytes('avif')]))) as File;
+    expect(file.name).toBe('document.avif');
+    expect(file.type).toBe('image/avif');
+  });
+
+  it('bare untyped PNG Blob is submitted as document.png / image/png', async () => {
+    const file = (await submitAndGetFile(new Blob([PNG_BYTES]))) as File;
+    expect(file.name).toBe('document.png');
+    expect(file.type).toBe('image/png');
+  });
+
+  it('a File that already has a name and type passes through as the same object', async () => {
+    const source = new File([PNG_BYTES], 'invoice.png', { type: 'image/png' });
+    const file = await submitAndGetFile(source);
+    expect(file).toBe(source); // fast path: allocation-free
+  });
+
+  it('a File with an empty type gains the sniffed type but keeps its name', async () => {
+    const source = new File([ftypBytes('heic')], 'photo.heic');
+    const file = (await submitAndGetFile(source)) as File;
+    expect(file.name).toBe('photo.heic');
+    expect(file.type).toBe('image/heic');
+  });
+
+  it('a typed but nameless Blob gains a sniffed filename and keeps its declared type', async () => {
+    const source = new Blob([PNG_BYTES], { type: 'image/png' });
+    const file = (await submitAndGetFile(source)) as File;
+    expect(file.name).toBe('document.png');
+    expect(file.type).toBe('image/png');
+  });
+
+  it('a Blob declared application/octet-stream is re-sniffed like an untyped one', async () => {
+    // octet-stream is what encoders default to when they know nothing — it
+    // carries no information, so it must not survive as the declared type.
+    const source = new Blob([ftypBytes('heic')], { type: 'application/octet-stream' });
+    const file = (await submitAndGetFile(source)) as File;
+    expect(file.name).toBe('document.heic');
+    expect(file.type).toBe('image/heic');
+  });
+
+  it('an unrecognized bare Blob still submits, unchanged', async () => {
+    const source = new Blob(['not any known format']);
+    const file = await submitAndGetFile(source);
+    expect(file).toBe(source); // historical behavior preserved
+  });
+
+  it('a sequence-brand (msf1) Blob is NOT mislabeled as a still image', async () => {
+    // Burst containers are rejected by the API; an anonymous octet-stream
+    // part yields a clean 415 instead of a confusing processing failure.
+    const source = new Blob([ftypBytes('msf1')]);
+    const file = await submitAndGetFile(source);
+    expect(file).toBe(source);
+  });
+});
+
+describe.runIf(!HAS_FILE_GLOBAL)(
+  'GeminaClient.processDocument — no global File (Node 18 semantics)',
+  () => {
+    it('sniffable HEIC Blob still submits, unwrapped', async () => {
+      const source = new Blob([ftypBytes('heic')]);
+      expect(await submitAndGetFile(source)).toBe(source);
+    });
+
+    it('unrecognized Blob still submits, unwrapped', async () => {
+      const source = new Blob(['not any known format']);
+      expect(await submitAndGetFile(source)).toBe(source);
+    });
+  },
+);
+
+describe('GeminaClient.processDocument — real multipart wire capture', () => {
+  // No mocked DocumentApi here: the request travels through the generated
+  // client, real FormData and real fetch into a local node:http server, and
+  // the assertion reads the raw multipart body — the level at which the
+  // "filename=blob, octet-stream" bug was originally observed.
+  interface CapturedPart {
+    filename: string | undefined;
+    type: string | undefined;
+  }
+
+  async function captureFilePartOnWire(source: Blob): Promise<CapturedPart> {
+    let raw = '';
+    const server = createServer((req, res) => {
+      const chunks: Buffer[] = [];
+      req.on('data', (chunk: Buffer) => chunks.push(chunk));
+      req.on('end', () => {
+        raw = Buffer.concat(chunks).toString('latin1');
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        // Terminal success -> processDocument returns without polling.
+        res.end(
+          JSON.stringify({ status: 'success', data: null, meta: { correlationId: 'corr-wire' } }),
+        );
+      });
+    });
+    await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+    const { port } = server.address() as AddressInfo;
+    try {
+      const client = new GeminaClient('test-api-key', `http://127.0.0.1:${port}`);
+      await client.processDocument(source, EXTRACTION_TYPES);
+    } finally {
+      await new Promise<void>((resolve) => server.close(() => resolve()));
+    }
+    const match = raw.match(
+      /content-disposition:\s*form-data;\s*name="file"(?:;\s*filename="([^"]*)")?\r\n(?:content-type:\s*([^\r\n]+)\r\n)?/i,
+    );
+    expect(match, `file part not found in captured body:\n${raw}`).not.toBeNull();
+    return { filename: match?.[1], type: match?.[2] };
+  }
+
+  it('bare HEIC Blob reaches the wire as document.heic / image/heic', async () => {
+    const part = await captureFilePartOnWire(new Blob([ftypBytes('heic')]));
+    if (typeof File !== 'undefined') {
+      expect(part.filename).toBe('document.heic');
+      expect(part.type).toBe('image/heic');
+    } else {
+      // Node 18 semantics: no global File to wrap with — the Blob must still
+      // submit, unwrapped, exactly as before normalization existed.
+      expect(part.filename).toBe('blob');
+      expect(part.type).toBe('application/octet-stream');
+    }
+  });
+
+  it('a named, typed File keeps its own name and type on the wire', async () => {
+    if (typeof File === 'undefined') {
+      return; // File cannot even be constructed on this runtime (Node 18)
+    }
+    const part = await captureFilePartOnWire(
+      new File([PNG_BYTES], 'invoice.png', { type: 'image/png' }),
+    );
+    expect(part.filename).toBe('invoice.png');
+    expect(part.type).toBe('image/png');
+  });
+
+  it('an unrecognized bare Blob still reaches the wire (unchanged behavior)', async () => {
+    const part = await captureFilePartOnWire(new Blob(['not any known format']));
+    expect(part.filename).toBe('blob');
+    expect(part.type).toBe('application/octet-stream');
   });
 });
 

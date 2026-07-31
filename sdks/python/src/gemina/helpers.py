@@ -9,6 +9,7 @@ return the typed terminal result).
 from __future__ import annotations
 
 import asyncio
+import mimetypes
 import os
 import random
 import time
@@ -35,6 +36,18 @@ from gemina.generated.models.response_status import ResponseStatus
 from gemina.generated.models.web_document_upload_in_dto import WebDocumentUploadInDTO
 
 DEFAULT_BASE_URL = "https://api.gemina.co"
+
+# Stock CPython's mimetypes table lacks the HEIC/HEIF/AVIF families on some
+# platforms: Linux usually picks them up from /etc/mime.types, but Windows and
+# macOS often don't ship entries for them. Without these, PATH-based uploads
+# of those formats were platform-dependent — the generated client would guess
+# application/octet-stream, which the content-type-driven FileTag endpoint
+# rejects with a 415. Registering here (the module every import path goes
+# through) makes the guess deterministic everywhere.
+mimetypes.add_type("image/heic", ".heic")
+mimetypes.add_type("image/heic", ".hif")
+mimetypes.add_type("image/heif", ".heif")
+mimetypes.add_type("image/avif", ".avif")
 
 #: Statuses that end polling. ``failed`` raises; the rest are returned.
 _TERMINAL_STATUSES = frozenset(
@@ -467,6 +480,59 @@ def _raise_if_failed_result(exc: ApiException) -> None:
         raise GeminaProcessingError(parsed) from exc
 
 
+#: ISO-BMFF ``ftyp`` major brands mapped to a still-image extension.
+#: Sequence/burst brands (``msf1``, ``hevc``, ``hevx``) are deliberately NOT
+#: mapped: the API rejects burst/sequence containers, and letting them fall
+#: through as anonymous octet-stream produces a clean 415 instead of
+#: mislabeling them as stills the server would then choke on.
+_FTYP_BRAND_EXTENSIONS = {
+    b"heic": ".heic",
+    b"heix": ".heic",
+    b"mif1": ".heif",
+    b"heim": ".heif",
+    b"heis": ".heif",
+    b"avif": ".avif",
+    b"avis": ".avif",
+}
+
+
+def _sniff_extension(data: bytes) -> Optional[str]:
+    """Best-effort magic-byte sniff of the API-supported formats.
+
+    Used to synthesize a filename for anonymous byte sources: the documents
+    ingress accepts a file on declared MIME type OR filename extension, and
+    an extensionless octet-stream part satisfies neither (415). Returns
+    ``None`` for anything unrecognized.
+    """
+    if data.startswith(b"%PDF"):
+        return ".pdf"
+    if data.startswith(b"\x89PNG"):
+        return ".png"
+    if data.startswith(b"\xff\xd8\xff"):
+        return ".jpg"
+    if data.startswith(b"GIF8"):
+        return ".gif"
+    if len(data) >= 12 and data[:4] == b"RIFF" and data[8:12] == b"WEBP":
+        return ".webp"
+    if len(data) >= 12 and data[4:8] == b"ftyp":
+        return _FTYP_BRAND_EXTENSIONS.get(data[8:12])
+    return None
+
+
+def _name_anonymous_bytes(data: bytes) -> Union[bytes, Tuple[str, bytes]]:
+    """Give nameless payload bytes a synthetic filename when sniffable.
+
+    The generated multipart encoder sends bare ``bytes`` as
+    ``filename="file"`` with ``application/octet-stream`` — extensionless and
+    untyped, so the documents ingress 415s even for supported formats.
+    Unrecognized data is returned unchanged (preserves current behavior).
+    """
+    ext = _sniff_extension(data)
+    if ext is not None:
+        return (f"document{ext}", data)
+    return data
+
+
 def _coerce_file_source(
     source: Union[bytes, "os.PathLike[str]", str, Any],
 ) -> Union[bytes, str, Tuple[str, bytes]]:
@@ -474,10 +540,12 @@ def _coerce_file_source(
 
     The generated ``create_document_processing_request`` takes
     ``bytes | str-path | (filename, bytes)``; paths are opened and read by
-    the generated client itself.
+    the generated client itself. Anonymous sources (bare ``bytes``, file-like
+    objects without a usable ``.name``) get a sniffed ``document.<ext>``
+    filename so the upload carries a recognizable extension/content type.
     """
     if isinstance(source, (bytes, bytearray)):
-        return bytes(source)
+        return _name_anonymous_bytes(bytes(source))
     if isinstance(source, (str, os.PathLike)):
         return os.fspath(source)
     read = getattr(source, "read", None)
@@ -490,7 +558,7 @@ def _coerce_file_source(
         name = getattr(source, "name", None)
         if isinstance(name, str) and name:
             return (os.path.basename(name), bytes(data))
-        return bytes(data)
+        return _name_anonymous_bytes(bytes(data))
     raise TypeError(
         "Unsupported document source: expected bytes, a path, a binary "
         f"file-like object, or UrlSource — got {type(source).__name__}"
