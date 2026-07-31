@@ -102,7 +102,9 @@ Extraction types:
 | `document_details_hebrew` | Hebrew document header fields |
 | `document_line_items_hebrew` | Hebrew line items |
 | `custom_template` | Fields defined by your template (pass `template_id=...`) |
-| `filetag` | File classification and naming metadata |
+
+`filetag` is deliberately absent: the upload endpoints reject it, and FileTag
+has its own endpoints.
 
 ## Search & aggregate your documents
 
