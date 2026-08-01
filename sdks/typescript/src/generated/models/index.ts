@@ -130,6 +130,7 @@ export * from './UsageSummaryOutDTO';
 export * from './ValidationError';
 export * from './ValidationSchemaModel';
 export * from './Value';
+export * from './ValueAnyOfInner';
 export * from './ValuesValue';
 export * from './ViewMetaOutDTO';
 export * from './VolumeDiscountTierOutDTO';
