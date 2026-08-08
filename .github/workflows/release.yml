@@ -38,6 +38,13 @@ jobs:
           check packages/elements/package.json "\"version\": \"$VERSION\""
           grep -Eq "VERSION = ['\"]$VERSION['\"]" sdks/typescript/src/version.ts || fail=1
           grep -Eq "VERSION = ['\"]$VERSION['\"]" packages/elements/src/version.ts || fail=1
+          # User-Agent version constants — v0.5.0 shipped these at 0.4.1
+          # because the bump sweep missed .java/.cs/.php files; gate them.
+          check sdks/python/src/gemina/_version.py "__version__ = \"$VERSION\""
+          check sdks/java/src/main/java/co/gemina/sdk/SdkVersion.java "VERSION = \"$VERSION\""
+          check sdks/csharp/src/Gemina.Sdk/Helpers/SdkVersion.cs "Version = \"$VERSION\""
+          check sdks/php/src/SdkVersion.php "VERSION = '$VERSION'"
+          check sdks/java/README.md "<version>$VERSION</version>"
           exit $fail
 
   npm:

@@ -307,9 +307,11 @@ async def mint_token():
 ```
 
 Token-authenticated clients (for server-side use of a token, or testing) are
-created with `GeminaClient.with_session_token(token)`; tokens can call the
-retrieval query and chat endpoints only. For a drop-in chat UI in the
-browser, see the `@gemina/elements` package on npm.
+created with `GeminaClient.with_session_token(token)`; tokens can call
+retrieval query/aggregate, chat, and chat-history read endpoints, and end a
+session — but never purge one (that takes an API key or a console sign-in).
+For a drop-in chat UI in the browser, see the `@gemina/elements` package on
+npm.
 
 ## Going deeper
 
