@@ -21,6 +21,12 @@ try {
     console.error('FAIL: indexedDocuments is not a number');
     process.exit(1);
   }
+  const history = await client.chat.listChatSessions({ limit: 2 });
+  console.log('listChatSessions() -> count:', history.count, 'sessions:', history.sessions.length);
+  if (typeof history.count !== 'number') {
+    console.error('FAIL: chat history count is not a number');
+    process.exit(1);
+  }
   console.log('OK');
 } catch (error) {
   console.error('Smoke test failed:', error);

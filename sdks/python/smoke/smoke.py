@@ -24,6 +24,7 @@ async def main() -> int:
     try:
         async with GeminaClient(api_key, base_url=base_url) as client:
             status = await client.retrieval.retrieval_status()
+            history = await client.chat.list_chat_sessions(limit=2)
     except Exception as exc:  # noqa: BLE001 - smoke test reports anything
         print(f"FAIL: {type(exc).__name__}: {exc}", file=sys.stderr)
         return 1
@@ -32,6 +33,10 @@ async def main() -> int:
     print(f"indexedDocuments={status.indexed_documents}")
     if status.indexed_documents is None:
         print("FAIL: indexedDocuments missing from response", file=sys.stderr)
+        return 1
+    print(f"chatHistory count={history.count} sessions={len(history.sessions)}")
+    if not isinstance(history.count, int):
+        print("FAIL: chat history count missing from response", file=sys.stderr)
         return 1
     print("OK")
     return 0

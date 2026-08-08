@@ -17,6 +17,8 @@ try
     var client = new GeminaClient(apiKey, baseUrl);
     var status = await client.Retrieval.RetrievalStatusAsync();
     Console.WriteLine($"retrieval status OK — indexedDocuments={status.IndexedDocuments} servedAt={status.ServedAt:O}");
+    var history = await client.Chat.ListChatSessionsAsync(limit: 2);
+    Console.WriteLine($"chat history OK — count={history.Count} sessions={history.Sessions.Count}");
     return 0;
 }
 catch (Exception ex)

@@ -1,6 +1,7 @@
 package co.gemina.sdk.smoke;
 
 import co.gemina.sdk.GeminaClient;
+import co.gemina.sdk.generated.model.ChatSessionListOutDTO;
 import co.gemina.sdk.generated.model.RetrievalStatusOutDTO;
 
 /**
@@ -34,6 +35,9 @@ public final class Smoke {
             RetrievalStatusOutDTO status = client.retrieval().retrievalStatus();
             System.out.println("Smoke OK: retrievalStatus() -> indexedDocuments="
                     + status.getIndexedDocuments() + ", servedAt=" + status.getServedAt());
+            ChatSessionListOutDTO history = client.chat().listChatSessions(null, 2, null, null, null);
+            System.out.println("Smoke OK: listChatSessions() -> count=" + history.getCount()
+                    + ", sessions=" + history.getSessions().size());
         } catch (Exception e) {
             System.err.println("Smoke FAILED: " + e);
             e.printStackTrace();
