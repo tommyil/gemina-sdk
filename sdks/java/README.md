@@ -12,7 +12,7 @@ Requires Java 8 or later.
 <dependency>
     <groupId>co.gemina</groupId>
     <artifactId>gemina-sdk</artifactId>
-    <version>0.4.1</version>
+    <version>0.5.0</version>
 </dependency>
 ```
 
@@ -237,12 +237,41 @@ System.out.println(follow.getAnswer() + " · session: " + chat.getSessionId());
 chat.delete(); // end it server-side (or chat.reset() to just forget it locally)
 ```
 
-A conversation expires after 24h of inactivity; the next `send` then throws the
-API's `404 CHAT_SESSION_NOT_FOUND` (an `ApiException`) — call `chat.reset()` and
-resend to continue in a fresh one. The one-shot
+A conversation's live context expires after roughly 24h of inactivity; the next
+`send` then throws the API's `404 CHAT_SESSION_NOT_FOUND` (an `ApiException`) —
+call `chat.reset()` and resend to continue in a fresh one. The transcript itself
+is not lost: it stays available in chat history (below) until your
+data-retention window — or an explicit purge — removes it. The one-shot
 `client.chat().chatQuery(new ChatQueryInDTO().message(...).sessionId(...))` is
 still there if you'd rather hold the id yourself; every response returns a
 `getSessionId()`.
+
+## Chat history
+
+Past conversations are kept as sessions you can list, reread, and purge:
+
+```java
+ChatSessionListOutDTO listing = client.chat().listChatSessions(null, 20, null, null, null);
+for (ChatSessionOutDTO session : listing.getSessions()) {
+    System.out.println(session.getTitle() + " · " + session.getTurnCount() + " turns");
+}
+
+UUID sessionId = listing.getSessions().get(0).getId();
+ChatTranscriptOutDTO transcript = client.chat().getChatSession(sessionId, null, null, null);
+for (ChatMessageOutDTO msg : transcript.getMessages()) {
+    System.out.println("[" + msg.getRole() + "] " + msg.getContent());
+}
+
+client.chat().purgeChatSession(sessionId);
+```
+
+`purgeChatSession` permanently deletes the transcript and the server-side copy
+of its content — it cannot be undone. Purged sessions vanish from the list;
+pass `withPurged = true` to see their content-free stubs — title cleared,
+`getPurgedAt()`/`getPurgeReason()` set; timestamps and `getTurnCount()` survive. Transcripts also age out automatically under your
+account's data-retention setting (each session's `getPurgeAt()` tells you
+when). Purging requires an API key or a console sign-in — browser session
+tokens can list and read history, but never purge.
 
 ## Session tokens (browser embedding)
 

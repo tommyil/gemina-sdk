@@ -195,7 +195,27 @@ console.log(follow.answer, "· session:", chat.sessionId);
 await chat.delete(); // end it server-side (or chat.reset() to just forget it locally)
 ```
 
-A conversation expires after 24h of inactivity; the next `send` then throws the API's `404 CHAT_SESSION_NOT_FOUND` — call `chat.reset()` and resend to continue in a fresh one. One-shot `client.chat.chatQuery({ chatQueryInDTO: { message, sessionId } })` is still available if you'd rather hold the id yourself; every response returns a `sessionId`.
+A conversation's live context expires after roughly 24h of inactivity; the next `send` then throws the API's `404 CHAT_SESSION_NOT_FOUND` — call `chat.reset()` and resend to continue in a fresh one. The transcript itself is not lost: it stays available in chat history (below) until your data-retention window — or an explicit purge — removes it. One-shot `client.chat.chatQuery({ chatQueryInDTO: { message, sessionId } })` is still available if you'd rather hold the id yourself; every response returns a `sessionId`.
+
+## Chat history
+
+Past conversations are kept as sessions you can list, reread, and purge:
+
+```ts
+const listing = await client.chat.listChatSessions({ limit: 20 });
+for (const session of listing.sessions) {
+  console.log(session.title, "·", session.turnCount, "turns");
+}
+
+const transcript = await client.chat.getChatSession({ sessionId: listing.sessions[0].id });
+for (const msg of transcript.messages) {
+  console.log(`[${msg.role}] ${msg.content}`);
+}
+
+await client.chat.purgeChatSession({ sessionId: listing.sessions[0].id });
+```
+
+`purgeChatSession` permanently deletes the transcript and the server-side copy of its content — it cannot be undone. Purged sessions vanish from the list; pass `withPurged: true` to see their content-free stubs — title cleared, `purgedAt`/`purgeReason` set; timestamps and `turnCount` survive. Transcripts also age out automatically under your account's data-retention setting (each session's `purgeAt` tells you when). Purging requires an API key or a console sign-in — browser session tokens can list and read history, but never purge.
 
 ## Session tokens (browser embedding)
 

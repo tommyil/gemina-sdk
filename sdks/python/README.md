@@ -254,11 +254,39 @@ async def conversation():
         await chat.delete()   # end it server-side (or chat.reset() to just forget it locally)
 ```
 
-A conversation expires after 24h of inactivity; the next `send` then raises the
-API's `404 CHAT_SESSION_NOT_FOUND` — call `chat.reset()` and resend to continue
-in a fresh one. One-shot `client.chat.chat_query(ChatQueryInDTO(message=...,
-session_id=...))` is still available if you'd rather hold the id yourself; every
-response returns a `session_id`.
+A conversation's live context expires after roughly 24h of inactivity; the next
+`send` then raises the API's `404 CHAT_SESSION_NOT_FOUND` — call `chat.reset()`
+and resend to continue in a fresh one. The transcript itself is not lost: it
+stays available in chat history (below) until your data-retention window — or an
+explicit purge — removes it. One-shot `client.chat.chat_query(ChatQueryInDTO(
+message=..., session_id=...))` is still available if you'd rather hold the id
+yourself; every response returns a `session_id`.
+
+## Chat history
+
+Past conversations are kept as sessions you can list, reread, and purge:
+
+```python
+async def history():
+    async with GeminaClient("YOUR_API_KEY") as client:
+        listing = await client.chat.list_chat_sessions(limit=20)
+        for session in listing.sessions:
+            print(session.title, "·", session.turn_count, "turns")
+
+        transcript = await client.chat.get_chat_session(listing.sessions[0].id)
+        for msg in transcript.messages:
+            print(f"[{msg.role}] {msg.content}")
+
+        await client.chat.purge_chat_session(listing.sessions[0].id)
+```
+
+`purge` permanently deletes the transcript and the server-side copy of its
+content — it cannot be undone. Purged sessions vanish from the list; pass
+`with_purged=True` to see their content-free stubs — title cleared,
+`purged_at`/`purge_reason` set; timestamps and `turn_count` survive. Transcripts also age out automatically under your
+account's data-retention setting (each session's `purge_at` tells you when).
+Purging requires an API key or a console sign-in — browser session tokens can
+list and read history, but never purge.
 
 ## Session tokens (browser embedding)
 
