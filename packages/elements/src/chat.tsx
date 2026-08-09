@@ -441,9 +441,34 @@ const CHAT_CSS = `
 }
 .gemina-chat__typing {
   align-self: flex-start;
+  display: flex;
+  align-items: center;
+  gap: 5px;
   color: var(--gemina-chat-muted);
   font-size: 12px;
   padding: 0 4px;
+}
+.gemina-chat__typing-dots {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+.gemina-chat__typing-dots span {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: 0.25;
+  animation: gemina-chat-thinking 1.2s infinite ease-in-out;
+}
+.gemina-chat__typing-dots span:nth-child(2) { animation-delay: 0.2s; }
+.gemina-chat__typing-dots span:nth-child(3) { animation-delay: 0.4s; }
+@keyframes gemina-chat-thinking {
+  0%, 60%, 100% { opacity: 0.25; transform: translateY(0); }
+  30% { opacity: 1; transform: translateY(-2px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .gemina-chat__typing-dots span { animation: none; opacity: 0.6; }
 }
 .gemina-chat__composer {
   display: flex;
@@ -822,7 +847,18 @@ export function GeminaChat(props: GeminaChatProps): React.JSX.Element {
             </div>
           );
         })}
-        {busy && <div className="gemina-chat__typing">Thinking…</div>}
+        {busy && (
+          // The label alone is what the aria-live log announces; the dots are
+          // decoration (aria-hidden), and prefers-reduced-motion freezes them.
+          <div className="gemina-chat__typing">
+            Thinking
+            <span className="gemina-chat__typing-dots" aria-hidden="true">
+              <span />
+              <span />
+              <span />
+            </span>
+          </div>
+        )}
       </div>
       <form className="gemina-chat__composer" onSubmit={handleSubmit}>
         <textarea
