@@ -136,6 +136,16 @@ describe('GeminaChat — rendering', () => {
     expect(screen.queryByText('Answers come from your indexed document data.')).toBeNull();
   });
 
+  it('renders newline-separated intro text as distinct paragraphs', () => {
+    renderChat({ intro: 'Answers come from indexed data.\nOriginal files are not visible.' });
+
+    const intro = document.querySelector('.gemina-chat__intro');
+    const lines = intro?.querySelectorAll('.gemina-chat__intro-line');
+    expect(lines?.length).toBe(2);
+    expect(lines?.[0]?.textContent).toBe('Answers come from indexed data.');
+    expect(lines?.[1]?.textContent).toBe('Original files are not visible.');
+  });
+
   it('"New chat" brings the intro back', async () => {
     chatQuery.mockResolvedValueOnce(answer('42.'));
     renderChat({ intro: 'Indexed data only.' });

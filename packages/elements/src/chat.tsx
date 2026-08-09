@@ -57,7 +57,8 @@ export interface GeminaChatProps {
    * Plain text shown centered in the empty conversation area until the
    * first message. Use it to set expectations about what the assistant
    * can and can't see (e.g. "Answers come from your indexed document
-   * data").
+   * data"). Newlines split it into separately spaced paragraphs — no
+   * markup, so the string stays safe and portable.
    */
   intro?: string;
   /** Called with the cited `documentId` when a citation chip is clicked. */
@@ -472,6 +473,9 @@ const CHAT_CSS = `
   cursor: pointer;
 }
 .gemina-chat__intro {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
   margin: auto;
   max-width: 46ch;
   padding: 16px;
@@ -479,6 +483,7 @@ const CHAT_CSS = `
   font-size: 13px;
   color: var(--gemina-chat-muted);
 }
+.gemina-chat__intro-line { margin: 0; }
 .gemina-chat__typing {
   align-self: flex-start;
   display: flex;
@@ -832,7 +837,14 @@ export function GeminaChat(props: GeminaChatProps): React.JSX.Element {
       >
         {messages.length === 0 && intro !== undefined && (
           <div className="gemina-chat__intro" dir={bubbleDir}>
-            {intro}
+            {intro
+              .split('\n')
+              .filter((line) => line.trim().length > 0)
+              .map((line, index) => (
+                <p key={index} className="gemina-chat__intro-line">
+                  {line}
+                </p>
+              ))}
           </div>
         )}
         {messages.map((message) => {

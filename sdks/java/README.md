@@ -12,7 +12,7 @@ Requires Java 8 or later.
 <dependency>
     <groupId>co.gemina</groupId>
     <artifactId>gemina-sdk</artifactId>
-    <version>0.5.3</version>
+    <version>0.5.4</version>
 </dependency>
 ```
 
