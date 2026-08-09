@@ -215,7 +215,7 @@ for (const msg of transcript.messages) {
 await client.chat.purgeChatSession({ sessionId: listing.sessions[0].id });
 ```
 
-`purgeChatSession` permanently deletes the transcript and the server-side copy of its content — it cannot be undone. Purged sessions vanish from the list; pass `withPurged: true` to see their content-free stubs — title cleared, `purgedAt`/`purgeReason` set; timestamps and `turnCount` survive. Transcripts also age out automatically under your account's data-retention setting (each session's `purgeAt` tells you when). Purging requires an API key or a console sign-in — browser session tokens can list and read history, but never purge.
+`purgeChatSession` permanently deletes the transcript and the server-side copy of its content — it cannot be undone. Purged sessions vanish from the list; pass `withPurged: true` to see their content-free stubs — title cleared, `purgedAt`/`purgeReason` set; timestamps, `turnCount`, and `endUserId` survive. Transcripts also age out automatically under your account's data-retention setting (each session's `purgeAt` tells you when). Purging requires an API key or a console sign-in — browser session tokens can list and read history, but never purge.
 
 ## Session tokens (browser embedding)
 

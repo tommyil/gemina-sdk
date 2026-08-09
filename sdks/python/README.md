@@ -283,7 +283,7 @@ async def history():
 `purge` permanently deletes the transcript and the server-side copy of its
 content — it cannot be undone. Purged sessions vanish from the list; pass
 `with_purged=True` to see their content-free stubs — title cleared,
-`purged_at`/`purge_reason` set; timestamps and `turn_count` survive. Transcripts also age out automatically under your
+`purged_at`/`purge_reason` set; timestamps, `turn_count`, and `end_user_id` survive. Transcripts also age out automatically under your
 account's data-retention setting (each session's `purge_at` tells you when).
 Purging requires an API key or a console sign-in — browser session tokens can
 list and read history, but never purge.

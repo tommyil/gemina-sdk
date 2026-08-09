@@ -156,6 +156,7 @@ import { GeminaChat } from "@gemina/elements";
 | `theme` | `"light" \| "dark" \| "auto"` | `"auto"` | `"auto"` follows `prefers-color-scheme`. |
 | `dir` | `"ltr" \| "rtl" \| "auto"` | `"auto"` | `"auto"` flips the widget to RTL when the user's latest message contains Hebrew; bubbles also self-resolve via `dir="auto"`. |
 | `placeholder` | `string` | `"Ask about your documents…"` | Input placeholder. |
+| `title` | `string` | — | Header text — your brand or assistant persona (`"Acme Invoices"`, `"Gemina's AI Rep"`). When set, the header is always visible. |
 | `onCitationClick` | `(documentId: string) => void` | — | Called when a citation chip is clicked. |
 | `className` | `string` | — | Extra class(es) on the root (handy for CSS-variable overrides). |
 

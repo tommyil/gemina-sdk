@@ -12,7 +12,7 @@ Requires Java 8 or later.
 <dependency>
     <groupId>co.gemina</groupId>
     <artifactId>gemina-sdk</artifactId>
-    <version>0.5.1</version>
+    <version>0.5.2</version>
 </dependency>
 ```
 
@@ -268,7 +268,7 @@ client.chat().purgeChatSession(sessionId);
 `purgeChatSession` permanently deletes the transcript and the server-side copy
 of its content — it cannot be undone. Purged sessions vanish from the list;
 pass `withPurged = true` to see their content-free stubs — title cleared,
-`getPurgedAt()`/`getPurgeReason()` set; timestamps and `getTurnCount()` survive. Transcripts also age out automatically under your
+`getPurgedAt()`/`getPurgeReason()` set; timestamps, `getTurnCount()`, and `getEndUserId()` survive. Transcripts also age out automatically under your
 account's data-retention setting (each session's `getPurgeAt()` tells you
 when). Purging requires an API key or a console sign-in — browser session
 tokens can list and read history, but never purge.

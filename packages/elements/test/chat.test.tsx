@@ -103,6 +103,29 @@ describe('GeminaChat — rendering', () => {
     expect(log.getAttribute('aria-busy')).toBe('false');
   });
 
+  it('renders the header title before any conversation starts', () => {
+    renderChat({ title: "Gemina's AI Rep" });
+
+    expect(screen.getByText("Gemina's AI Rep")).toBeTruthy();
+    // No conversation yet — the title stands alone, without "New chat".
+    expect(screen.queryByRole('button', { name: 'New chat' })).toBeNull();
+  });
+
+  it('shows no header at all without a title or messages', () => {
+    renderChat();
+    expect(document.querySelector('.gemina-chat__header')).toBeNull();
+  });
+
+  it('keeps the title next to "New chat" once a conversation starts', async () => {
+    chatQuery.mockResolvedValueOnce(answer('Sure.'));
+    renderChat({ title: 'Acme Invoices' });
+
+    await sendMessage('hi');
+    await screen.findByText('Sure.');
+    expect(screen.getByText('Acme Invoices')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'New chat' })).toBeTruthy();
+  });
+
   it('injects its stylesheet once, with a stable data attribute', () => {
     renderChat();
     renderChat();

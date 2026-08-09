@@ -260,7 +260,7 @@ await client.Chat.PurgeChatSessionAsync(listing.Sessions[0].Id);
 `PurgeChatSessionAsync` permanently deletes the transcript and the server-side
 copy of its content — it cannot be undone. Purged sessions vanish from the
 list; pass `withPurged: true` to see their content-free stubs — title cleared,
-`PurgedAt`/`PurgeReason` set; timestamps and `TurnCount` survive. Transcripts also age out automatically under your
+`PurgedAt`/`PurgeReason` set; timestamps, `TurnCount`, and `EndUserId` survive. Transcripts also age out automatically under your
 account's data-retention setting (each session's `PurgeAt` tells you when).
 Purging requires an API key or a console sign-in — browser session tokens can
 list and read history, but never purge.

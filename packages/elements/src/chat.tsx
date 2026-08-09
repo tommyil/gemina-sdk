@@ -43,6 +43,15 @@ export interface GeminaChatProps {
   dir?: GeminaChatDirection;
   /** Input placeholder text. */
   placeholder?: string;
+  /**
+   * Header text — whatever identity the embedding platform wants the chat
+   * to carry: a brand ("Acme Invoices"), an assistant persona ("Gemina's
+   * AI Rep"), anything. Text only, rendered verbatim. When set, the header
+   * is always visible; without it the header appears only once a
+   * conversation has started (to host "New chat"). Colors and fonts are
+   * themeable separately via the `--gemina-chat-*` CSS variables.
+   */
+  title?: string;
   /** Called with the cited `documentId` when a citation chip is clicked. */
   onCitationClick?: (documentId: string) => void;
   /** Extra class name(s) for the root element (e.g. to override CSS vars). */
@@ -353,6 +362,14 @@ const CHAT_CSS = `
   padding: 6px 10px;
   border-bottom: 1px solid var(--gemina-chat-border);
 }
+.gemina-chat__title {
+  margin-inline-end: auto;
+  font-size: 13px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .gemina-chat__newchat {
   font: inherit;
   font-size: 12px;
@@ -542,6 +559,7 @@ export function GeminaChat(props: GeminaChatProps): React.JSX.Element {
     theme = 'auto',
     dir = 'auto',
     placeholder = 'Ask about your documents…',
+    title,
     onCitationClick,
     className,
   } = props;
@@ -761,16 +779,23 @@ export function GeminaChat(props: GeminaChatProps): React.JSX.Element {
 
   return (
     <div className={rootClassName} dir={effectiveDir}>
-      {messages.length > 0 && (
+      {(title !== undefined || messages.length > 0) && (
         <div className="gemina-chat__header">
-          <button
-            type="button"
-            className="gemina-chat__newchat"
-            onClick={startNewChat}
-            disabled={busy}
-          >
-            New chat
-          </button>
+          {title !== undefined && (
+            <div className="gemina-chat__title" dir={bubbleDir}>
+              {title}
+            </div>
+          )}
+          {messages.length > 0 && (
+            <button
+              type="button"
+              className="gemina-chat__newchat"
+              onClick={startNewChat}
+              disabled={busy}
+            >
+              New chat
+            </button>
+          )}
         </div>
       )}
       <div
