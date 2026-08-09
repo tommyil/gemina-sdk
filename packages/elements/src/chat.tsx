@@ -49,9 +49,17 @@ export interface GeminaChatProps {
    * AI Rep"), anything. Text only, rendered verbatim. When set, the header
    * is always visible; without it the header appears only once a
    * conversation has started (to host "New chat"). Colors and fonts are
-   * themeable separately via the `--gemina-chat-*` CSS variables.
+   * themeable separately via the `--gemina-chat-*` CSS variables
+   * (including `--gemina-chat-header-bg` for the header bar).
    */
   title?: string;
+  /**
+   * Plain text shown centered in the empty conversation area until the
+   * first message. Use it to set expectations about what the assistant
+   * can and can't see (e.g. "Answers come from your indexed document
+   * data").
+   */
+  intro?: string;
   /** Called with the cited `documentId` when a citation chip is clicked. */
   onCitationClick?: (documentId: string) => void;
   /** Extra class name(s) for the root element (e.g. to override CSS vars). */
@@ -333,6 +341,7 @@ const CHAT_CSS = `
   --gemina-chat-muted: #667085;
   --gemina-chat-error: #b42318;
   --gemina-chat-low-confidence: #b54708;
+  --gemina-chat-header-bg: transparent;
   --gemina-chat-radius: 10px;
   --gemina-chat-font: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
 
@@ -356,14 +365,18 @@ const CHAT_CSS = `
 }
 .gemina-chat__header {
   display: flex;
-  justify-content: flex-end;
   align-items: center;
+  /* Guaranteed minimum separation. The pushing itself is the button's
+     auto margin below — NOT a margin on the title, whose dir="auto" can
+     resolve opposite to the widget (English title in an RTL chat) and
+     collapse an inline-aware margin to the wrong side. */
+  gap: 12px;
   flex: 0 0 auto;
   padding: 6px 10px;
   border-bottom: 1px solid var(--gemina-chat-border);
+  background: var(--gemina-chat-header-bg);
 }
 .gemina-chat__title {
-  margin-inline-end: auto;
   font-size: 13px;
   font-weight: 600;
   overflow: hidden;
@@ -371,6 +384,8 @@ const CHAT_CSS = `
   white-space: nowrap;
 }
 .gemina-chat__newchat {
+  margin-inline-start: auto;
+  flex-shrink: 0;
   font: inherit;
   font-size: 12px;
   padding: 3px 10px;
@@ -455,6 +470,14 @@ const CHAT_CSS = `
   background: transparent;
   color: var(--gemina-chat-error);
   cursor: pointer;
+}
+.gemina-chat__intro {
+  margin: auto;
+  max-width: 46ch;
+  padding: 16px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--gemina-chat-muted);
 }
 .gemina-chat__typing {
   align-self: flex-start;
@@ -560,6 +583,7 @@ export function GeminaChat(props: GeminaChatProps): React.JSX.Element {
     dir = 'auto',
     placeholder = 'Ask about your documents…',
     title,
+    intro,
     onCitationClick,
     className,
   } = props;
@@ -806,6 +830,11 @@ export function GeminaChat(props: GeminaChatProps): React.JSX.Element {
         aria-label="Chat messages"
         className="gemina-chat__log"
       >
+        {messages.length === 0 && intro !== undefined && (
+          <div className="gemina-chat__intro" dir={bubbleDir}>
+            {intro}
+          </div>
+        )}
         {messages.map((message) => {
           if (message.role === 'user') {
             return (

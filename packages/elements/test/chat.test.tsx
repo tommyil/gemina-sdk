@@ -126,6 +126,26 @@ describe('GeminaChat — rendering', () => {
     expect(screen.getByRole('button', { name: 'New chat' })).toBeTruthy();
   });
 
+  it('shows the intro in an empty conversation and clears it on the first message', async () => {
+    chatQuery.mockResolvedValueOnce(answer('42.'));
+    renderChat({ intro: 'Answers come from your indexed document data.' });
+
+    expect(screen.getByText('Answers come from your indexed document data.')).toBeTruthy();
+    await sendMessage('total?');
+    await screen.findByText('42.');
+    expect(screen.queryByText('Answers come from your indexed document data.')).toBeNull();
+  });
+
+  it('"New chat" brings the intro back', async () => {
+    chatQuery.mockResolvedValueOnce(answer('42.'));
+    renderChat({ intro: 'Indexed data only.' });
+
+    await sendMessage('total?');
+    await screen.findByText('42.');
+    fireEvent.click(screen.getByRole('button', { name: 'New chat' }));
+    expect(screen.getByText('Indexed data only.')).toBeTruthy();
+  });
+
   it('injects its stylesheet once, with a stable data attribute', () => {
     renderChat();
     renderChat();
