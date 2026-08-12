@@ -312,6 +312,28 @@ const VERIFICATION_CSS = `
 }
 
 /* --- Tables and cards ----------------------------------------------------- */
+/* Section content that is not flush with the section frame (cards, fallback
+   details) sits inside this padded body. */
+.gemina-verification__section-body { padding: 8px 12px; }
+/* Flex row for FieldInput's fragment (input + "edited" badge) inside <td>s
+   and list items — the fragment has no container of its own. */
+.gemina-verification__cell {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+/* Simple-list items stack inside a __dd; each item row is a __cell. */
+.gemina-verification__list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1 1 auto;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
 .gemina-verification__table-wrap { overflow-x: auto; }
 .gemina-verification__table {
   width: 100%;
@@ -334,6 +356,9 @@ const VERIFICATION_CSS = `
   border-block-end: 1px solid var(--gemina-verification-border);
 }
 .gemina-verification__table tr:last-child td { border-block-end: 0; }
+/* Wide tables lean on __table-wrap's scroll; the clamp keeps a cell input
+   usable instead of letting the table squeeze it to nothing. */
+.gemina-verification__table .gemina-verification__input { min-width: 6ch; }
 .gemina-verification__card {
   display: flex;
   flex-direction: column;
@@ -344,13 +369,31 @@ const VERIFICATION_CSS = `
   border-radius: calc(var(--gemina-verification-radius) - 4px);
 }
 .gemina-verification__card + .gemina-verification__card { margin-block-start: 8px; }
+.gemina-verification__card-header {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--gemina-verification-muted);
+}
+/* The card already pads; its inner description list must not double it. */
+.gemina-verification__card .gemina-verification__dl { padding: 0; }
+/* Fallback blobs are a native <details>: summary is the toggle, the JSON
+   lives in a <pre> so only the code is monospace/pre-wrapped. */
 .gemina-verification__fallback {
   margin: 0;
-  padding: 10px 12px;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  padding: 8px 12px;
   font-size: 12px;
   background: var(--gemina-verification-surface);
   border-radius: calc(var(--gemina-verification-radius) - 4px);
+}
+.gemina-verification__fallback + .gemina-verification__fallback { margin-block-start: 8px; }
+.gemina-verification__fallback summary {
+  cursor: pointer;
+  font-weight: 600;
+  user-select: none;
+}
+.gemina-verification__fallback pre {
+  margin: 8px 0 0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   white-space: pre-wrap;
   overflow-wrap: break-word;
   overflow-x: auto;
@@ -455,7 +498,8 @@ const VERIFICATION_CSS = `
 .gemina-verification__toolbar-btn:focus-visible,
 .gemina-verification__eye:focus-visible,
 .gemina-verification__submit:focus-visible,
-.gemina-verification__retry:focus-visible {
+.gemina-verification__retry:focus-visible,
+.gemina-verification__fallback summary:focus-visible {
   outline: 2px solid var(--gemina-verification-accent);
   outline-offset: 1px;
 }

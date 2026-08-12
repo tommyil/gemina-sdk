@@ -1,5 +1,5 @@
 /**
- * Form field primitives — Task 12: ConfidenceDot, EyeButton, FieldInput.
+ * Form field primitives (Task 12) + shape sections (Task 13).
  *
  * Contract notes the tests pin down:
  * - The dot is a color signal PAIRED with text: role="img" + aria-label +
@@ -12,12 +12,27 @@
  *   the input via aria-describedby.
  * - `binding.editable === false` (container serverValues — the C1/C2
  *   amendment) renders read-only even when readOnly=false.
+ *
+ * VerificationForm contract (Task 13):
+ * - Section order mirrors the console's FormView index.tsx: Details
+ *   (headers + simple lists), entity cards, tables, fallback — then the
+ *   SDK-only "Not detected" section. (The console puts entities BEFORE
+ *   tables; the form follows the console, deliberately.)
+ * - Fields render a FieldInput only when the classifier pointer has a
+ *   binding; unbound fields are read-only display text.
+ * - Row click-to-flash collects ALL the row's cell rects, and ignores
+ *   clicks originating on interactive elements (inputs, buttons, ...).
+ * - Cell/entity aria-labels carry row/card context — a bare "Description"
+ *   announces ambiguously across rows.
  */
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { useState } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { ConfidenceDot, EyeButton, FieldInput } from '../../src/verification/form';
+import { ConfidenceDot, EyeButton, FieldInput, VerificationForm } from '../../src/verification/form';
+import type { VerificationFormProps } from '../../src/verification/form';
+import { buildBindings, indexBindingsByFieldPointer } from '../../src/verification/bindings';
 import type { FieldBinding } from '../../src/verification/bindings';
+import { classifyData, ROW_META_KEY } from '../../src/verification/classify';
 import { NOT_FOUND } from '../../src/verification/pointer';
 
 afterEach(cleanup);
@@ -260,5 +275,277 @@ describe('FieldInput', () => {
     expect(screen.queryByRole('textbox')).toBeNull();
     expect(screen.getByText('-')).not.toBeNull();
     expect(document.body.textContent).not.toContain('Symbol');
+  });
+});
+
+// --- VerificationForm (Task 13) ----------------------------------------------
+
+const SUPPLIER_RECT = { points: [[0.1, 0.1], [0.3, 0.15]] as [number, number][] };
+const DESC_RECT = { points: [[0.1, 0.5], [0.4, 0.55]] as [number, number][] };
+const PRICE_RECT = { points: [[0.5, 0.5], [0.6, 0.55]] as [number, number][] };
+
+/** One payload exercising every bucket: headers, simple list, entities,
+ * a table (with per-cell coords, a row-meta row, and overall confidence),
+ * and a fallback blob. */
+const FORM_PAYLOAD = {
+  supplier_name: { value: 'Acme Ltd', coordinates: { relative: SUPPLIER_RECT.points }, confidence: 'high' },
+  total: 1500,
+  notes: 'keep',
+  overall_confidence: 'medium',
+  tags: ['urgent', 'paid'],
+  suppliers: [
+    { name: { value: 'Acme' }, role: { value: 'seller' } },
+    { name: { value: 'Beta' }, role: { value: 'buyer' } },
+  ],
+  line_items: [
+    {
+      description: { value: 'Widget', coordinates: { relative: DESC_RECT.points }, confidence: 'low' },
+      qty: { value: 2 },
+      unit_price: { value: 100, coordinates: { relative: PRICE_RECT.points } },
+      line_total: { value: 200 },
+      confidence: 'medium',
+    },
+    {
+      description: { value: 'Gadget' },
+      qty: { value: 1 },
+      unit_price: { value: 300 },
+      line_total: { value: 300 },
+    },
+  ],
+  attachments: [[1, 2], [3, 4]],
+};
+
+/** Server-shaped schema keys: wrapped fields point at /value (the editable
+ * combination), the last one resolves nowhere → the unmatched bucket. */
+const FORM_SCHEMA = [
+  'label:Supplier Name|ptr:/supplier_name/value',
+  'label:Total|ptr:/total',
+  'label:First Tag|ptr:/tags/0',
+  'label:Supplier 1 Name|ptr:/suppliers/0/name/value',
+  'label:Line 1 Description|ptr:/line_items/0/description/value',
+  'label:Line 1 Qty|ptr:/line_items/0/qty/value',
+  'label:PO Number|ptr:/po_number/value',
+];
+
+function formProps(over: Partial<VerificationFormProps> = {}): VerificationFormProps {
+  const bindings = buildBindings(FORM_SCHEMA, FORM_PAYLOAD);
+  return {
+    classified: classifyData(FORM_PAYLOAD),
+    bindingIndex: indexBindingsByFieldPointer(bindings),
+    unmatched: bindings.filter((b) => b.serverValue === NOT_FOUND),
+    edits: new Map<string, string>(),
+    onEdit: () => {},
+    readOnly: false,
+    onFlash: () => {},
+    ...over,
+  };
+}
+
+function renderForm(over: Partial<VerificationFormProps> = {}) {
+  return render(<VerificationForm {...formProps(over)} />);
+}
+
+describe('VerificationForm: headers', () => {
+  it('renders formatted label, confidence dot, and an input bound by field pointer', () => {
+    renderForm();
+    const details = screen.getByRole('region', { name: 'Details' });
+    expect(within(details).getByText('Supplier Name')).not.toBeNull();
+    expect(within(details).getByRole('img', { name: 'High confidence' })).not.toBeNull();
+    const input = within(details).getByRole('textbox', { name: 'Supplier Name' }) as HTMLInputElement;
+    expect(input.value).toBe('Acme Ltd');
+    const total = within(details).getByRole('textbox', { name: 'Total' }) as HTMLInputElement;
+    expect(total.value).toBe('1500');
+  });
+
+  it('a field with NO binding renders read-only text — no input', () => {
+    renderForm();
+    const details = screen.getByRole('region', { name: 'Details' });
+    expect(within(details).getByText('keep')).not.toBeNull();
+    expect(within(details).queryByRole('textbox', { name: 'Notes' })).toBeNull();
+  });
+
+  it('header eye button flashes the field rect as a single-rect array', () => {
+    const onFlash = vi.fn();
+    renderForm({ onFlash });
+    const details = screen.getByRole('region', { name: 'Details' });
+    fireEvent.click(within(details).getByRole('button', { name: 'Show on document' }));
+    expect(onFlash).toHaveBeenCalledTimes(1);
+    expect(onFlash).toHaveBeenCalledWith([SUPPLIER_RECT]);
+  });
+
+  it('typing in a bound header calls onEdit with the FULL raw schema key', () => {
+    const onEdit = vi.fn();
+    renderForm({ onEdit });
+    const total = screen.getByRole('textbox', { name: 'Total' });
+    fireEvent.change(total, { target: { value: '1600' } });
+    expect(onEdit).toHaveBeenCalledWith('label:Total|ptr:/total', '1600');
+  });
+});
+
+describe('VerificationForm: simple lists', () => {
+  it('renders per-item rows: bound items get inputs, unbound stay text', () => {
+    renderForm();
+    const details = screen.getByRole('region', { name: 'Details' });
+    expect(within(details).getByText('Tags')).not.toBeNull();
+    const item = within(details).getByRole('textbox', { name: 'Tags item 1' }) as HTMLInputElement;
+    expect(item.value).toBe('urgent');
+    expect(within(details).getByText('paid')).not.toBeNull();
+    expect(within(details).queryByRole('textbox', { name: 'Tags item 2' })).toBeNull();
+  });
+});
+
+describe('VerificationForm: entities', () => {
+  it('renders singularized card headers and card-context aria-labels', () => {
+    renderForm();
+    const section = screen.getByRole('region', { name: 'Suppliers' });
+    expect(within(section).getByText('Suppliers (2)')).not.toBeNull();
+    expect(within(section).getByText('Supplier 1')).not.toBeNull();
+    expect(within(section).getByText('Supplier 2')).not.toBeNull();
+    const name = within(section).getByRole('textbox', { name: 'Supplier 1 — Name' }) as HTMLInputElement;
+    expect(name.value).toBe('Acme');
+    // Unbound entity fields render read-only display text.
+    expect(within(section).getByText('seller')).not.toBeNull();
+    expect(within(section).queryByRole('textbox', { name: 'Supplier 1 — Role' })).toBeNull();
+  });
+});
+
+describe('VerificationForm: tables', () => {
+  it('renders header with row count + table-level dot, and one th per data column', () => {
+    renderForm();
+    const section = screen.getByRole('region', { name: 'Line Items' });
+    expect(within(section).getByText('Line Items (2 rows)')).not.toBeNull();
+    const header = section.querySelector('.gemina-verification__section-header')!;
+    expect(within(header as HTMLElement).getByRole('img', { name: 'Medium confidence' })).not.toBeNull();
+    const ths = within(section).getAllByRole('columnheader');
+    // eye column + row-confidence column + 4 data columns
+    expect(ths.length).toBe(6);
+    expect(ths.slice(2).map((th) => th.textContent)).toEqual([
+      'Description', 'Qty', 'Unit Price', 'Line Total',
+    ]);
+    expect(section.querySelector('.gemina-verification__table-wrap')).not.toBeNull();
+  });
+
+  it('bound cells render inputs inside __cell wrappers, with the cell dot alongside', () => {
+    renderForm();
+    const input = screen.getByRole('textbox', { name: 'Line Items row 1 — Description' }) as HTMLInputElement;
+    expect(input.value).toBe('Widget');
+    const cell = input.closest('.gemina-verification__cell');
+    expect(cell).not.toBeNull();
+    expect(cell!.closest('td')).not.toBeNull();
+    // The extraction-confidence dot stays visible next to the bound input.
+    expect(cell!.querySelector('.gemina-verification__dot--low')).not.toBeNull();
+    const qty = screen.getByRole('textbox', { name: 'Line Items row 1 — Qty' }) as HTMLInputElement;
+    expect(qty.value).toBe('2');
+  });
+
+  it('unbound cells render read-only formatted text + dot', () => {
+    renderForm();
+    // line_total row 1 has no binding: plain text inside a __cell wrapper.
+    const text = screen.getByText('200');
+    expect(text.closest('.gemina-verification__cell')).not.toBeNull();
+    expect(screen.queryByRole('textbox', { name: 'Line Items row 1 — Line Total' })).toBeNull();
+  });
+
+  it('row dot column reflects ROW_META_KEY confidence per row', () => {
+    const classified = classifyData(FORM_PAYLOAD);
+    expect(classified.tables[0]!.rows[0]![ROW_META_KEY]).toBeDefined();
+    renderForm({ classified });
+    const row0 = screen.getByRole('textbox', { name: 'Line Items row 1 — Description' }).closest('tr')!;
+    expect(within(row0 as HTMLElement).getByRole('img', { name: 'Medium confidence' })).not.toBeNull();
+    const row1 = screen.getByText('Gadget').closest('tr')!;
+    expect(within(row1 as HTMLElement).queryByRole('img', { name: 'Medium confidence' })).toBeNull();
+  });
+
+  it('row click flashes ALL the row cell rects', () => {
+    const onFlash = vi.fn();
+    renderForm({ onFlash });
+    fireEvent.click(screen.getByText('200'));
+    expect(onFlash).toHaveBeenCalledTimes(1);
+    expect(onFlash).toHaveBeenCalledWith([DESC_RECT, PRICE_RECT]);
+  });
+
+  it('a click on a cell INPUT does not flash', () => {
+    const onFlash = vi.fn();
+    renderForm({ onFlash });
+    fireEvent.click(screen.getByRole('textbox', { name: 'Line Items row 1 — Description' }));
+    expect(onFlash).not.toHaveBeenCalled();
+  });
+
+  it('a row with no coordinates neither flashes nor renders an eye button', () => {
+    const onFlash = vi.fn();
+    renderForm({ onFlash });
+    fireEvent.click(screen.getByText('Gadget'));
+    expect(onFlash).not.toHaveBeenCalled();
+    const section = screen.getByRole('region', { name: 'Line Items' });
+    expect(within(section).getAllByRole('button', { name: 'Show on document' }).length).toBe(1);
+  });
+
+  it('the row eye button flashes all rects (and only once — no row-click double fire)', () => {
+    const onFlash = vi.fn();
+    renderForm({ onFlash });
+    const section = screen.getByRole('region', { name: 'Line Items' });
+    fireEvent.click(within(section).getByRole('button', { name: 'Show on document' }));
+    expect(onFlash).toHaveBeenCalledTimes(1);
+    expect(onFlash).toHaveBeenCalledWith([DESC_RECT, PRICE_RECT]);
+  });
+});
+
+describe('VerificationForm: fallback', () => {
+  it('renders inside a native <details> with pretty-printed JSON', () => {
+    const { container } = renderForm();
+    const section = screen.getByRole('region', { name: 'Additional Data' });
+    const details = section.querySelector('details.gemina-verification__fallback');
+    expect(details).not.toBeNull();
+    expect(within(details as HTMLElement).getByText('Attachments')).not.toBeNull();
+    const pre = container.querySelector('details.gemina-verification__fallback pre');
+    expect(pre?.textContent).toBe(JSON.stringify([[1, 2], [3, 4]], null, 2));
+  });
+});
+
+describe('VerificationForm: unmatched', () => {
+  it('renders empty fill-in inputs under "Not detected" with VERBATIM schema labels', () => {
+    renderForm();
+    const section = screen.getByRole('region', { name: 'Not detected' });
+    // "PO Number" stays verbatim — formatLabel would mangle it to "Po Number".
+    const input = within(section).getByRole('textbox', { name: 'PO Number' }) as HTMLInputElement;
+    expect(input.value).toBe('');
+    expect(input.getAttribute('placeholder')).toBe('Not detected — fill in if present');
+    expect(screen.queryByText('Po Number')).toBeNull();
+  });
+});
+
+describe('VerificationForm: readOnly + ordering + empty buckets', () => {
+  it('readOnly renders no inputs anywhere', () => {
+    renderForm({ readOnly: true });
+    expect(screen.queryAllByRole('textbox').length).toBe(0);
+    expect(screen.getByText('Acme Ltd')).not.toBeNull();
+    expect(screen.getByText('Widget')).not.toBeNull();
+  });
+
+  it('section order matches the console: Details, entities, tables, fallback, Not detected', () => {
+    const { container } = renderForm();
+    const headers = Array.from(
+      container.querySelectorAll('.gemina-verification__section-header'),
+    ).map((el) => el.textContent);
+    expect(headers).toEqual([
+      'Details',
+      'Suppliers (2)',
+      'Line Items (2 rows)',
+      'Additional Data',
+      'Not detected',
+    ]);
+  });
+
+  it('empty buckets render nothing — no empty section shells', () => {
+    const { container } = renderForm({
+      classified: classifyData({ supplier_name: { value: 'Acme' } }),
+      bindingIndex: new Map(),
+      unmatched: [],
+    });
+    expect(container.querySelectorAll('.gemina-verification__section').length).toBe(1);
+    expect(container.querySelector('.gemina-verification__table')).toBeNull();
+    expect(container.querySelector('.gemina-verification__card')).toBeNull();
+    expect(screen.queryByText('Additional Data')).toBeNull();
+    expect(screen.queryByText('Not detected')).toBeNull();
   });
 });
