@@ -52,7 +52,12 @@ describe('GeminaTokenManager — never persists (§6.11.1 footgun 2)', () => {
     // NOTE: import.meta.url is an http: URL under happy-dom; resolve from
     // the package root (vitest's cwd) instead.
     const srcDir = join(process.cwd(), 'src');
-    for (const file of readdirSync(srcDir)) {
+    // recursive readdir so nested source dirs (e.g. src/verification/) are
+    // covered too; filter to source files to skip the directory entries.
+    const files = (readdirSync(srcDir, { recursive: true }) as string[]).filter((f) =>
+      /\.(ts|tsx)$/.test(f),
+    );
+    for (const file of files) {
       const source = readFileSync(join(srcDir, file), 'utf8');
       expect(source, `${file} must not touch persistent storage`).not.toMatch(
         /(?:localStorage|sessionStorage|indexedDB)\s*[.[(]|document\.cookie|openDatabase\s*\(/,
