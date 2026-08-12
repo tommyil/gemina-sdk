@@ -55,7 +55,7 @@ export function resolvePointer(doc: unknown, pointer: string): unknown | NotFoun
       }
       current = current[index];
     } else if (current !== null && typeof current === 'object') {
-      if (!(segment in (current as Record<string, unknown>))) {
+      if (!Object.prototype.hasOwnProperty.call(current, segment)) {
         return NOT_FOUND;
       }
       current = (current as Record<string, unknown>)[segment];

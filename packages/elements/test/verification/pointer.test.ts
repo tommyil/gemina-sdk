@@ -42,6 +42,10 @@ describe('resolvePointer', () => {
     expect(resolvePointer(doc, '/line_items/x')).toBe(NOT_FOUND);   // non-digit list segment
     expect(resolvePointer(doc, '/supplier_name/value/deeper')).toBe(NOT_FOUND); // through a primitive
   });
+  it('does not resolve prototype-chain members (backend own-keys parity)', () => {
+    expect(resolvePointer(doc, '/toString')).toBe(NOT_FOUND);
+    expect(resolvePointer(doc, '/supplier_name/constructor')).toBe(NOT_FOUND);
+  });
   it('empty pointer returns the doc; non-slash pointer is NOT_FOUND (backend strictness)', () => {
     expect(resolvePointer(doc, '')).toBe(doc);
     expect(resolvePointer(doc, 'supplier_name')).toBe(NOT_FOUND);
