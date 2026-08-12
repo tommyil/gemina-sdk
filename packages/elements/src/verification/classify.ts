@@ -232,6 +232,12 @@ export interface ClassifiedField {
   confidence: { level: string; reasons: string[] } | null;
 }
 
+/**
+ * Key under which a table row's synthetic row-level confidence cell is
+ * stored. Not a real payload field — it never binds to a server schema key.
+ */
+export const ROW_META_KEY = '_rowMeta';
+
 /** A cell inside a table row or entity card (no own display key). */
 export interface ClassifiedCell {
   pointer: string;
@@ -284,7 +290,7 @@ export function classifyData(data: unknown): ClassifiedData {
   // Handle wrapped data (some extractions wrap in { data: ... })
   let rootData = data as Record<string, unknown>;
   let basePointer = '';
-  if ('data' in rootData && typeof rootData.data === 'object' && !Array.isArray(rootData.data)) {
+  if ('data' in rootData && typeof rootData.data === 'object' && rootData.data !== null && !Array.isArray(rootData.data)) {
     // Process top-level non-data fields first (like total_lines, overall_confidence)
     for (const [key, value] of Object.entries(rootData)) {
       if (key === 'data') continue;
@@ -421,9 +427,12 @@ function processField(
         rows: value.map((row, rowIndex) => {
           const rowPointer = `${pointer}/${rowIndex}`;
           const rowData: Record<string, ClassifiedCell> = {};
+          // isTableArray samples only the first element; a null/non-object row
+          // later in the array must not crash — its cells emit with undefined.
+          const rowObj = (row ?? {}) as Record<string, unknown>;
 
           for (const col of columns) {
-            const cell = (row as Record<string, unknown>)[col];
+            const cell = rowObj[col];
             rowData[col] = {
               pointer: `${rowPointer}/${escapeSegment(col)}`,
               value: extractValue(cell),
@@ -433,11 +442,10 @@ function processField(
           }
 
           // Also extract row-level confidence if present
-          const rowObj = row as Record<string, unknown>;
           if (rowObj.confidence || rowObj.confidence_reasons) {
             // _rowMeta is synthetic (no real field behind it); its pointer is
             // the ROW pointer, and it never binds to a server schema key.
-            rowData['_rowMeta'] = {
+            rowData[ROW_META_KEY] = {
               pointer: rowPointer,
               value: null,
               coordinates: null,
@@ -461,6 +469,13 @@ function processField(
         pointer,
         items: value.map((item, index) => {
           const entity: Record<string, ClassifiedCell> = {};
+
+          // isEntityArray samples only the first element; a null/non-object
+          // item later in the array emits an empty entity so indices (and
+          // therefore sibling pointers) stay aligned with the payload.
+          if (item === null || typeof item !== 'object' || Array.isArray(item)) {
+            return entity;
+          }
 
           for (const [fieldKey, fieldValue] of Object.entries(item as Record<string, unknown>)) {
             // Skip metadata fields

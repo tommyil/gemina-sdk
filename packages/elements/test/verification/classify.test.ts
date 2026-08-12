@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  ROW_META_KEY,
   classifyData,
   extractConfidence,
   extractCoordinates,
@@ -250,6 +251,61 @@ describe('classifyData: nested objects and fallback', () => {
   });
 });
 
+describe('classifyData: totality (garbage in, empty buckets or degraded fields out — never a throw)', () => {
+  const empty = { headers: [], simpleLists: [], entities: [], tables: [], fallback: [] };
+  it('degenerate roots yield empty buckets', () => {
+    expect(classifyData(null)).toEqual(empty);
+    expect(classifyData(undefined)).toEqual(empty);
+    expect(classifyData(42)).toEqual(empty);
+    expect(classifyData('x')).toEqual(empty);
+    expect(classifyData([1, 2])).toEqual(empty);
+  });
+  it('{data: null} degrades to a null header instead of throwing', () => {
+    const result = classifyData({ data: null, total_lines: 3 });
+    const dataHeader = result.headers.find((h) => h.key === 'data');
+    expect(dataHeader).toBeDefined();
+    expect(dataHeader!.value).toBeNull();
+    expect(dataHeader!.pointer).toBe('/data');
+    expect(result.headers.find((h) => h.key === 'total_lines')!.value).toBe(3);
+  });
+  it('a null row inside a table array does not throw; cells emit with undefined values', () => {
+    const result = classifyData({
+      items: [{ a: 1, b: 2, c: 3, d: 4 }, null],
+    });
+    expect(result.tables).toHaveLength(1);
+    const table = result.tables[0]!;
+    expect(table.rows).toHaveLength(2);
+    expect(table.rows[1]!['a']!.value).toBeUndefined();
+    expect(table.rows[1]!['a']!.pointer).toBe('/items/1/a');
+    // working row unchanged
+    expect(table.rows[0]!['a']!.value).toBe(1);
+  });
+  it('a null item inside an entity array emits an empty entity (index alignment kept)', () => {
+    const result = classifyData({
+      parties: [{ name: { value: 'A' }, role: 'x' }, null, { name: { value: 'B' }, role: 'y' }],
+    });
+    expect(result.entities).toHaveLength(1);
+    const entity = result.entities[0]!;
+    expect(entity.items).toHaveLength(3);
+    expect(entity.items[1]).toEqual({});
+    // index 2 pointer still matches the original payload position
+    expect(entity.items[2]!['name']!.pointer).toBe('/parties/2/name');
+  });
+});
+
+describe('ROW_META_KEY', () => {
+  it('is the key under which synthetic row meta is stored', () => {
+    expect(ROW_META_KEY).toBe('_rowMeta');
+    const result = classifyData({
+      line_items: [{ a: 1, b: 2, c: 3, d: 4, confidence: 'low', confidence_reasons: ['r'] }],
+    });
+    expect(result.tables[0]!.rows[0]![ROW_META_KEY]!.confidence).toEqual({
+      level: 'low',
+      reasons: ['r'],
+    });
+  });
+});
+
 describe('classifyData: pointer escaping round-trips through resolvePointer', () => {
   it('escapes / and ~ in keys so emitted pointers resolve against the original payload', () => {
     const payload = { 'net/gross~ratio': { value: 0.5 } };
@@ -257,5 +313,16 @@ describe('classifyData: pointer escaping round-trips through resolvePointer', ()
     const header = result.headers[0]!;
     expect(header.pointer).toBe('/net~1gross~0ratio');
     expect(resolvePointer(payload, header.pointer)).toEqual({ value: 0.5 });
+  });
+  it('escapes / in table column keys so cell pointers resolve to the cell value', () => {
+    const payload = {
+      items: [{ 'net/gross': { value: 0.5 }, a: 1, b: 2, c: 3 }],
+    };
+    const result = classifyData(payload);
+    const cell = result.tables[0]!.rows[0]!['net/gross']!;
+    expect(cell.pointer).toBe('/items/0/net~1gross');
+    const resolved = resolvePointer(payload, cell.pointer);
+    expect(resolved).toEqual({ value: 0.5 });
+    expect(extractValue(resolved)).toBe(cell.value);
   });
 });
