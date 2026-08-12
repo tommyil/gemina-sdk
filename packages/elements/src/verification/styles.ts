@@ -252,8 +252,8 @@ const VERIFICATION_CSS = `
   align-items: center;
   justify-content: center;
   flex: 0 0 auto;
-  width: 22px;
-  height: 22px;
+  width: 24px;
+  height: 24px;
   padding: 0;
   border: 0;
   border-radius: calc(var(--gemina-verification-radius) - 4px);
@@ -377,13 +377,19 @@ const VERIFICATION_CSS = `
   inset: 0;
   z-index: 10;
   display: flex;
-  align-items: center;
+  /* flex-start + a sticky dialog: the scrim spans the whole component, but the
+     dialog slides with the page so it is in view even when the user is
+     scrolled deep into a long stacked form. Sticky (not fixed) so it survives
+     transformed-ancestor hosts where fixed re-anchors. */
+  align-items: flex-start;
   justify-content: center;
   padding: 16px;
   background: rgba(16, 20, 24, 0.45);
   border-radius: var(--gemina-verification-radius);
 }
 .gemina-verification__confirm-dialog {
+  position: sticky;
+  top: 20vh; /* block axis — RTL-safe */
   display: flex;
   flex-direction: column;
   gap: 12px;
