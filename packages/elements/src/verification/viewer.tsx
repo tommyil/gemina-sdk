@@ -4,8 +4,9 @@
  * (gemina-console/src/components/viewers/ZoomableImageViewer.tsx): same
  * state/refs/effects shape, with every piece of transform math delegated to
  * `viewer-math.ts` and all styling on the Task 6 `.gemina-verification__*`
- * classes. Task 8 adds wheel zoom, mouse pan, and the double-click fit/100%
- * toggle; later tasks add pinch, overlays + flash, and the magnifier lens.
+ * classes. Tasks 8+9 add wheel zoom, mouse pan, the double-click fit/100%
+ * toggle, and touch pan + pinch zoom; later tasks add overlays + flash and
+ * the magnifier lens.
  *
  * Coordinate spaces: the console's zoomAtPoint takes clientX/Y and subtracts
  * the canvas rect INSIDE itself; the elements zoomAtPoint (viewer-math.ts) is
@@ -360,6 +361,87 @@ export function VerificationViewer(props: VerificationViewerProps): React.JSX.El
     };
   }, [isPanning]);
 
+  // Touch: one-finger pan (only beyond fit — the mousedown gate's twin) and
+  // two-finger pinch zoom. Verbatim console port (~324-369) except the pinch
+  // factor routes through zoomAtClientPoint — client → container conversion
+  // plus the shared fit-floor clamp — instead of any local math.
+  // `touch-action: none` on __canvas (styles.ts) hands these gestures to us,
+  // so React's passive onTouch* handlers suffice; no preventDefault needed.
+  // Gesture state lives in a ref: nothing re-renders per touch-move except
+  // the transform update itself, and isPanning/data-cursor stay mouse-only
+  // (a touch screen shows no cursor).
+  const touchState = useRef<
+    | { mode: 'pan'; x: number; y: number; tx: number; ty: number }
+    | { mode: 'pinch'; dist: number }
+    | null
+  >(null);
+
+  const handleTouchStart = useCallback(
+    (e: React.TouchEvent<HTMLDivElement>) => {
+      // Length checks don't narrow TouchList indexing under
+      // noUncheckedIndexedAccess, so a/b/their truthiness carry the guard.
+      const a = e.touches[0];
+      const b = e.touches[1];
+      if (e.touches.length === 2 && a && b) {
+        // Only the start distance seeds a pinch — no midpoint is stored,
+        // because every move re-anchors at the CURRENT midpoint (console
+        // policy). A second finger landing mid-pan arrives here too, so 1→2
+        // hands the gesture off to pinch automatically.
+        touchState.current = {
+          mode: 'pinch',
+          dist: Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY),
+        };
+      } else if (e.touches.length === 1 && a && !atFitScale) {
+        touchState.current = { mode: 'pan', x: a.clientX, y: a.clientY, tx: transform.tx, ty: transform.ty };
+      } else {
+        touchState.current = null;
+      }
+    },
+    [atFitScale, transform.tx, transform.ty],
+  );
+
+  const handleTouchMove = useCallback(
+    (e: React.TouchEvent<HTMLDivElement>) => {
+      const state = touchState.current;
+      if (!state) return;
+      if (state.mode === 'pinch' && e.touches.length === 2) {
+        const a = e.touches[0];
+        const b = e.touches[1];
+        if (!a || !b) return;
+        const dist = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
+        if (state.dist > 0) {
+          // Per-move ratio, re-seeded below: each factor is relative to the
+          // LAST move, and the updater-form zoomAtPoint composes it onto the
+          // accumulated transform, so React batching can't double-apply a
+          // step. Two-finger travel without spread is factor 1 — zoomAtPoint's
+          // same-object bail-out makes it a no-op (console policy: a pinch
+          // never pans; the image only shifts through the moving anchor while
+          // the scale is changing).
+          zoomAtClientPoint(dist / state.dist, (a.clientX + b.clientX) / 2, (a.clientY + b.clientY) / 2);
+        }
+        state.dist = dist;
+      } else if (state.mode === 'pan' && e.touches.length === 1) {
+        // START-RELATIVE deltas (the established pan pattern) — never
+        // accumulated per event, so a dropped move can't skew the drag.
+        const t = e.touches[0];
+        if (!t) return;
+        setTransform((prev) => ({
+          scale: prev.scale,
+          tx: state.tx + (t.clientX - state.x),
+          ty: state.ty + (t.clientY - state.y),
+        }));
+      }
+    },
+    [zoomAtClientPoint],
+  );
+
+  // 2→1 deliberately leaves an INERT pinch until every finger lifts
+  // (console-faithful): the remaining finger matches neither move branch, so
+  // nothing jumps; the next touchstart begins a fresh gesture.
+  const handleTouchEnd = useCallback((e: React.TouchEvent<HTMLDivElement>) => {
+    if (e.touches.length === 0) touchState.current = null;
+  }, []);
+
   // Double-click toggle (console ~281-294): near fit -> 100% anchored at the
   // click point; otherwise back to centered fit.
   const handleDoubleClick = useCallback(
@@ -445,6 +527,9 @@ export function VerificationViewer(props: VerificationViewerProps): React.JSX.El
         data-cursor={cursorMode}
         onDoubleClick={handleDoubleClick}
         onMouseDown={handleMouseDown}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
       >
         {/* Canvas geometry (not layout) — inline by design; CSS owns appearance. */}
         <div

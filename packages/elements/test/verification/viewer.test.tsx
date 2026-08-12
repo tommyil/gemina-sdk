@@ -1,7 +1,8 @@
 /**
- * VerificationViewer — Tasks 7+8: image + toolbar + fit/100%/zoom/rotate, and
- * wheel zoom, mouse pan, double-click toggle. Overlay/magnifier toggles exist
- * as state only (visuals arrive in Tasks 10/11).
+ * VerificationViewer — Tasks 7–9: image + toolbar + fit/100%/zoom/rotate,
+ * wheel zoom, mouse pan, double-click toggle, and touch pan + pinch zoom.
+ * Overlay/magnifier toggles exist as state only (visuals arrive in Tasks
+ * 10/11).
  *
  * happy-dom has no layout, so container size is driven by the controllable
  * ResizeObserver stub below (`resizeTo`). With a 500x500 canvas and a
@@ -130,6 +131,20 @@ function fireWheel(
   Object.defineProperty(ev, 'clientX', { value: init.clientX, configurable: true });
   Object.defineProperty(ev, 'clientY', { value: init.clientY, configurable: true });
   return fireEvent(el, ev);
+}
+
+/** Fire a touch event with a synthesized `touches` list. Unlike happy-dom's
+ * WheelEvent (see fireWheel), its TouchEvent constructor KEEPS the `touches`
+ * init — probed: `new TouchEvent('touchstart', { touches: [...] })` reports
+ * the array back verbatim — so no defineProperty surgery is needed. Plain
+ * {clientX, clientY} objects stand in for Touch: the handlers only read
+ * `.length` and `[i].clientX/Y`. */
+function fireTouch(
+  el: HTMLElement,
+  type: 'touchStart' | 'touchMove' | 'touchEnd',
+  touches: Array<{ clientX: number; clientY: number }>,
+): void {
+  fireEvent[type](el, { touches });
 }
 
 /** Give an element a concrete viewport rect (happy-dom reports all zeros). */
@@ -412,6 +427,198 @@ describe('VerificationViewer — mouse pan', () => {
     expect(leftOf(img)).toBeCloseTo(125, 6);
     expect(topOf(img)).toBeCloseTo(0, 6);
     expect(canvas.getAttribute('data-cursor')).toBe('zoom-in');
+  });
+});
+
+describe('VerificationViewer — touch pan + pinch zoom', () => {
+  it('two-finger spread zooms in, re-anchored at the moving midpoint per move', () => {
+    const { img, canvas } = mountSized();
+    expect(scaleOf(img)).toBeCloseTo(0.25, 6);
+
+    fireTouch(canvas, 'touchStart', [
+      { clientX: 200, clientY: 250 },
+      { clientX: 300, clientY: 250 },
+    ]); // dist 100
+    fireTouch(canvas, 'touchMove', [
+      { clientX: 150, clientY: 250 },
+      { clientX: 350, clientY: 250 },
+    ]); // dist 200 → factor 2, midpoint (250, 250)
+    expect(scaleOf(img)).toBeCloseTo(0.5, 6);
+    // Image point under the midpoint: ((250-125)/0.25, (250-0)/0.25) = (500, 1000).
+    expect(leftOf(img)).toBeCloseTo(250 - 0.5 * 500, 6); // 0
+    expect(topOf(img)).toBeCloseTo(250 - 0.5 * 1000, 6); // -250
+
+    // Second move: the ratio is per-move (state re-seeds to the last dist),
+    // so dist 200 → 300 means factor 1.5 on top of the accumulated 0.5.
+    fireTouch(canvas, 'touchMove', [
+      { clientX: 100, clientY: 250 },
+      { clientX: 400, clientY: 250 },
+    ]);
+    expect(scaleOf(img)).toBeCloseTo(0.75, 6);
+    expect(leftOf(img)).toBeCloseTo(250 - 0.75 * 500, 6); // -125
+    expect(topOf(img)).toBeCloseTo(250 - 0.75 * 1000, 6); // -500
+  });
+
+  it('fingers converging zoom out, floored at fit; at the floor moves bail out', () => {
+    const { img, canvas } = mountSized();
+    fireWheel(canvas, { deltaY: -100, clientX: 250, clientY: 250 }); // beyond fit: 0.27
+    const t1 = { s: scaleOf(img), x: leftOf(img), y: topOf(img) };
+    expect(t1.s).toBeGreaterThan(0.25);
+
+    // Converge dist 200 → 40 (factor 0.2): 0.054 clamps to the 0.25 fit floor,
+    // anchored at the midpoint (250, 300). (Not (250, 250): that anchor lands
+    // ty on float dust whose scientific-notation px happy-dom's CSS parser
+    // drops — same pitfall as the wheel test.)
+    fireTouch(canvas, 'touchStart', [
+      { clientX: 150, clientY: 300 },
+      { clientX: 350, clientY: 300 },
+    ]);
+    fireTouch(canvas, 'touchMove', [
+      { clientX: 230, clientY: 300 },
+      { clientX: 270, clientY: 300 },
+    ]);
+    expect(scaleOf(img)).toBeCloseTo(0.25, 6);
+    expect(leftOf(img)).toBeCloseTo(250 - 0.25 * ((250 - t1.x) / t1.s), 6);
+    expect(topOf(img)).toBeCloseTo(300 - 0.25 * ((300 - t1.y) / t1.s), 6);
+
+    // Further converging at the floor is zoomAtPoint's same-object bail-out.
+    const before = layerOf(img).getAttribute('style');
+    fireTouch(canvas, 'touchMove', [
+      { clientX: 240, clientY: 300 },
+      { clientX: 260, clientY: 300 },
+    ]);
+    expect(layerOf(img).getAttribute('style')).toBe(before);
+  });
+
+  it('one-finger drag at fit scale leaves the transform alone (nothing to pan)', () => {
+    const { img, canvas } = mountSized();
+    fireTouch(canvas, 'touchStart', [{ clientX: 200, clientY: 200 }]);
+    fireTouch(canvas, 'touchMove', [{ clientX: 260, clientY: 260 }]);
+    expect(scaleOf(img)).toBeCloseTo(0.25, 6);
+    expect(leftOf(img)).toBeCloseTo(125, 6);
+    expect(topOf(img)).toBeCloseTo(0, 6);
+  });
+
+  it('one-finger drag when zoomed pans by start-relative deltas; touch never claims the cursor', () => {
+    const { img, canvas } = mountSized();
+    fireWheel(canvas, { deltaY: -100, clientX: 250, clientY: 250 });
+    const startLeft = leftOf(img);
+    const startTop = topOf(img);
+    expect(canvas.getAttribute('data-cursor')).toBe('grab');
+
+    fireTouch(canvas, 'touchStart', [{ clientX: 200, clientY: 200 }]);
+    expect(canvas.getAttribute('data-cursor')).toBe('grab'); // never 'grabbing' from touch
+
+    fireTouch(canvas, 'touchMove', [{ clientX: 240, clientY: 230 }]);
+    expect(leftOf(img)).toBeCloseTo(startLeft + 40, 6);
+    expect(topOf(img)).toBeCloseTo(startTop + 30, 6);
+
+    // Deltas are measured from the gesture start, not accumulated per event.
+    fireTouch(canvas, 'touchMove', [{ clientX: 210, clientY: 260 }]);
+    expect(leftOf(img)).toBeCloseTo(startLeft + 10, 6);
+    expect(topOf(img)).toBeCloseTo(startTop + 60, 6);
+    expect(canvas.getAttribute('data-cursor')).toBe('grab');
+
+    // Full lift resets the gesture: a stray move does nothing.
+    fireTouch(canvas, 'touchEnd', []);
+    fireTouch(canvas, 'touchMove', [{ clientX: 400, clientY: 400 }]);
+    expect(leftOf(img)).toBeCloseTo(startLeft + 10, 6);
+    expect(topOf(img)).toBeCloseTo(startTop + 60, 6);
+  });
+
+  it('touchEnd with zero touches resets a pinch (a following move does nothing)', () => {
+    const { img, canvas } = mountSized();
+    fireTouch(canvas, 'touchStart', [
+      { clientX: 200, clientY: 250 },
+      { clientX: 300, clientY: 250 },
+    ]);
+    fireTouch(canvas, 'touchMove', [
+      { clientX: 150, clientY: 250 },
+      { clientX: 350, clientY: 250 },
+    ]);
+    expect(scaleOf(img)).toBeCloseTo(0.5, 6); // gesture was live
+
+    fireTouch(canvas, 'touchEnd', []);
+    fireTouch(canvas, 'touchMove', [
+      { clientX: 100, clientY: 250 },
+      { clientX: 400, clientY: 250 },
+    ]); // no start → inert
+    expect(scaleOf(img)).toBeCloseTo(0.5, 6);
+    expect(leftOf(img)).toBeCloseTo(0, 6);
+    expect(topOf(img)).toBeCloseTo(-250, 6);
+  });
+
+  it('2→1 mid-gesture: the remaining finger is inert until a full lift (console-faithful)', () => {
+    const { img, canvas } = mountSized();
+    fireTouch(canvas, 'touchStart', [
+      { clientX: 200, clientY: 250 },
+      { clientX: 300, clientY: 250 },
+    ]);
+    fireTouch(canvas, 'touchMove', [
+      { clientX: 150, clientY: 250 },
+      { clientX: 350, clientY: 250 },
+    ]);
+    expect(scaleOf(img)).toBeCloseTo(0.5, 6);
+    const style = layerOf(img).getAttribute('style');
+
+    fireTouch(canvas, 'touchEnd', [{ clientX: 150, clientY: 250 }]); // one finger remains
+    fireTouch(canvas, 'touchMove', [{ clientX: 190, clientY: 290 }]); // pinch state + 1 touch
+    expect(layerOf(img).getAttribute('style')).toBe(style); // no pan, no zoom
+
+    // Full lift, then a fresh one-finger drag pans (we are beyond fit now).
+    fireTouch(canvas, 'touchEnd', []);
+    fireTouch(canvas, 'touchStart', [{ clientX: 190, clientY: 290 }]);
+    fireTouch(canvas, 'touchMove', [{ clientX: 220, clientY: 305 }]);
+    expect(leftOf(img)).toBeCloseTo(0 + 30, 6);
+    expect(topOf(img)).toBeCloseTo(-250 + 15, 6);
+  });
+
+  it('1→2 mid-gesture: the second finger converts the pan into a pinch', () => {
+    const { img, canvas } = mountSized();
+    fireWheel(canvas, { deltaY: -100, clientX: 250, clientY: 250 });
+    const startLeft = leftOf(img);
+    const s1 = scaleOf(img);
+
+    fireTouch(canvas, 'touchStart', [{ clientX: 200, clientY: 200 }]);
+    fireTouch(canvas, 'touchMove', [{ clientX: 230, clientY: 220 }]);
+    expect(leftOf(img)).toBeCloseTo(startLeft + 30, 6); // panning
+
+    // Second finger lands: its touchstart re-fires with BOTH touches → pinch.
+    fireTouch(canvas, 'touchStart', [
+      { clientX: 230, clientY: 220 },
+      { clientX: 330, clientY: 220 },
+    ]); // dist 100
+    fireTouch(canvas, 'touchMove', [
+      { clientX: 205, clientY: 220 },
+      { clientX: 355, clientY: 220 },
+    ]); // dist 150 → factor 1.5
+    expect(scaleOf(img)).toBeCloseTo(s1 * 1.5, 6);
+  });
+
+  it('pinch keeps the midpoint image point invariant at a non-zero page offset', () => {
+    const { img, canvas } = mountSized();
+    mockRect(canvas, { left: 100, top: 50, width: 500, height: 500 });
+
+    // Fingers spread symmetrically about a FIXED client midpoint (350, 300) =
+    // container-relative (250, 250), so the forward-map assertion is exact.
+    fireTouch(canvas, 'touchStart', [
+      { clientX: 300, clientY: 300 },
+      { clientX: 400, clientY: 300 },
+    ]); // dist 100
+    fireTouch(canvas, 'touchMove', [
+      { clientX: 250, clientY: 300 },
+      { clientX: 450, clientY: 300 },
+    ]); // dist 200 → factor 2
+    const anchor = { x: 350 - 100, y: 300 - 50 };
+    const s0 = 0.25;
+    const t0 = { x: 125, y: 0 };
+    const imagePt = { x: (anchor.x - t0.x) / s0, y: (anchor.y - t0.y) / s0 }; // (500, 1000)
+
+    // A naive console port feeding clientX/Y straight into the elements
+    // zoomAtPoint would anchor at (350, 300) instead and drift.
+    expect(scaleOf(img)).toBeCloseTo(0.5, 6);
+    expect(leftOf(img) + scaleOf(img) * imagePt.x).toBeCloseTo(anchor.x, 6);
+    expect(topOf(img) + scaleOf(img) * imagePt.y).toBeCloseTo(anchor.y, 6);
   });
 });
 
