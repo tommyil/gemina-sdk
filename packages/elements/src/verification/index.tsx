@@ -7,12 +7,14 @@
  * and cannot accept — a Gemina API key.
  *
  * This module owns the fetch + state machine + edge states (Task 14):
- * loading → unavailable | review — plus the layout/flash/RTL layer (Task 15):
+ * loading → unavailable | review — the layout/flash/RTL layer (Task 15):
  * the stacked-below-860px root observer, eye-click → viewer flash wiring,
  * chat-parity Hebrew direction autodetect, and the silent expired-image-URL
- * refresh. The later phases (confirming, submitting, submit-error, done) are
- * declared in the phase union now and wired by the submit flow (Task 17);
- * editing state arrives in Task 16.
+ * refresh — and the edit state + progress footer (Task 16): the immutable
+ * edits map with delete-on-revert dirty tracking, and the
+ * "N confirmed · M corrected" line fed by composeSubmission. The later phases
+ * (confirming, submitting, submit-error, done) are declared in the phase
+ * union now and wired by the submit flow (Task 17).
  *
  * SSR-safe: no `window`/`document` access at import time; styles are
  * injected on mount.
@@ -22,7 +24,13 @@ import type * as React from 'react';
 import { GeminaClient } from '@gemina/sdk';
 import type { ExtractionPrimaryViewOutDTO } from '@gemina/sdk';
 import { httpStatus, readErrorEnvelope } from '../internal/response-like';
-import { buildBindings, indexBindingsByFieldPointer, toInputString } from './bindings';
+import {
+  buildBindings,
+  composeSubmission,
+  indexBindingsByFieldPointer,
+  toInputString,
+} from './bindings';
+import type { FieldBinding } from './bindings';
 import { classifyData, ROW_META_KEY } from './classify';
 import { VerificationForm } from './form';
 import { ensureVerificationStylesInjected } from './styles';
@@ -84,8 +92,9 @@ interface LoadedData {
   schema: string[];
 }
 
-/** Stable empty edits map for the pre-Task-16 form (SectionShared contract:
- * `edits` is compared by reference, so this must never be re-created). */
+/** The empty edits map — the initial state AND every load's reset value.
+ * One shared instance (SectionShared contract: `edits` is compared by
+ * reference, so "no edits" must always be the same object). */
 const NO_EDITS: ReadonlyMap<string, string> = new Map();
 
 /**
@@ -112,6 +121,11 @@ export function GeminaVerification(props: GeminaVerificationProps): React.JSX.El
 
   const [phase, setPhase] = useState<Phase>({ name: 'loading' });
   const [loaded, setLoaded] = useState<LoadedData | null>(null);
+  // Dirty fields only: raw schema key → current input string, VERBATIM (no
+  // trim/normalize — that is the composer's job at submit). Replaced
+  // immutably on every change; delete-on-revert keeps composeSubmission's
+  // confirmed/corrected counts honest (see its edits-map contract).
+  const [edits, setEdits] = useState<ReadonlyMap<string, string>>(NO_EDITS);
   // Held separately from `loaded`: the expiry refresh swaps an expired URL in
   // place without disturbing the (memo-feeding) values/schema snapshot.
   const [imageUrl, setImageUrl] = useState<string | null>(null);
@@ -180,6 +194,10 @@ export function GeminaVerification(props: GeminaVerificationProps): React.JSX.El
     // unmounts during loading, and a REMOUNTED viewer handed old non-null
     // flashRects would phantom-flash the new document once it sizes up.
     setFlashRects(null);
+    // A new load must not inherit the previous extraction's expiry-refresh
+    // throttle window (the viewer is unmounted until review re-enters, so
+    // nothing can race this reset).
+    lastImageRefreshRef.current = 0;
     let view: ExtractionPrimaryViewOutDTO;
     try {
       view = await fetchWithRetry();
@@ -212,6 +230,11 @@ export function GeminaVerification(props: GeminaVerificationProps): React.JSX.El
         values: view.values,
         schema: Array.isArray(schema) ? schema : [],
       });
+      // Fresh extraction data → clean editing slate, batched with setLoaded so
+      // new bindings never pair with old edits for even one commit. Covers the
+      // extractionId change, Retry, AND the Task-17 409-refetch (all of which
+      // route through load()).
+      setEdits(NO_EDITS);
       const url = view.document.imageUrl;
       setImageUrl(typeof url === 'string' && url.length > 0 ? url : null);
       setPhase({ name: 'review', readOnly: alreadyValidated, alreadyValidated });
@@ -361,9 +384,55 @@ export function GeminaVerification(props: GeminaVerificationProps): React.JSX.El
   );
   const effectiveDir: 'ltr' | 'rtl' = dir === 'auto' ? (hasHebrewContent ? 'rtl' : 'ltr') : dir;
 
-  // Stable edit placeholder (SectionShared contract: handlers are compared by
-  // reference in the row memo). Task 16 wires editing.
-  const handleEdit = useCallback((_rawKey: string, _value: string) => {}, []);
+  // Revert detection needs the binding behind a raw key. Read through a ref
+  // so handleEdit stays permanently stable (SectionShared contract: the
+  // table-row memo compares onEdit by reference; a per-load identity would
+  // silently re-render every row once per load).
+  const bindingsByRawKey = useMemo(() => {
+    const map = new Map<string, FieldBinding>();
+    for (const binding of bindings) {
+      map.set(binding.key.raw, binding);
+    }
+    return map;
+  }, [bindings]);
+  const bindingsByRawKeyRef = useRef(bindingsByRawKey);
+  bindingsByRawKeyRef.current = bindingsByRawKey;
+
+  // The edit tracker. The value is stored VERBATIM — never trimmed or
+  // normalized (IME safety: the input must echo exactly what the user is
+  // composing; composeSubmission trims at submit time). Dirty-tracking
+  // contract (Task 4): the entry is DELETED when the value returns to the
+  // binding's initial input string, so composeSubmission's counts stay honest.
+  // Every change builds a NEW Map (SectionShared: the row-memo comparator
+  // short-circuits on reference equality, so in-place mutation renders nothing);
+  // no-op updates return `prev` unchanged to keep that same short-circuit.
+  const handleEdit = useCallback((rawKey: string, value: string) => {
+    const binding = bindingsByRawKeyRef.current.get(rawKey);
+    // Pristine = the input shows exactly what an untouched input would show:
+    // toInputString of the binding's DISPLAY value (FieldInput's prefill) —
+    // including '' for a never-extracted fill-in.
+    const pristine = binding !== undefined && value === toInputString(binding.extracted);
+    setEdits((prev) => {
+      if (pristine) {
+        if (!prev.has(rawKey)) {
+          return prev;
+        }
+        const next = new Map(prev);
+        next.delete(rawKey);
+        return next;
+      }
+      if (prev.get(rawKey) === value) {
+        return prev;
+      }
+      const next = new Map(prev);
+      next.set(rawKey, value);
+      return next;
+    });
+  }, []);
+
+  // Progress counts — composeSubmission IS the source of truth (the same call
+  // Task 17 submits), so the line can never disagree with what would be sent.
+  const submission = useMemo(() => composeSubmission(bindings, edits), [bindings, edits]);
 
   // Flash wiring (form → viewer). STABLE callback — the table-row memo
   // compares onFlash by reference, so rows never re-render on unrelated
@@ -390,6 +459,10 @@ export function GeminaVerification(props: GeminaVerificationProps): React.JSX.El
    * Throttled to one refetch per 60s so a signed URL that keeps dying (e.g. a
    * document purged mid-review) cannot refetch-loop; the viewer's own
    * has-loaded gate already stops the loop for URLs that never load at all.
+   *
+   * INVARIANT: any future refetch that writes state must bump loadSeqRef or
+   * route through load() — a refetch that writes without owning the sequence
+   * can be overtaken by a newer load and clobber its state.
    */
   const handleImageExpired = useCallback(() => {
     const now = Date.now();
@@ -471,11 +544,29 @@ export function GeminaVerification(props: GeminaVerificationProps): React.JSX.El
               classified={classified}
               unmatched={unmatched}
               bindingIndex={bindingIndex}
-              edits={NO_EDITS}
+              edits={edits}
               onEdit={handleEdit}
               readOnly={phase.readOnly}
               onFlash={handleFlash}
             />
+          </div>
+          <div className="gemina-verification__footer">
+            {/* aria-live: a reviewer deep in a long form hears the count move
+                as they confirm/correct without tabbing back to the footer. */}
+            <div className="gemina-verification__progress" aria-live="polite">
+              {`${submission.confirmed} confirmed · ${submission.corrected} corrected`}
+            </div>
+            {/* TODO(Task 17): onClick → phase 'confirming' (the confirm
+                dialog). Inert until then — entering the phase today would
+                blank the review (the switch renders null for it), so the
+                click stays ungated-off rather than half-wired. */}
+            <button
+              type="button"
+              className="gemina-verification__submit"
+              disabled={phase.readOnly}
+            >
+              Submit feedback
+            </button>
           </div>
         </>
       );

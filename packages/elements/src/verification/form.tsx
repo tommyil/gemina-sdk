@@ -146,6 +146,9 @@ export function FieldInput(props: {
       <input
         type="text"
         className={className}
+        // Per-input bidi: a Latin value inside an RTL (Hebrew) document — or
+        // vice versa — must lay out by its own content, not the widget's dir.
+        dir="auto"
         // RAW value only — a display-formatted "1,500" round-tripped into the
         // submission would score as a correction (see toInputString).
         value={dirty ? edit : toInputString(binding.extracted)}
