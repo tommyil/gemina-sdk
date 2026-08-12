@@ -122,6 +122,10 @@ export function FieldInput(props: {
   // Container serverValues (value-object wrappers, arrays, objects) can never
   // score correct from a string edit — the server's coerce_like only adopts
   // types for scalar targets — so they render read-only (C1/C2 amendment).
+  // NOTE: this branch deliberately DISCARDS `edit` and shows the extracted
+  // value — correct for the 409 already-validated path. Task 17: keep
+  // submit-in-progress as disabled buttons, NOT a readOnly flip, or the
+  // user's pending edits would visually vanish mid-submit.
   if (readOnly || !binding.editable) {
     const display = binding.extracted === NOT_FOUND ? null : binding.extracted;
     return <span>{formatValue(display, binding.key.label)}</span>;
@@ -166,7 +170,15 @@ interface FlashRect {
   points: [number, number][];
 }
 
-/** State + callbacks every section threads down to its fields. */
+/** State + callbacks every section threads down to its fields.
+ *
+ * STABILITY CONTRACT (callers, i.e. Task 14): `onEdit`, `onFlash`, and
+ * `bindingIndex` MUST be referentially stable across renders (useCallback /
+ * useMemo) — the table-row memo compares them by reference, so an unstable
+ * handler silently degrades every row bail-out to a full re-render. `edits`
+ * MUST be replaced immutably on every change, never mutated in place: the
+ * comparator short-circuits on `prevEdits === nextEdits`, so an in-place
+ * mutation renders no update at all. */
 interface SectionShared {
   bindingIndex: Map<string, FieldBinding>;
   edits: ReadonlyMap<string, string>;
@@ -175,6 +187,11 @@ interface SectionShared {
   onFlash: (rects: FlashRect[]) => void;
 }
 
+/** Props for the whole form pane.
+ *
+ * The SectionShared stability contract applies (see above), and `classified`
+ * must be the memoized product of one `classifyData` call — a fresh object
+ * per render defeats both the row memo and the fallback-section memo. */
 export interface VerificationFormProps extends SectionShared {
   classified: ClassifiedData;
   /** Bindings whose pointer matched NO rendered field — the "model missed the
@@ -458,10 +475,18 @@ function TableSection(props: {
 }): React.JSX.Element {
   const { table, shared } = props;
   const label = formatLabel(table.key);
-  const hasCoords = table.rows.some((row) =>
-    Object.entries(row).some(([key, cell]) => key !== ROW_META_KEY && cell.coordinates !== null),
+  // Full-row scans — memoized so keystroke re-renders don't re-walk every cell.
+  const hasCoords = React.useMemo(
+    () =>
+      table.rows.some((row) =>
+        Object.entries(row).some(([key, cell]) => key !== ROW_META_KEY && cell.coordinates !== null),
+      ),
+    [table],
   );
-  const hasRowConfidence = table.rows.some((row) => Boolean(row[ROW_META_KEY]?.confidence?.level));
+  const hasRowConfidence = React.useMemo(
+    () => table.rows.some((row) => Boolean(row[ROW_META_KEY]?.confidence?.level)),
+    [table],
+  );
   return (
     <section className="gemina-verification__section" aria-label={label}>
       <div className="gemina-verification__section-header">
@@ -501,8 +526,14 @@ function TableSection(props: {
   );
 }
 
-/** Unclassifiable blobs: native <details> + pretty-printed JSON (no viewer dep). */
-function FallbackSection(props: { fallback: ClassifiedData['fallback'] }): React.JSX.Element | null {
+/** Unclassifiable blobs: native <details> + pretty-printed JSON (no viewer dep).
+ * Memoized: fallback is exactly where large unclassifiable payloads land, and
+ * without the memo every parent render (i.e., every keystroke) would re-run
+ * JSON.stringify over all of them. `classified.fallback` is referentially
+ * stable (the parent memoizes classifyData), so the memo is a complete fix. */
+const FallbackSection = React.memo(function FallbackSection(
+  props: { fallback: ClassifiedData['fallback'] },
+): React.JSX.Element | null {
   const { fallback } = props;
   if (fallback.length === 0) {
     return null;
@@ -520,7 +551,7 @@ function FallbackSection(props: { fallback: ClassifiedData['fallback'] }): React
       </div>
     </section>
   );
-}
+});
 
 /** Bindings the model missed entirely: a section of empty fill-in inputs. */
 function UnmatchedSection(props: {
