@@ -371,7 +371,10 @@ export interface ClassifiedField {
 
 ### Task 4: `bindings.ts` — schema↔field binder and submission composer
 
-The heart of correctness. Complete code. Encodes the verified scoring semantics (fact 4 in the context section).
+> **As-executed amendment (2026-08-12, code review C1/C2 — supersedes the code below where they conflict):** the original design had two plan-level blind spots, verified against the backend:
+> 1. **Casing (C1):** validation-schema pointers are snake_case (`model_dump(by_alias=False)`, `invoice_headers_result.py:54`) while the view payload `values` is camelCase (`dict_base(by_alias=True)`, `documents/utils.py:1058`); the server scores against its own snake dict (`data_validator.py:269-270`), so the mismatch is client-only. Fix: resolution is **casing-aware** — each object-key segment tries exact, then snake→camel — and each binding records the actually-resolved `fieldPointer` (camel in prod), which is what `indexBindingsByFieldPointer` keys on (the classifier walks the camel payload and emits camel pointers).
+> 2. **Server-equivalence (C2):** the `/value`-parent fallback and the unwrap-during-resolution let the client resolve values the server cannot; submitting those untouched scores a false "missing"/"incorrect". Since the payload and the server's scoring dict are the SAME model tree (casing aside), client resolution after C1 is structurally identical to server resolution. Fix: the fallback is **deleted**; each binding carries `serverValue` (the raw resolved node, submitted verbatim when untouched — wrapper objects included, which compare dict-vs-dict server-side and score correct) plus a display-only unwrapped `extracted`. Untouched+NOT_FOUND stays omitted.
+> 3. **Editability (I1):** `coerce_like` does nothing for containers, so a string edit of a container-valued binding can never score correct. Bindings whose `serverValue` is a container that is not editable-as-scalar are `editable: false`; Task 13 renders them read-only. NOT_FOUND (fill-in) and scalar/null bindings stay editable.
 
 **Files:**
 - Create: `packages/elements/src/verification/bindings.ts`
