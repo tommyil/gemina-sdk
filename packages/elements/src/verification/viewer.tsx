@@ -315,18 +315,27 @@ export function VerificationViewer(props: VerificationViewerProps): React.JSX.El
     return () => node.removeEventListener('wheel', listener);
   }, [handleWheel]);
 
-  // Mouse pan (console ~296-322 policy: engages only beyond fit — at fit there
-  // is nothing to pan and the cursor honestly says zoom-in). Deliberate
-  // deviation from the console: move/up listen on `document` while panning so
-  // the drag survives leaving the canvas instead of dropping at the edge.
+  // Beyond fit there is something to pan; at fit the drag is inert and the
+  // cursor honestly says zoom-in (console ~296-322 policy). Shared by the
+  // mousedown gate and the cursor state below.
+  const atFitScale = transform.scale <= currentFitScale() + 0.001;
+
+  // Mouse pan. Deliberate deviation from the console: move/up listen on
+  // `document` while panning so the drag survives leaving the canvas instead
+  // of dropping at the edge.
   const handleMouseDown = useCallback(
     (e: React.MouseEvent<HTMLDivElement>) => {
-      if (transform.scale <= currentFitScale() + 0.001) return;
+      // Primary button only: with document-level listeners a right-click's
+      // context menu would swallow the mouseup and leave the pan stuck.
+      // (Tap-synthesized compat mouse events report button 0 and pass — fine;
+      // Task 9's touch handlers own that path.)
+      if (e.button !== 0) return;
+      if (atFitScale) return;
       e.preventDefault(); // document-level drag: don't start selections outside the widget
       panStart.current = { x: e.clientX, y: e.clientY, tx: transform.tx, ty: transform.ty };
       setIsPanning(true);
     },
-    [transform, currentFitScale],
+    [atFitScale, transform.tx, transform.ty],
   );
 
   useEffect(() => {
@@ -393,8 +402,7 @@ export function VerificationViewer(props: VerificationViewerProps): React.JSX.El
   // Cursor is the promise of what a drag will do (console ~371-372): zoom-in
   // while the whole page fits (drag is inert; wheel/double-click zooms), grab
   // once zoomed beyond fit, grabbing mid-pan. CSS maps data-cursor to cursors.
-  const cursorMode =
-    transform.scale <= currentFitScale() + 0.001 ? 'zoom-in' : isPanning ? 'grabbing' : 'grab';
+  const cursorMode = atFitScale ? 'zoom-in' : isPanning ? 'grabbing' : 'grab';
 
   return (
     <div className="gemina-verification__viewer">

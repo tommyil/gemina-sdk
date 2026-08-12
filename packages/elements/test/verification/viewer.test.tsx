@@ -390,6 +390,19 @@ describe('VerificationViewer — mouse pan', () => {
     expect(topOf(img)).toBeCloseTo(startTop + 60, 6);
   });
 
+  it('does not engage pan on right/middle button (primary only)', () => {
+    const { img, canvas } = mountSized();
+    fireWheel(canvas, { deltaY: -100, clientX: 250, clientY: 250 });
+    const startLeft = leftOf(img);
+    const startTop = topOf(img);
+
+    fireEvent.mouseDown(canvas, { button: 2, clientX: 200, clientY: 200 });
+    expect(canvas.getAttribute('data-cursor')).toBe('grab'); // never 'grabbing'
+    fireEvent.mouseMove(document, { clientX: 240, clientY: 230 });
+    expect(leftOf(img)).toBeCloseTo(startLeft, 6);
+    expect(topOf(img)).toBeCloseTo(startTop, 6);
+  });
+
   it('does not engage pan at fit scale (console policy: nothing to pan)', () => {
     const { img, canvas } = mountSized();
     expect(scaleOf(img)).toBeCloseTo(0.25, 6);
