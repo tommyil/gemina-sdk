@@ -1,6 +1,58 @@
 /**
  * Shared helpers for the GeminaVerification component tests.
  */
+import { act } from '@testing-library/react';
+
+/**
+ * Controllable ResizeObserver stub (the viewer tests' pattern): records
+ * instances and their observed targets; `resizeTo` dispatches a fake
+ * contentRect so a test can drive an element's width without layout.
+ * Install per-describe via `vi.stubGlobal('ResizeObserver', ResizeObserverStub)`
+ * so the other tests keep exercising the no-ResizeObserver fallback path.
+ */
+export class ResizeObserverStub {
+  static instances: ResizeObserverStub[] = [];
+
+  target: Element | null = null;
+  disconnected = false;
+  private readonly callback: (
+    entries: Array<{ contentRect: { width: number; height: number } }>,
+  ) => void;
+
+  constructor(
+    callback: (entries: Array<{ contentRect: { width: number; height: number } }>) => void,
+  ) {
+    this.callback = callback;
+    ResizeObserverStub.instances.push(this);
+  }
+
+  observe(el: Element): void {
+    this.target = el;
+  }
+
+  unobserve(): void {}
+
+  disconnect(): void {
+    this.disconnected = true;
+  }
+
+  resizeTo(width: number, height: number): void {
+    act(() => {
+      this.callback([{ contentRect: { width, height } }]);
+    });
+  }
+
+  /** The instance observing the first element carrying `className` as a class token. */
+  static forClass(className: string): ResizeObserverStub {
+    const found = ResizeObserverStub.instances.find((instance) =>
+      instance.target?.classList.contains(className),
+    );
+    if (!found) {
+      throw new Error(`no ResizeObserver observing .${className}`);
+    }
+    return found;
+  }
+}
 
 /**
  * A ResponseError-shaped rejection whose `.response` behaves like the raw fetch

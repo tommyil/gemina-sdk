@@ -80,12 +80,33 @@ const VERIFICATION_CSS = `
   gap: 16px;
 }
 .gemina-verification--stacked .gemina-verification__panes {
-  grid-template-columns: minmax(0, 1fr);
+  /* Flex column, NOT a one-column grid: a sticky GRID item is confined to its
+     own grid area — whose auto row is exactly its own height, leaving zero
+     travel — while a sticky FLEX child's containing block is the whole panes
+     box, so the viewer genuinely floats over the form as it scrolls. The gap
+     carries over from the base rule. */
+  display: flex;
+  flex-direction: column;
 }
 .gemina-verification--stacked .gemina-verification__viewer {
   position: sticky;
   top: 0; /* block axis, not inline — RTL-safe */
   z-index: 2;
+  /* Cap AND height in one declaration: the canvas is absolutely-positioned
+     geometry with no intrinsic height (it contributes only its min-height),
+     so a max-block-size alone would never bind — the explicit block-size is
+     what the canvas fills. 48vh keeps the majority of a short viewport for
+     the form the reviewer is working through; 420px stops a tall narrow
+     window from devoting a huge sticky band to the document. The dvh line
+     wins where supported (mobile browser chrome shrinks the visual viewport). */
+  flex: 0 0 auto;
+  block-size: min(48vh, 420px);
+  block-size: min(48dvh, 420px);
+}
+.gemina-verification--stacked .gemina-verification__canvas {
+  /* The stacked cap owns the height; the side-by-side 280px floor would
+     overflow it on short viewports (48vh of a 568px screen is ~273px). */
+  min-height: 120px;
 }
 
 /* --- Document viewer ------------------------------------------------------ */
@@ -392,7 +413,8 @@ const VERIFICATION_CSS = `
   user-select: none;
 }
 .gemina-verification__fallback pre {
-  margin: 8px 0 0;
+  margin: 0;
+  margin-block-start: 8px;
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   white-space: pre-wrap;
   overflow-wrap: break-word;

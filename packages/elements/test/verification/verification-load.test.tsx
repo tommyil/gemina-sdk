@@ -1,16 +1,18 @@
 /**
- * <GeminaVerification> — Task 14: fetch, state machine, edge states.
+ * <GeminaVerification> — Task 14: fetch, state machine, edge states;
+ * Task 15: layout (stacked observer), flash wiring, RTL/theming, and the
+ * silent image-URL refresh.
  *
  * Offline component tests with a mocked @gemina/sdk (chat.test.tsx idiom).
  * The fixture uses camelCase values against snake_case schema pointers, so
  * every happy-path assertion here also proves the C1 casing-aware binding
  * resolution end to end.
  */
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { GeminaVerification } from '../../src/verification/index';
 import { GeminaTokenManager } from '../../src/token-manager';
-import { extraction, FIXTURE_IMAGE_URL, httpError } from './helpers';
+import { extraction, FIXTURE_IMAGE_URL, httpError, ResizeObserverStub } from './helpers';
 
 const { getDocumentExtraction, validateDocumentExtraction, withSessionToken } = vi.hoisted(() => {
   const getDocumentExtraction = vi.fn();
@@ -44,6 +46,15 @@ function renderVerification(extraProps: Partial<Parameters<typeof GeminaVerifica
     />,
   );
   return { ...utils, tokenManager, fetchToken, onError };
+}
+
+/** Drain the promise chain of an in-flight (mocked, timerless) fetch. */
+function flushMicrotasks(): Promise<void> {
+  return act(async () => {
+    for (let i = 0; i < 10; i += 1) {
+      await Promise.resolve();
+    }
+  });
 }
 
 afterEach(() => {
@@ -348,5 +359,320 @@ describe('GeminaVerification — chrome', () => {
     expect(screen.getByLabelText('total_amount')).toBeTruthy();
     expect(screen.getByLabelText('po_number')).toBeTruthy();
     expect(onError).not.toHaveBeenCalled();
+  });
+
+  it('carries the base + auto-theme classes and an explicit dir attribute by default', async () => {
+    getDocumentExtraction.mockResolvedValueOnce(extraction());
+    const { container } = renderVerification();
+
+    await screen.findByLabelText('Supplier Name');
+    const root = container.querySelector('.gemina-verification')!;
+    expect(root.className).toContain('gemina-verification--auto');
+    expect(root.getAttribute('dir')).toBe('ltr');
+    expect(root.className).not.toContain('gemina-verification--rtl');
+  });
+});
+
+describe('GeminaVerification — direction (chat-parity Hebrew autodetect)', () => {
+  /** Hebrew supplier value — reaches the bindings through /supplier_name/value. */
+  const HEBREW_VALUES = {
+    supplierName: { value: 'אקמי בע"מ', confidence: 'high' },
+    totalAmount: { value: 1500 },
+  };
+
+  it('dir="auto" flips to RTL when a bound extracted value contains Hebrew', async () => {
+    getDocumentExtraction.mockResolvedValueOnce(extraction({ values: HEBREW_VALUES }));
+    const { container } = renderVerification();
+
+    await screen.findByLabelText('Supplier Name');
+    const root = container.querySelector('.gemina-verification')!;
+    expect(root.getAttribute('dir')).toBe('rtl');
+    expect(root.className).toContain('gemina-verification--rtl');
+  });
+
+  it('an explicit dir="ltr" wins over Hebrew content', async () => {
+    getDocumentExtraction.mockResolvedValueOnce(extraction({ values: HEBREW_VALUES }));
+    const { container } = renderVerification({ dir: 'ltr' });
+
+    await screen.findByLabelText('Supplier Name');
+    const root = container.querySelector('.gemina-verification')!;
+    expect(root.getAttribute('dir')).toBe('ltr');
+    expect(root.className).not.toContain('gemina-verification--rtl');
+  });
+
+  it('dir="rtl" forces RTL without any Hebrew content', async () => {
+    getDocumentExtraction.mockResolvedValueOnce(extraction());
+    const { container } = renderVerification({ dir: 'rtl' });
+
+    await screen.findByLabelText('Supplier Name');
+    const root = container.querySelector('.gemina-verification')!;
+    expect(root.getAttribute('dir')).toBe('rtl');
+    expect(root.className).toContain('gemina-verification--rtl');
+  });
+});
+
+describe('GeminaVerification — eye-click flash wiring', () => {
+  beforeEach(() => {
+    ResizeObserverStub.instances.length = 0;
+    vi.stubGlobal('ResizeObserver', ResizeObserverStub);
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.useRealTimers();
+  });
+
+  /**
+   * Real-timer load + viewer sizing first, THEN fake timers + the viewer
+   * tests' rAF shim (the travel/fade loops measure elapsed via Date.now(),
+   * so Date must be faked alongside the setTimeout-backed rAF).
+   */
+  async function mountFlashReady() {
+    getDocumentExtraction.mockResolvedValueOnce(extraction());
+    const utils = renderVerification();
+    await screen.findByLabelText('Supplier Name');
+
+    const img = utils.container.querySelector('img')!;
+    Object.defineProperty(img, 'naturalWidth', { value: 1000, configurable: true });
+    Object.defineProperty(img, 'naturalHeight', { value: 2000, configurable: true });
+    fireEvent.load(img);
+    ResizeObserverStub.forClass('gemina-verification__canvas').resizeTo(500, 500);
+
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date'] });
+    vi.stubGlobal(
+      'requestAnimationFrame',
+      (cb: FrameRequestCallback) => setTimeout(() => cb(Date.now()), 16) as unknown as number,
+    );
+    vi.stubGlobal('cancelAnimationFrame', (id: number) => clearTimeout(id));
+    return utils;
+  }
+
+  it('an eye click flashes the field rect on the viewer; completion clears it; a re-click re-flashes', async () => {
+    const { container } = await mountFlashReady();
+
+    // Only supplierName carries coordinates in the fixture → exactly one eye.
+    fireEvent.click(screen.getByRole('button', { name: 'Show on document' }));
+    const rect = container.querySelector<HTMLElement>('.gemina-verification__flash-rect');
+    expect(rect).not.toBeNull();
+    expect(Number(rect!.style.opacity)).toBe(1);
+
+    // The fade completes at 1500ms → the viewer clears the rect and the
+    // root's onFlashComplete nulls its flash state.
+    act(() => {
+      vi.advanceTimersByTime(1600);
+    });
+    expect(container.querySelector('.gemina-verification__flash-rect')).toBeNull();
+
+    // Fresh-array contract: the SAME eye clicked again must flash again (a
+    // root holding a stale identical reference would never restart the flash).
+    fireEvent.click(screen.getByRole('button', { name: 'Show on document' }));
+    expect(container.querySelector('.gemina-verification__flash-rect')).not.toBeNull();
+    act(() => {
+      vi.advanceTimersByTime(1600);
+    });
+    expect(container.querySelector('.gemina-verification__flash-rect')).toBeNull();
+  });
+
+  it('a rapid second click mid-flash restarts from full opacity', async () => {
+    const { container } = await mountFlashReady();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Show on document' }));
+    act(() => {
+      vi.advanceTimersByTime(600);
+    });
+    const mid = container.querySelector<HTMLElement>('.gemina-verification__flash-rect')!;
+    expect(Number(mid.style.opacity)).toBeLessThan(1);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Show on document' }));
+    const restarted = container.querySelector<HTMLElement>('.gemina-verification__flash-rect')!;
+    expect(Number(restarted.style.opacity)).toBe(1);
+  });
+});
+
+describe('GeminaVerification — image URL expiry (silent refresh)', () => {
+  const REFRESHED_URL = 'https://cdn.example.test/doc-1.png?token=fresh';
+
+  /** Arm the viewer's expiry gate: the current src has loaded successfully. */
+  function armImage(container: HTMLElement): HTMLImageElement {
+    const img = container.querySelector('img')!;
+    fireEvent.load(img);
+    return img as HTMLImageElement;
+  }
+
+  it('swaps ONLY the img src after an expiry refetch — data, phase and inputs untouched', async () => {
+    getDocumentExtraction
+      .mockResolvedValueOnce(extraction())
+      // The refreshed view arrives with DIFFERENT values and validated:true —
+      // none of which may leak into the review (URL-only swap contract).
+      .mockResolvedValueOnce(
+        extraction({
+          document: { imageUrl: REFRESHED_URL },
+          meta: { validated: true },
+          values: { supplierName: { value: 'Poisoned Co' }, totalAmount: { value: 9999 } },
+        }),
+      );
+    const { container, onError } = renderVerification();
+    await screen.findByLabelText('Supplier Name');
+    const img = armImage(container);
+
+    fireEvent.error(img);
+    // Silent: no loading phase flash while the refetch is in flight.
+    expect(container.querySelector('.gemina-verification__state')).toBeNull();
+
+    await waitFor(() => expect(img.getAttribute('src')).toBe(REFRESHED_URL));
+    expect(getDocumentExtraction).toHaveBeenCalledTimes(2);
+    // Same loaded snapshot: the original value, still an editable input (the
+    // refreshed validated:true must NOT flip the form read-only), no banner.
+    expect(screen.getByLabelText<HTMLInputElement>('Supplier Name').value).toBe('Acme Ltd');
+    expect(container.querySelector('.gemina-verification__state')).toBeNull();
+    expect(container.querySelector('.gemina-verification__banner')).toBeNull();
+    expect(onError).not.toHaveBeenCalled();
+  });
+
+  it('throttles: a second expiry 5s later does not refetch; the window reopens after 60s', async () => {
+    getDocumentExtraction
+      .mockResolvedValueOnce(extraction())
+      .mockResolvedValue(extraction({ document: { imageUrl: REFRESHED_URL } }));
+    const { container } = renderVerification();
+    await screen.findByLabelText('Supplier Name');
+    const img = armImage(container);
+
+    vi.useFakeTimers({ toFake: ['Date', 'setTimeout', 'clearTimeout'] });
+    try {
+      fireEvent.error(img);
+      await flushMicrotasks();
+      expect(getDocumentExtraction).toHaveBeenCalledTimes(2);
+      expect(img.getAttribute('src')).toBe(REFRESHED_URL);
+
+      // Re-arm (the refreshed URL loads), then die again 5s later → throttled.
+      fireEvent.load(img);
+      act(() => {
+        vi.advanceTimersByTime(5_000);
+      });
+      fireEvent.error(img);
+      await flushMicrotasks();
+      expect(getDocumentExtraction).toHaveBeenCalledTimes(2);
+
+      // 60s past the first refresh the throttle window reopens.
+      act(() => {
+        vi.advanceTimersByTime(56_000);
+      });
+      fireEvent.load(img);
+      fireEvent.error(img);
+      await flushMicrotasks();
+      expect(getDocumentExtraction).toHaveBeenCalledTimes(3);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('an img error when the image never loaded does not refetch (root-side pin)', async () => {
+    getDocumentExtraction.mockResolvedValueOnce(extraction());
+    const { container } = renderVerification();
+    await screen.findByLabelText('Supplier Name');
+
+    // No load event ever fired — the viewer's gate holds, the root never refetches.
+    fireEvent.error(container.querySelector('img')!);
+    await flushMicrotasks();
+    expect(getDocumentExtraction).toHaveBeenCalledTimes(1);
+  });
+
+  it('an expiry refetch that rejects leaves the review intact (swallowed, no onError)', async () => {
+    getDocumentExtraction
+      .mockResolvedValueOnce(extraction())
+      .mockRejectedValueOnce(httpError(500));
+    const { container, onError } = renderVerification();
+    await screen.findByLabelText('Supplier Name');
+    const img = armImage(container);
+
+    fireEvent.error(img);
+    await flushMicrotasks();
+
+    expect(getDocumentExtraction).toHaveBeenCalledTimes(2);
+    expect(screen.getByLabelText<HTMLInputElement>('Supplier Name').value).toBe('Acme Ltd');
+    expect(container.querySelector('.gemina-verification__state')).toBeNull();
+    expect(img.getAttribute('src')).toBe(FIXTURE_IMAGE_URL);
+    expect(onError).not.toHaveBeenCalled();
+  });
+});
+
+describe('GeminaVerification — stale load protection', () => {
+  it('a load that lost the race to an extractionId change never writes (data or onError)', async () => {
+    let resolveA!: (view: unknown) => void;
+    getDocumentExtraction
+      .mockImplementationOnce(() => new Promise((resolve) => {
+        resolveA = resolve;
+      }))
+      .mockResolvedValueOnce(
+        extraction({
+          values: { supplierName: { value: 'Bravo Industries' }, totalAmount: { value: 42 } },
+        }),
+      );
+    const { tokenManager } = makeManager();
+    const onError = vi.fn();
+    const { rerender } = render(
+      <GeminaVerification extractionId="ext-A" tokenManager={tokenManager} onError={onError} />,
+    );
+    // Let load A get its call in flight (deferred, unresolved) …
+    await flushMicrotasks();
+    expect(getDocumentExtraction).toHaveBeenCalledTimes(1);
+
+    // … then switch extractions while A is still pending.
+    rerender(
+      <GeminaVerification extractionId="ext-B" tokenManager={tokenManager} onError={onError} />,
+    );
+    expect(
+      (await screen.findByLabelText<HTMLInputElement>('Supplier Name')).value,
+    ).toBe('Bravo Industries');
+
+    // A resolves LATE as purged — a failed stale guard would flip the phase
+    // to unavailable AND fire onError('purged').
+    resolveA(extraction({ meta: { purgedAt: '2026-08-10T00:00:00Z' } }));
+    await flushMicrotasks();
+    expect(screen.getByLabelText<HTMLInputElement>('Supplier Name').value).toBe('Bravo Industries');
+    expect(screen.queryByText('Document no longer available (retention policy).')).toBeNull();
+    expect(onError).not.toHaveBeenCalled();
+  });
+});
+
+describe('GeminaVerification — stacked layout (root width observer)', () => {
+  beforeEach(() => {
+    ResizeObserverStub.instances.length = 0;
+    vi.stubGlobal('ResizeObserver', ResizeObserverStub);
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('toggles --stacked below 860px of ROOT width (both boundary sides); disconnects on unmount', async () => {
+    getDocumentExtraction.mockResolvedValueOnce(extraction());
+    const { container, unmount } = renderVerification();
+    await screen.findByLabelText('Supplier Name');
+    const root = container.querySelector('.gemina-verification')!;
+    const ro = ResizeObserverStub.forClass('gemina-verification');
+    expect(root.className).not.toContain('gemina-verification--stacked');
+
+    ro.resizeTo(859, 700);
+    expect(root.className).toContain('gemina-verification--stacked');
+
+    ro.resizeTo(860, 700);
+    expect(root.className).not.toContain('gemina-verification--stacked');
+
+    ro.resizeTo(320, 700);
+    expect(root.className).toContain('gemina-verification--stacked');
+
+    unmount();
+    expect(ro.disconnected).toBe(true);
+  });
+
+  it('a zero-width measurement (hidden/unmeasured host) never forces stacking', async () => {
+    getDocumentExtraction.mockResolvedValueOnce(extraction());
+    const { container } = renderVerification();
+    await screen.findByLabelText('Supplier Name');
+    const root = container.querySelector('.gemina-verification')!;
+
+    ResizeObserverStub.forClass('gemina-verification').resizeTo(0, 0);
+    expect(root.className).not.toContain('gemina-verification--stacked');
   });
 });
