@@ -42,6 +42,9 @@ describe('resolvePointer', () => {
     expect(resolvePointer(doc, '/line_items/x')).toBe(NOT_FOUND);   // non-digit list segment
     expect(resolvePointer(doc, '/supplier_name/value/deeper')).toBe(NOT_FOUND); // through a primitive
   });
+  it('pins the ~1-before-~0 unescape order (~01 must mean literal "~1")', () => {
+    expect(resolvePointer({ '~1': 5 }, '/~01')).toBe(5);
+  });
   it('does not resolve prototype-chain members (backend own-keys parity)', () => {
     expect(resolvePointer(doc, '/toString')).toBe(NOT_FOUND);
     expect(resolvePointer(doc, '/supplier_name/constructor')).toBe(NOT_FOUND);

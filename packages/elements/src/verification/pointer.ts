@@ -8,6 +8,15 @@
  * - `~1` unescaped before `~0`
  * - list segments must be all digits
  * - unresolvable paths are a sentinel, distinct from a stored `null`.
+ *
+ * Known divergences from the backend (all client-stricter; unreachable via
+ * server-generated keys):
+ * - Python's `$` in the key regex also matches before a trailing newline;
+ *   JS `$` (no `m` flag) matches only at end-of-string.
+ * - The backend's `pointer.lstrip("/")` collapses multiple leading slashes
+ *   (`//a` resolves `doc["a"]`); here that is NOT_FOUND (RFC-6901-correct).
+ * - Python's `isdigit()` accepts non-ASCII unicode digits as list indices;
+ *   `/^\d+$/` here is ASCII-only.
  */
 
 export interface SchemaKey {
