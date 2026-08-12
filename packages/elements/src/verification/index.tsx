@@ -309,6 +309,47 @@ export function GeminaVerification(props: GeminaVerificationProps): React.JSX.El
     }
     return bindings.filter((binding) => !rendered.has(binding.fieldPointer));
   }, [classified, bindings]);
+  // Every detection region the extraction carries, feeding the viewer's
+  // overlay toggle. Memoized on the classified snapshot (stability contract):
+  // the viewer sees ONE stable array per load. undefined when there is
+  // genuinely nothing to overlay — the viewer's hasRects check treats
+  // undefined and empty alike (toggle disabled); undefined states the intent.
+  const overlayRects = useMemo(() => {
+    const rects: RelativeRect[] = [];
+    for (const field of classified.headers) {
+      if (field.coordinates) {
+        rects.push(field.coordinates);
+      }
+    }
+    for (const list of classified.simpleLists) {
+      for (const item of list.items) {
+        if (item.coordinates) {
+          rects.push(item.coordinates);
+        }
+      }
+    }
+    for (const entity of classified.entities) {
+      for (const item of entity.items) {
+        for (const cell of Object.values(item)) {
+          if (cell.coordinates) {
+            rects.push(cell.coordinates);
+          }
+        }
+      }
+    }
+    for (const table of classified.tables) {
+      for (const row of table.rows) {
+        for (const [key, cell] of Object.entries(row)) {
+          // _rowMeta is synthetic (coordinates null by construction) — skip
+          // it so a future row-level coordinate never renders a stray box.
+          if (key !== ROW_META_KEY && cell.coordinates) {
+            rects.push(cell.coordinates);
+          }
+        }
+      }
+    }
+    return rects.length > 0 ? rects : undefined;
+  }, [classified]);
 
   // dir="auto" (chat parity): Hebrew anywhere in the bound DISPLAY values —
   // toInputString over binding.extracted, the same strings the inputs prefill,
@@ -420,6 +461,7 @@ export function GeminaVerification(props: GeminaVerificationProps): React.JSX.El
             {imageUrl !== null && (
               <VerificationViewer
                 src={imageUrl}
+                relativeRects={overlayRects}
                 flashRects={flashRects}
                 onFlashComplete={handleFlashComplete}
                 onImageExpired={handleImageExpired}

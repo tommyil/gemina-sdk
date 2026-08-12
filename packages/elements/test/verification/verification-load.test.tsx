@@ -411,6 +411,65 @@ describe('GeminaVerification — direction (chat-parity Hebrew autodetect)', () 
   });
 });
 
+describe('GeminaVerification — detection overlays (viewer relativeRects)', () => {
+  /** Two coordinate-bearing header fields — the overlay set must carry both. */
+  const COORD_VALUES = {
+    supplierName: {
+      value: 'Acme Ltd',
+      coordinates: {
+        relative: [
+          [0.1, 0.1],
+          [0.4, 0.1],
+          [0.4, 0.15],
+          [0.1, 0.15],
+        ],
+      },
+    },
+    totalAmount: {
+      value: 1500,
+      coordinates: {
+        relative: [
+          [0.5, 0.6],
+          [0.7, 0.6],
+          [0.7, 0.65],
+          [0.5, 0.65],
+        ],
+      },
+    },
+  };
+
+  it('collects every field coordinate for the viewer: toggle enabled, boxes render', async () => {
+    getDocumentExtraction.mockResolvedValueOnce(extraction({ values: COORD_VALUES }));
+    const { container } = renderVerification();
+    await screen.findByLabelText('Supplier Name');
+
+    const toggle = screen.getByRole('button', { name: 'Toggle detection overlays' });
+    expect((toggle as HTMLButtonElement).disabled).toBe(false);
+
+    // Boxes render in image space once the natural size is known.
+    const img = container.querySelector('img')!;
+    Object.defineProperty(img, 'naturalWidth', { value: 1000, configurable: true });
+    Object.defineProperty(img, 'naturalHeight', { value: 2000, configurable: true });
+    fireEvent.load(img);
+
+    fireEvent.click(toggle);
+    expect(container.querySelectorAll('.gemina-verification__rect').length).toBe(2);
+  });
+
+  it('a load with no coordinates anywhere leaves the overlay toggle disabled', async () => {
+    getDocumentExtraction.mockResolvedValueOnce(
+      extraction({
+        values: { supplierName: { value: 'Acme Ltd' }, totalAmount: { value: 1500 } },
+      }),
+    );
+    renderVerification();
+    await screen.findByLabelText('Supplier Name');
+
+    const toggle = screen.getByRole('button', { name: 'Toggle detection overlays' });
+    expect((toggle as HTMLButtonElement).disabled).toBe(true);
+  });
+});
+
 describe('GeminaVerification — eye-click flash wiring', () => {
   beforeEach(() => {
     ResizeObserverStub.instances.length = 0;
