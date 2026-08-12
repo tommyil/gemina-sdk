@@ -36,6 +36,7 @@
 - TDD loop per step: write the failing test → `npx vitest run <file>` → see FAIL → implement → `npx vitest run <file>` → see PASS → commit. Expected-output snippets show the vitest summary line only; exact counts will grow as tests accumulate.
 - Before EVERY commit that claims green: `npm run typecheck` must print nothing (exit 0).
 - No emojis, no new deps, no `window`/`document` at module top level, no persistence of tokens.
+- **UI design work requires the frontend-design skill (standing instruction from Tomer).** Before starting any task that makes visual/aesthetic decisions — Task 6 (styles/tokens), Tasks 7–11 (viewer), Tasks 12–13 (form/fields), Task 15 (layout), Task 19 (demo page) — invoke `Skill(frontend-design:frontend-design)` and apply it. The house constraints still bind (zero deps, scoped CSS variables, chat-consistent design language); the skill governs the aesthetic quality within them.
 
 ---
 
