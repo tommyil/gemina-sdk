@@ -4,9 +4,14 @@
  * (gemina-console/src/components/viewers/ZoomableImageViewer.tsx): same
  * state/refs/effects shape, with every piece of transform math delegated to
  * `viewer-math.ts` and all styling on the Task 6 `.gemina-verification__*`
- * classes. Later tasks add wheel/pan/pinch, overlays + flash, and the
- * magnifier lens; this file owns the static image, the toolbar, and
- * fit/100%/zoom/rotate.
+ * classes. Task 8 adds wheel zoom, mouse pan, and the double-click fit/100%
+ * toggle; later tasks add pinch, overlays + flash, and the magnifier lens.
+ *
+ * Coordinate spaces: the console's zoomAtPoint takes clientX/Y and subtracts
+ * the canvas rect INSIDE itself; the elements zoomAtPoint (viewer-math.ts) is
+ * container-relative, so every DOM call site converts via
+ * `zoomAtClientPoint` (Task 7 review carry-forward — a verbatim port anchors
+ * wrong in any scrolled/offset layout).
  *
  * SSR-safe: no `window`/`document` access at import time; `ResizeObserver`
  * is only touched inside an effect (with a one-shot measure fallback).
@@ -209,6 +214,9 @@ export function VerificationViewer(props: VerificationViewerProps): React.JSX.El
   const [showRects, setShowRects] = useState(false);
   const [magnifierOn, setMagnifierOn] = useState(false);
 
+  const [isPanning, setIsPanning] = useState(false);
+  const panStart = useRef<{ x: number; y: number; tx: number; ty: number } | null>(null);
+
   // Measure the canvas (console lines ~124-133), with a one-shot fallback for
   // environments without ResizeObserver.
   useLayoutEffect(() => {
@@ -270,6 +278,96 @@ export function VerificationViewer(props: VerificationViewerProps): React.JSX.El
   const handleZoomIn = useCallback(() => zoomBy(ZOOM_STEP), [zoomBy]);
   const handleZoomOut = useCallback(() => zoomBy(1 / ZOOM_STEP), [zoomBy]);
 
+  /** Client -> container-relative conversion lives HERE, at the call sites
+   * (wheel, double-click; pinch joins in Task 9) — viewer-math's zoomAtPoint
+   * is container-relative by contract. */
+  const zoomAtClientPoint = useCallback(
+    (factor: number, clientX: number, clientY: number) => {
+      const node = canvasRef.current;
+      if (!node || !natural) return;
+      const rect = node.getBoundingClientRect();
+      const fit = currentFitScale();
+      setTransform((prev) =>
+        zoomAtPoint(prev, factor, clientX - rect.left, clientY - rect.top, rotation, fit),
+      );
+    },
+    [natural, rotation, currentFitScale],
+  );
+
+  // Wheel zoom (console ~232-249): React's onWheel is passive, so attach a
+  // NON-PASSIVE native listener — preventDefault must keep the page from
+  // scrolling under the zoom.
+  const handleWheel = useCallback(
+    (event: WheelEvent) => {
+      event.preventDefault();
+      event.stopPropagation();
+      const factor = event.deltaY > 0 ? 0.92 : 1.08; // console's wheel constants
+      zoomAtClientPoint(factor, event.clientX, event.clientY);
+    },
+    [zoomAtClientPoint],
+  );
+
+  useEffect(() => {
+    const node = canvasRef.current;
+    if (!node) return;
+    const listener = (event: WheelEvent) => handleWheel(event);
+    node.addEventListener('wheel', listener, { passive: false });
+    return () => node.removeEventListener('wheel', listener);
+  }, [handleWheel]);
+
+  // Mouse pan (console ~296-322 policy: engages only beyond fit — at fit there
+  // is nothing to pan and the cursor honestly says zoom-in). Deliberate
+  // deviation from the console: move/up listen on `document` while panning so
+  // the drag survives leaving the canvas instead of dropping at the edge.
+  const handleMouseDown = useCallback(
+    (e: React.MouseEvent<HTMLDivElement>) => {
+      if (transform.scale <= currentFitScale() + 0.001) return;
+      e.preventDefault(); // document-level drag: don't start selections outside the widget
+      panStart.current = { x: e.clientX, y: e.clientY, tx: transform.tx, ty: transform.ty };
+      setIsPanning(true);
+    },
+    [transform, currentFitScale],
+  );
+
+  useEffect(() => {
+    if (!isPanning) return;
+    const onMove = (e: MouseEvent) => {
+      const start = panStart.current;
+      if (!start) return;
+      const dx = e.clientX - start.x;
+      const dy = e.clientY - start.y;
+      setTransform((prev) => ({ scale: prev.scale, tx: start.tx + dx, ty: start.ty + dy }));
+    };
+    const onUp = () => {
+      panStart.current = null;
+      setIsPanning(false);
+    };
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+    // Cleanup runs on mouseup (isPanning flips false) AND on unmount mid-pan.
+    return () => {
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+    };
+  }, [isPanning]);
+
+  // Double-click toggle (console ~281-294): near fit -> 100% anchored at the
+  // click point; otherwise back to centered fit.
+  const handleDoubleClick = useCallback(
+    (e: React.MouseEvent<HTMLDivElement>) => {
+      if (!natural) return;
+      const fit = currentFitScale();
+      const nearFit = Math.abs(transform.scale - fit) < 0.001;
+      if (nearFit) {
+        const target = clampScale(1, fit);
+        zoomAtClientPoint(target / transform.scale, e.clientX, e.clientY);
+      } else {
+        setTransform({ scale: fit, ...centeredTranslation(natural, container, fit, rotation) });
+      }
+    },
+    [natural, container, rotation, transform.scale, currentFitScale, zoomAtClientPoint],
+  );
+
   const handleFit = useCallback(() => {
     if (!natural) return;
     const fit = currentFitScale();
@@ -291,6 +389,12 @@ export function VerificationViewer(props: VerificationViewerProps): React.JSX.El
   useEffect(() => {
     if (!hasRects) setShowRects(false);
   }, [hasRects]);
+
+  // Cursor is the promise of what a drag will do (console ~371-372): zoom-in
+  // while the whole page fits (drag is inert; wheel/double-click zooms), grab
+  // once zoomed beyond fit, grabbing mid-pan. CSS maps data-cursor to cursors.
+  const cursorMode =
+    transform.scale <= currentFitScale() + 0.001 ? 'zoom-in' : isPanning ? 'grabbing' : 'grab';
 
   return (
     <div className="gemina-verification__viewer">
@@ -327,7 +431,13 @@ export function VerificationViewer(props: VerificationViewerProps): React.JSX.El
         </ToolbarButton>
       </div>
 
-      <div ref={canvasRef} className="gemina-verification__canvas">
+      <div
+        ref={canvasRef}
+        className="gemina-verification__canvas"
+        data-cursor={cursorMode}
+        onDoubleClick={handleDoubleClick}
+        onMouseDown={handleMouseDown}
+      >
         {/* Canvas geometry (not layout) — inline by design; CSS owns appearance. */}
         <div
           style={{
@@ -345,7 +455,6 @@ export function VerificationViewer(props: VerificationViewerProps): React.JSX.El
             alt={alt ?? 'Document'}
             draggable={false}
             onLoad={handleImgLoad}
-            style={{ display: 'block', maxWidth: 'unset', maxHeight: 'unset' }}
           />
         </div>
       </div>

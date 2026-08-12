@@ -132,11 +132,23 @@ const VERIFICATION_CSS = `
   overflow: hidden;
   background: var(--gemina-verification-surface);
   touch-action: none;
-  cursor: grab;
+  cursor: zoom-in; /* initial truth: at fit a drag is inert, wheel/dblclick zooms */
   user-select: none;
   -webkit-user-select: none;
 }
-.gemina-verification__canvas:active { cursor: grabbing; }
+/* Cursor is the promise of what a drag will do, so it follows viewer state
+   (data-cursor), never :active — a bare :active rule would claim "grabbing"
+   at fit scale where pan never engages. */
+.gemina-verification__canvas[data-cursor='zoom-in'] { cursor: zoom-in; }
+.gemina-verification__canvas[data-cursor='grab'] { cursor: grab; }
+.gemina-verification__canvas[data-cursor='grabbing'] { cursor: grabbing; }
+/* The document image is geometry, not layout: a block box at natural size,
+   positioned purely by the JS transform layer above it. */
+.gemina-verification__canvas img {
+  display: block;
+  max-width: unset;
+  max-height: unset;
+}
 /* Overlay geometry (left/top/width/height) is set inline by the viewer from
    transform math; CSS owns only the appearance. */
 .gemina-verification__rect {

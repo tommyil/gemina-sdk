@@ -75,4 +75,19 @@ describe('verification styles', () => {
       expect(css, `missing contract selector ${className}`).toContain(className);
     }
   });
+
+  it('owns the canvas img geometry and the data-cursor affordance states', async () => {
+    const { ensureVerificationStylesInjected } = await import('../../src/verification/styles');
+    ensureVerificationStylesInjected();
+
+    const css = document.head.querySelector('style[data-gemina-verification]')?.textContent ?? '';
+    // Task 8: the img's block/max-size geometry moved out of JSX into the sheet.
+    expect(css).toContain('.gemina-verification__canvas img');
+    // Cursor states are state-driven; a bare :active rule would promise
+    // "grabbing" even at fit scale where pan never engages.
+    expect(css).toContain(`.gemina-verification__canvas[data-cursor='zoom-in']`);
+    expect(css).toContain(`.gemina-verification__canvas[data-cursor='grab']`);
+    expect(css).toContain(`.gemina-verification__canvas[data-cursor='grabbing']`);
+    expect(css).not.toContain('.gemina-verification__canvas:active');
+  });
 });
