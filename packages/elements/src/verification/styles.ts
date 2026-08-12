@@ -269,6 +269,16 @@ const VERIFICATION_CSS = `
   border-color: var(--gemina-verification-error);
   box-shadow: 0 0 0 1px var(--gemina-verification-error);
 }
+/* Non-color dirty channel: the word itself is the signal (WCAG 1.4.1) — it
+   stays legible when --missed's error border overrides the dirty border. */
+.gemina-verification__edited {
+  flex: 0 0 auto;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--gemina-verification-dirty);
+}
 .gemina-verification__dot {
   display: inline-block;
   flex: 0 0 auto;

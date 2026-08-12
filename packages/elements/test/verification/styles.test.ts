@@ -30,6 +30,7 @@ const CONTRACT_CLASS_NAMES = [
   '.gemina-verification__input',
   '.gemina-verification__input--dirty',
   '.gemina-verification__input--missed',
+  '.gemina-verification__edited',
   '.gemina-verification__dot',
   '.gemina-verification__eye',
   '.gemina-verification__table',
