@@ -20,6 +20,16 @@ const schema = [
   'not-a-valid-key',                                  // must be skipped quietly
 ];
 
+// Prod shape: snake_case schema pointers, camelCase view payload (review C1).
+const camelValues = {
+  vendorName: { value: 'Acme Ltd', confidence: 'high' },
+  lineItems: [{ itemCode: 'A1' }],
+};
+const camelSchema = [
+  'label:vendor_name|ptr:/vendor_name/value',
+  'label:line_0_item_code|ptr:/line_items/0/item_code',
+];
+
 describe('buildBindings', () => {
   const bindings = buildBindings(schema, values);
   it('resolves /value pointers to the raw primitive', () => {
@@ -34,16 +44,48 @@ describe('buildBindings', () => {
     expect(bindings.find((b) => b.key.label === 'line_0_total')?.extracted).toBe(100);
     expect(bindings).toHaveLength(6);
   });
-  it('unwraps a value-object when the pointer stops at the wrapper', () => {
+  it('unwraps a value-object for display but keeps the raw wrapper as serverValue', () => {
     // table cells stored as {value: ...} but pointer has no /value suffix
     const wrapped = { line_items: [{ total: { value: 42, confidence: 'high' } }] };
     const [b] = buildBindings(['label:line_0_total|ptr:/line_items/0/total'], wrapped);
     expect(b?.extracted).toBe(42);
+    expect(b?.serverValue).toBe(wrapped.line_items[0]!.total);
   });
-  it('falls back to the wrapper when /value does not resolve but the parent does', () => {
-    const bare = { supplier_name: 'Acme' }; // no wrapper at all
+  it('a bare payload without wrappers is NOT_FOUND for /value pointers (server parity)', () => {
+    // The server resolves against the same model tree: if /supplier_name/value
+    // does not resolve here, it will not resolve there either — no fallback.
+    const bare = { supplier_name: 'Acme' };
     const [b] = buildBindings(['label:supplier_name|ptr:/supplier_name/value'], bare);
-    expect(b?.extracted).toBe('Acme');
+    expect(b?.serverValue).toBe(NOT_FOUND);
+    expect(b?.extracted).toBe(NOT_FOUND);
+    const result = composeSubmission([b!], new Map());
+    expect('label:supplier_name|ptr:/supplier_name/value' in result.data).toBe(false);
+  });
+  it('resolves snake_case schema pointers against a camelCase payload (prod shape)', () => {
+    const camelBindings = buildBindings(camelSchema, camelValues);
+    expect(camelBindings.find((b) => b.key.label === 'vendor_name')?.extracted).toBe('Acme Ltd');
+    expect(camelBindings.find((b) => b.key.label === 'line_0_item_code')?.extracted).toBe('A1');
+  });
+  it('records the actually-resolved fieldPointer (camel in prod) minus a trailing /value', () => {
+    const camelBindings = buildBindings(camelSchema, camelValues);
+    expect(camelBindings.find((b) => b.key.label === 'vendor_name')?.fieldPointer).toBe('/vendorName');
+    expect(camelBindings.find((b) => b.key.label === 'line_0_item_code')?.fieldPointer)
+      .toBe('/lineItems/0/itemCode');
+  });
+  it('gives NOT_FOUND bindings a best-effort camelized fieldPointer', () => {
+    expect(bindings.find((b) => b.key.label === 'vat_number')?.fieldPointer).toBe('/vatNumber');
+  });
+  it('marks NOT_FOUND, null, and primitive bindings editable', () => {
+    expect(bindings.find((b) => b.key.label === 'supplier_name')?.editable).toBe(true); // primitive
+    expect(bindings.find((b) => b.key.label === 'due_date')?.editable).toBe(true);      // null
+    expect(bindings.find((b) => b.key.label === 'vat_number')?.editable).toBe(true);    // fill-in
+  });
+  it('marks container-valued bindings read-only (string edits can never score correct)', () => {
+    const wrapped = { line_items: [{ total: { value: 42, confidence: 'high' } }] };
+    const [w] = buildBindings(['label:line_0_total|ptr:/line_items/0/total'], wrapped);
+    expect(w?.editable).toBe(false); // value-object wrapper
+    const [a] = buildBindings(['label:tags|ptr:/tags'], { tags: ['a', 'b'] });
+    expect(a?.editable).toBe(false); // array
   });
 });
 
@@ -52,6 +94,11 @@ describe('indexBindingsByFieldPointer', () => {
     const map = indexBindingsByFieldPointer(buildBindings(schema, values));
     expect(map.get('/supplier_name')?.key.label).toBe('supplier_name');      // /value stripped
     expect(map.get('/line_items/0/total')?.key.label).toBe('line_0_total'); // exact
+  });
+  it('keys on the RESOLVED pointer, so camel classifier pointers match in prod', () => {
+    const map = indexBindingsByFieldPointer(buildBindings(camelSchema, camelValues));
+    expect(map.get('/vendorName')?.key.label).toBe('vendor_name');
+    expect(map.get('/lineItems/0/itemCode')?.key.label).toBe('line_0_item_code');
   });
 });
 
@@ -78,12 +125,31 @@ describe('composeSubmission', () => {
     const result = composeSubmission(bindings, new Map());
     expect('label:vat_number|ptr:/vat_number/value' in result.data).toBe(false);
   });
+  it('an untouched wrapper-pointer binding submits the raw wrapper node verbatim', () => {
+    const wrapped = { line_items: [{ total: { value: 42, confidence: 'high' } }] };
+    const wrappedBindings = buildBindings(['label:line_0_total|ptr:/line_items/0/total'], wrapped);
+    const result = composeSubmission(wrappedBindings, new Map());
+    // dict-vs-dict compares equal server-side; unwrapping here would score "incorrect"
+    expect(result.data['label:line_0_total|ptr:/line_items/0/total']).toBe(wrapped.line_items[0]!.total);
+  });
   it('edited fields submit the typed string (server coerces types)', () => {
     const edits = new Map([['label:total_amount|ptr:/total_amount/value', '1600']]);
     const result = composeSubmission(bindings, edits);
     expect(result.data['label:total_amount|ptr:/total_amount/value']).toBe('1600');
     expect(result.corrected).toBe(1);
     expect(result.confirmed).toBe(4);
+  });
+  it('edited values are trimmed before submission', () => {
+    const edits = new Map([['label:total_amount|ptr:/total_amount/value', ' 1600 ']]);
+    const result = composeSubmission(bindings, edits);
+    expect(result.data['label:total_amount|ptr:/total_amount/value']).toBe('1600');
+  });
+  it('a dirty-but-blank never-extracted key is omitted and not counted as corrected', () => {
+    const edits = new Map([['label:vat_number|ptr:/vat_number/value', '  ']]);
+    const result = composeSubmission(bindings, edits);
+    expect('label:vat_number|ptr:/vat_number/value' in result.data).toBe(false);
+    expect(result.corrected).toBe(0);
+    expect(result.confirmed).toBe(5);
   });
   it('a filled-in never-extracted key is submitted; a cleared extracted field submits null', () => {
     const edits = new Map([
@@ -93,6 +159,8 @@ describe('composeSubmission', () => {
     const result = composeSubmission(bindings, edits);
     expect(result.data['label:vat_number|ptr:/vat_number/value']).toBe('IL-5150');
     expect(result.data['label:supplier_name|ptr:/supplier_name/value']).toBeNull();
+    expect(result.corrected).toBe(2);
+    expect(result.confirmed).toBe(4);
   });
   it('exposes the same entries keyed by label for onComplete', () => {
     const result = composeSubmission(bindings, new Map());
