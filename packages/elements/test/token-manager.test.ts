@@ -59,7 +59,10 @@ describe('GeminaTokenManager — never persists (§6.11.1 footgun 2)', () => {
       d.isFile(),
     );
     for (const dirent of files) {
-      const path = join(dirent.parentPath, dirent.name);
+      // parentPath is Node >= 20.12; the CI matrix still runs Node 18, where
+      // the same value lives on the (since-deprecated) `path` property.
+      const parent = dirent.parentPath ?? (dirent as unknown as { path: string }).path;
+      const path = join(parent, dirent.name);
       const source = readFileSync(path, 'utf8');
       expect(source, `${dirent.name} must not touch persistent storage`).not.toMatch(
         /(?:localStorage|sessionStorage|indexedDB)\s*[.[(]|document\.cookie|openDatabase\s*\(/,
