@@ -897,6 +897,68 @@ describe('VerificationViewer — flash-zoom', () => {
     expect(onFlashComplete).toHaveBeenCalledTimes(1);
   });
 
+  it('a toolbar zoom mid-travel stops the animated transform (Zoom in / Fit / Actual size)', () => {
+    const onFlashComplete = vi.fn();
+    const { img, container, flash } = mountForFlash(onFlashComplete);
+
+    // Zoom in: cancels the travel, then applies its own step.
+    flash(RECTS);
+    act(() => {
+      vi.advanceTimersByTime(96); // mid-travel
+    });
+    const midScale = scaleOf(img);
+    expect(midScale).toBeGreaterThan(0.25);
+    expect(midScale).toBeLessThan(TARGET.scale);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Zoom in' }));
+    const afterZoom = { s: scaleOf(img), x: leftOf(img), y: topOf(img) };
+    expect(afterZoom.s).toBeCloseTo(midScale * 1.2, 6);
+
+    // Travel would have kept driving toward TARGET until 350ms — it must not.
+    act(() => {
+      vi.advanceTimersByTime(400);
+    });
+    expect(scaleOf(img)).toBeCloseTo(afterZoom.s, 6);
+    expect(leftOf(img)).toBeCloseTo(afterZoom.x, 6);
+    expect(topOf(img)).toBeCloseTo(afterZoom.y, 6);
+
+    // Fit to screen: a FRESH flash re-arms the travel; Fit must kill it too.
+    flash([...RECTS]);
+    act(() => {
+      vi.advanceTimersByTime(96);
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Fit to screen' }));
+    expect(scaleOf(img)).toBeCloseTo(0.25, 6);
+    act(() => {
+      vi.advanceTimersByTime(400);
+    });
+    expect(scaleOf(img)).toBeCloseTo(0.25, 6);
+    expect(leftOf(img)).toBeCloseTo(125, 6);
+    expect(topOf(img)).toBeCloseTo(0, 6);
+
+    // Actual size: same deal on its own fresh flash.
+    flash([...RECTS]);
+    act(() => {
+      vi.advanceTimersByTime(96);
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Actual size (100%)' }));
+    expect(scaleOf(img)).toBe(1);
+    act(() => {
+      vi.advanceTimersByTime(400);
+    });
+    expect(scaleOf(img)).toBe(1);
+    expect(leftOf(img)).toBeCloseTo(-250, 6);
+    expect(topOf(img)).toBeCloseTo(-750, 6);
+
+    // Only the transform drive died each time — the LAST fade still completes
+    // and fires exactly once (earlier fades were canceled by the re-triggers).
+    act(() => {
+      vi.advanceTimersByTime(1200);
+    });
+    expect(container.querySelector('.gemina-verification__flash-rect')).toBeNull();
+    expect(onFlashComplete).toHaveBeenCalledTimes(1);
+  });
+
   it('a user gesture mid-travel stops the animated transform; the fade still completes', () => {
     const onFlashComplete = vi.fn();
     const { container, img, canvas, flash } = mountForFlash(onFlashComplete);

@@ -346,19 +346,34 @@ export function VerificationViewer(props: VerificationViewerProps): React.JSX.El
     );
   }, [natural, container, rotation]);
 
+  // DELIBERATE IMPROVEMENT over the console (reviewer-endorsed): the console
+  // never cancels the flash travel on user input, so its rAF loop keeps
+  // stomping wheel/drag transforms for the rest of its 350ms window. Here any
+  // canvas gesture (wheel, mousedown, touchstart, dblclick) AND any toolbar
+  // zoom (zoom in/out, fit, 100%) stops the travel — the user just took the
+  // wheel. Only the transform drive stops: the flash rect keeps fading, and
+  // the fade loop still fires onFlashComplete.
+  const cancelFlashTravel = useCallback(() => {
+    if (travelRafRef.current !== null) {
+      cancelAnimationFrame(travelRafRef.current);
+      travelRafRef.current = null;
+    }
+  }, []);
+
   // Toolbar handlers (console ~251-278). zoomAtPoint returns the SAME object
   // on clamped no-ops, so the updater form bails out of re-rendering.
   const zoomBy = useCallback(
     (factor: number) => {
       const node = canvasRef.current;
       if (!node || !natural) return;
+      cancelFlashTravel();
       const rect = node.getBoundingClientRect();
       const fit = currentFitScale();
       setTransform((prev) =>
         zoomAtPoint(prev, factor, rect.width / 2, rect.height / 2, rotation, fit),
       );
     },
-    [natural, rotation, currentFitScale],
+    [natural, rotation, currentFitScale, cancelFlashTravel],
   );
 
   const handleZoomIn = useCallback(() => zoomBy(ZOOM_STEP), [zoomBy]);
@@ -379,19 +394,6 @@ export function VerificationViewer(props: VerificationViewerProps): React.JSX.El
     },
     [natural, rotation, currentFitScale],
   );
-
-  // DELIBERATE IMPROVEMENT over the console (reviewer-endorsed): the console
-  // never cancels the flash travel on user input, so its rAF loop keeps
-  // stomping wheel/drag transforms for the rest of its 350ms window. Here any
-  // canvas gesture (wheel, mousedown, touchstart, dblclick) stops the travel
-  // — the user just took the wheel. Only the transform drive stops: the flash
-  // rect keeps fading, and the fade loop still fires onFlashComplete.
-  const cancelFlashTravel = useCallback(() => {
-    if (travelRafRef.current !== null) {
-      cancelAnimationFrame(travelRafRef.current);
-      travelRafRef.current = null;
-    }
-  }, []);
 
   // Wheel zoom (console ~232-249): React's onWheel is passive, so attach a
   // NON-PASSIVE native listener — preventDefault must keep the page from
@@ -565,15 +567,17 @@ export function VerificationViewer(props: VerificationViewerProps): React.JSX.El
 
   const handleFit = useCallback(() => {
     if (!natural) return;
+    cancelFlashTravel();
     const fit = currentFitScale();
     setTransform({ scale: fit, ...centeredTranslation(natural, container, fit, rotation) });
-  }, [natural, container, rotation, currentFitScale]);
+  }, [natural, container, rotation, currentFitScale, cancelFlashTravel]);
 
   const handleActualSize = useCallback(() => {
     if (!natural) return;
+    cancelFlashTravel();
     const target = clampScale(1, currentFitScale());
     setTransform({ scale: target, ...centeredTranslation(natural, container, target, rotation) });
-  }, [natural, container, rotation, currentFitScale]);
+  }, [natural, container, rotation, currentFitScale, cancelFlashTravel]);
 
   const handleRotate = useCallback(() => {
     setRotation((r) => (r + 90) % 360);
