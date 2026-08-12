@@ -117,6 +117,7 @@ const VERIFICATION_CSS = `
   cursor: pointer;
   transition: border-color 120ms ease, background-color 120ms ease, color 120ms ease;
 }
+.gemina-verification__toolbar-btn svg { display: block; } /* no inline-baseline slack under the icons */
 .gemina-verification__toolbar-btn:hover:not(:disabled) { border-color: var(--gemina-verification-accent); }
 .gemina-verification__toolbar-btn:disabled { opacity: 0.5; cursor: default; }
 .gemina-verification__toolbar-btn--active {
