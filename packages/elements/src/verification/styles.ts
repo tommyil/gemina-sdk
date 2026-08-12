@@ -159,9 +159,30 @@ const VERIFICATION_CSS = `
   background: rgba(var(--gemina-verification-overlay-rgb), 0.16);
   border-radius: 2px;
 }
+/* Numbered "#1" chip on each overlay rect. Physical left/top: the badge lives
+   in image coordinate space inside the transform layer (geometry, not layout),
+   so it scales and rotates with the document exactly like the console's.
+   Explicit line-height pins the chip height across host font stacks. */
+.gemina-verification__rect-badge {
+  position: absolute;
+  top: -18px;
+  left: 0;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 16px;
+  color: rgb(var(--gemina-verification-overlay-rgb));
+  background: rgba(255, 255, 255, 0.92); /* floats over the document, not the theme surface */
+  padding: 0 6px;
+  border-radius: 12px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.16);
+  pointer-events: none;
+}
 .gemina-verification__flash-rect {
   /* Fade is driven by JS via element-level opacity (rAF travel animation);
-     no CSS animation here so the two never fight. */
+     no CSS animation here so the two never fight. Element-level opacity is
+     EXACTLY the console's per-channel fade: it multiplies the border (1·o),
+     background (0.25·o), and glow (0.6·o / 0.3·o) alphas uniformly, which is
+     what the console computed channel by channel. */
   position: absolute;
   z-index: 3;
   pointer-events: none;

@@ -1,8 +1,13 @@
 /**
- * VerificationViewer — Tasks 7–9: image + toolbar + fit/100%/zoom/rotate,
- * wheel zoom, mouse pan, double-click toggle, and touch pan + pinch zoom.
- * Overlay/magnifier toggles exist as state only (visuals arrive in Tasks
- * 10/11).
+ * VerificationViewer — Tasks 7–10: image + toolbar + fit/100%/zoom/rotate,
+ * wheel zoom, mouse pan, double-click toggle, touch pan + pinch zoom,
+ * coordinate overlays, flash-zoom travel, and the image-expiry hook. The
+ * magnifier toggle exists as state only (visuals arrive in Task 11).
+ *
+ * Flash animation tests run under fake timers with an explicit rAF shim
+ * (requestAnimationFrame → setTimeout(cb, 16)) and Date faked, because the
+ * travel/fade loops measure elapsed time via Date.now(), not the rAF
+ * timestamp.
  *
  * happy-dom has no layout, so container size is driven by the controllable
  * ResizeObserver stub below (`resizeTo`). With a 500x500 canvas and a
@@ -12,7 +17,7 @@
  * prove client->container-relative conversion happens at the call sites.
  */
 import { act, cleanup, createEvent, fireEvent, render, screen } from '@testing-library/react';
-import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { VerificationViewer } from '../../src/verification/viewer';
 import type { RelativeRect } from '../../src/verification/viewer';
 
@@ -643,6 +648,362 @@ describe('VerificationViewer — double-click', () => {
     expect(scaleOf(img)).toBeCloseTo(0.25, 6);
     expect(leftOf(img)).toBeCloseTo(125, 6);
     expect(topOf(img)).toBeCloseTo(0, 6);
+  });
+});
+
+describe('VerificationViewer — coordinate overlays', () => {
+  it('renders rect boxes in image space with numbered badges when toggled on', () => {
+    const second: RelativeRect = {
+      points: [
+        [0.5, 0.6],
+        [0.7, 0.6],
+        [0.7, 0.65],
+        [0.5, 0.65],
+      ],
+    };
+    const { container, img } = mountSized({ relativeRects: [...RECTS, second] });
+    expect(container.querySelectorAll('.gemina-verification__rect').length).toBe(0);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Toggle detection overlays' }));
+    const rects = container.querySelectorAll<HTMLElement>('.gemina-verification__rect');
+    expect(rects.length).toBe(2);
+
+    // Geometry is proportional to the natural size (1000x2000), inside the
+    // transform layer so it scales/pans/rotates with the document.
+    const first = rects[0]!;
+    expect(first.parentElement).toBe(layerOf(img));
+    expect(Number.parseFloat(first.style.left)).toBeCloseTo(100, 6); // 0.1 * 1000
+    expect(Number.parseFloat(first.style.top)).toBeCloseTo(200, 6); // 0.1 * 2000
+    expect(Number.parseFloat(first.style.width)).toBeCloseTo(200, 6); // 0.2 * 1000
+    expect(Number.parseFloat(first.style.height)).toBeCloseTo(200, 6); // 0.1 * 2000
+
+    // Numbered badges, console-style "#1", "#2".
+    const badges = container.querySelectorAll('.gemina-verification__rect-badge');
+    expect(badges.length).toBe(2);
+    expect(badges[0]!.textContent).toBe('#1');
+    expect(badges[1]!.textContent).toBe('#2');
+  });
+
+  it('clamps hairline rects to the console 0.008 minimum size ratio', () => {
+    const hairline: RelativeRect[] = [
+      {
+        points: [
+          [0.5, 0.1],
+          [0.5, 0.2],
+        ],
+      },
+    ];
+    const { container } = mountSized({ relativeRects: hairline });
+    fireEvent.click(screen.getByRole('button', { name: 'Toggle detection overlays' }));
+
+    const rect = container.querySelector<HTMLElement>('.gemina-verification__rect')!;
+    expect(rect).not.toBeNull();
+    expect(Number.parseFloat(rect.style.width)).toBeCloseTo(8, 6); // 0.008 * 1000
+    expect(Number.parseFloat(rect.style.height)).toBeCloseTo(200, 6); // real extent kept
+  });
+
+  it('skips fully degenerate rects (a single point renders no box)', () => {
+    const point: RelativeRect[] = [{ points: [[0.4, 0.4]] }];
+    const { container } = mountSized({ relativeRects: point });
+    fireEvent.click(screen.getByRole('button', { name: 'Toggle detection overlays' }));
+    expect(container.querySelectorAll('.gemina-verification__rect').length).toBe(0);
+  });
+
+  it('toggle off removes the rects', () => {
+    const { container } = mountSized({ relativeRects: RECTS });
+    const toggle = screen.getByRole('button', { name: 'Toggle detection overlays' });
+    fireEvent.click(toggle);
+    expect(container.querySelectorAll('.gemina-verification__rect').length).toBe(1);
+
+    fireEvent.click(toggle);
+    expect(container.querySelectorAll('.gemina-verification__rect').length).toBe(0);
+  });
+});
+
+describe('VerificationViewer — flash-zoom', () => {
+  const SRC = 'https://example.com/doc.png';
+
+  /** Explicit toFake: the travel/fade loops measure elapsed via Date.now(),
+   * so Date MUST be faked alongside the setTimeout-backed rAF shim — with a
+   * real Date, progress stays ~0 and the animations never complete. */
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date'] });
+    vi.stubGlobal(
+      'requestAnimationFrame',
+      (cb: FrameRequestCallback) => setTimeout(() => cb(Date.now()), 16) as unknown as number,
+    );
+    vi.stubGlobal('cancelAnimationFrame', (id: number) => clearTimeout(id));
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.useRealTimers();
+  });
+
+  /** Sized mount that can flip flashRects on via rerender (the eye-click flow). */
+  function mountForFlash(onFlashComplete: () => void) {
+    const utils = render(
+      <VerificationViewer src={SRC} alt="doc" flashRects={null} onFlashComplete={onFlashComplete} />,
+    );
+    lastResizeObserver().resizeTo(500, 500);
+    const img = loadImage(utils.container);
+    const canvas = utils.container.querySelector('.gemina-verification__canvas') as HTMLElement;
+    const flash = (rects: RelativeRect[] | null) =>
+      utils.rerender(
+        <VerificationViewer src={SRC} alt="doc" flashRects={rects} onFlashComplete={onFlashComplete} />,
+      );
+    return { ...utils, img, canvas, flash };
+  }
+
+  // RECTS bbox: center (200, 300) in image px, 200x200 → target scale
+  // 100/200 = 0.5 (within [fit 0.25, 1.8]); tx = 250 - 200*0.5 = 150,
+  // ty = 250 - 300*0.5 = 100.
+  const TARGET = { scale: 0.5, tx: 150, ty: 100 };
+
+  it('travels to the flash-zoom target while the flash rect fades, then onFlashComplete', () => {
+    const onFlashComplete = vi.fn();
+    const { container, img, flash } = mountForFlash(onFlashComplete);
+    expect(scaleOf(img)).toBeCloseTo(0.25, 6);
+
+    flash(RECTS);
+
+    // Flash rect appears immediately at full opacity, overlay-rect geometry.
+    const rect = container.querySelector<HTMLElement>('.gemina-verification__flash-rect')!;
+    expect(rect).not.toBeNull();
+    expect(Number(rect.style.opacity)).toBe(1);
+    expect(Number.parseFloat(rect.style.left)).toBeCloseTo(100, 6);
+    expect(Number.parseFloat(rect.style.top)).toBeCloseTo(200, 6);
+
+    // Mid-travel (160ms of the 350ms window): strictly between start and target.
+    act(() => {
+      vi.advanceTimersByTime(160);
+    });
+    const midScale = scaleOf(img);
+    expect(midScale).toBeGreaterThan(0.25);
+    expect(midScale).toBeLessThan(TARGET.scale);
+
+    // Travel completes at 350ms → exact target; fade still running.
+    act(() => {
+      vi.advanceTimersByTime(400);
+    });
+    expect(scaleOf(img)).toBeCloseTo(TARGET.scale, 6);
+    expect(leftOf(img)).toBeCloseTo(TARGET.tx, 6);
+    expect(topOf(img)).toBeCloseTo(TARGET.ty, 6);
+    const fading = container.querySelector<HTMLElement>('.gemina-verification__flash-rect')!;
+    expect(fading).not.toBeNull();
+    const midOpacity = Number(fading.style.opacity);
+    expect(midOpacity).toBeGreaterThan(0);
+    expect(midOpacity).toBeLessThan(1);
+    expect(onFlashComplete).not.toHaveBeenCalled();
+
+    // Past the 1500ms flash window → rect gone, completion fired once.
+    act(() => {
+      vi.advanceTimersByTime(1200);
+    });
+    expect(container.querySelector('.gemina-verification__flash-rect')).toBeNull();
+    expect(onFlashComplete).toHaveBeenCalledTimes(1);
+  });
+
+  it('re-triggering mid-flash restarts cleanly: opacity back to 1, one completion', () => {
+    const onFlashComplete = vi.fn();
+    const { container, flash } = mountForFlash(onFlashComplete);
+
+    flash(RECTS);
+    act(() => {
+      vi.advanceTimersByTime(600);
+    });
+    const rect = container.querySelector<HTMLElement>('.gemina-verification__flash-rect')!;
+    expect(Number(rect.style.opacity)).toBeLessThan(1);
+
+    // Rapid second eye-click: a NEW array restarts the flash from the top.
+    flash([...RECTS]);
+    const restarted = container.querySelector<HTMLElement>('.gemina-verification__flash-rect')!;
+    expect(Number(restarted.style.opacity)).toBe(1);
+
+    // 1500ms after the FIRST start the first fade would have completed — it
+    // was canceled, so nothing fires and the rect is still up.
+    act(() => {
+      vi.advanceTimersByTime(1000);
+    });
+    expect(container.querySelector('.gemina-verification__flash-rect')).not.toBeNull();
+    expect(onFlashComplete).not.toHaveBeenCalled();
+
+    // The SECOND flash completes on its own 1500ms clock, exactly once.
+    act(() => {
+      vi.advanceTimersByTime(600);
+    });
+    expect(container.querySelector('.gemina-verification__flash-rect')).toBeNull();
+    expect(onFlashComplete).toHaveBeenCalledTimes(1);
+  });
+
+  it('nulling flashRects mid-flash clears the rect without firing onFlashComplete', () => {
+    const onFlashComplete = vi.fn();
+    const { container, flash } = mountForFlash(onFlashComplete);
+
+    flash(RECTS);
+    act(() => {
+      vi.advanceTimersByTime(600);
+    });
+    expect(container.querySelector('.gemina-verification__flash-rect')).not.toBeNull();
+
+    // The parent declares the flash over: rect gone immediately, no frozen
+    // half-faded box left behind, and no echo callback (that would loop).
+    flash(null);
+    expect(container.querySelector('.gemina-verification__flash-rect')).toBeNull();
+    act(() => {
+      vi.advanceTimersByTime(2000); // both loops are dead, nothing late fires
+    });
+    expect(container.querySelector('.gemina-verification__flash-rect')).toBeNull();
+    expect(onFlashComplete).not.toHaveBeenCalled();
+  });
+
+  it('reduced motion: jumps straight to the target, shows the rect ~800ms, no travel', () => {
+    vi.stubGlobal('matchMedia', (query: string) => ({
+      matches: query.includes('prefers-reduced-motion'),
+      media: query,
+      addEventListener: () => {},
+      removeEventListener: () => {},
+      addListener: () => {},
+      removeListener: () => {},
+      dispatchEvent: () => false,
+      onchange: null,
+    }));
+    const onFlashComplete = vi.fn();
+    const { container, img, flash } = mountForFlash(onFlashComplete);
+
+    flash(RECTS);
+
+    // No travel: the transform is at the target synchronously.
+    expect(scaleOf(img)).toBeCloseTo(TARGET.scale, 6);
+    expect(leftOf(img)).toBeCloseTo(TARGET.tx, 6);
+    expect(topOf(img)).toBeCloseTo(TARGET.ty, 6);
+    const rect = container.querySelector<HTMLElement>('.gemina-verification__flash-rect')!;
+    expect(Number(rect.style.opacity)).toBe(1);
+
+    // Still shown (full opacity, transform untouched) most of the way through.
+    act(() => {
+      vi.advanceTimersByTime(700);
+    });
+    expect(container.querySelector('.gemina-verification__flash-rect')).not.toBeNull();
+    expect(Number((container.querySelector('.gemina-verification__flash-rect') as HTMLElement).style.opacity)).toBe(1);
+    expect(scaleOf(img)).toBeCloseTo(TARGET.scale, 6);
+    expect(onFlashComplete).not.toHaveBeenCalled();
+
+    // Past 800ms → rect gone, completion fired.
+    act(() => {
+      vi.advanceTimersByTime(200);
+    });
+    expect(container.querySelector('.gemina-verification__flash-rect')).toBeNull();
+    expect(onFlashComplete).toHaveBeenCalledTimes(1);
+  });
+
+  it('a user gesture mid-travel stops the animated transform; the fade still completes', () => {
+    const onFlashComplete = vi.fn();
+    const { container, img, canvas, flash } = mountForFlash(onFlashComplete);
+
+    flash(RECTS);
+    act(() => {
+      vi.advanceTimersByTime(96); // mid-travel
+    });
+    const midScale = scaleOf(img);
+    expect(midScale).toBeGreaterThan(0.25);
+    expect(midScale).toBeLessThan(TARGET.scale);
+
+    // Wheel gesture: applies its own zoom AND cancels the travel drive.
+    fireWheel(canvas, { deltaY: -100, clientX: 250, clientY: 250 });
+    const after = { s: scaleOf(img), x: leftOf(img), y: topOf(img) };
+    expect(after.s).toBeCloseTo(midScale * 1.08, 6);
+
+    // Travel would have kept driving until 350ms — it must not any more.
+    act(() => {
+      vi.advanceTimersByTime(400);
+    });
+    expect(scaleOf(img)).toBeCloseTo(after.s, 6);
+    expect(leftOf(img)).toBeCloseTo(after.x, 6);
+    expect(topOf(img)).toBeCloseTo(after.y, 6);
+
+    // The flash rect finishes its fade and completion still fires once.
+    act(() => {
+      vi.advanceTimersByTime(1200);
+    });
+    expect(container.querySelector('.gemina-verification__flash-rect')).toBeNull();
+    expect(onFlashComplete).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('VerificationViewer — reload identity (re-minted URL flow)', () => {
+  it('a reload with identical dimensions preserves the user zoom/pan', () => {
+    const { img, canvas, rerender } = mountSized();
+    fireWheel(canvas, { deltaY: -100, clientX: 250, clientY: 250 });
+    const style = layerOf(img).getAttribute('style');
+    expect(scaleOf(img)).toBeGreaterThan(0.25);
+
+    // Expiry re-mint: same image behind a fresh URL. The load reports the
+    // SAME natural size — the fit effect must not re-run and reset the view.
+    rerender(<VerificationViewer src="https://example.com/doc.png?token=reminted" alt="Invoice page 1" />);
+    fireEvent.load(img);
+    expect(layerOf(img).getAttribute('style')).toBe(style);
+  });
+
+  it('a reload with different dimensions still re-fits', () => {
+    const { img, canvas, container } = mountSized();
+    fireWheel(canvas, { deltaY: -100, clientX: 250, clientY: 250 });
+    expect(scaleOf(img)).toBeGreaterThan(0.25);
+
+    loadImage(container, 1000, 1000); // genuinely new image geometry
+    expect(scaleOf(img)).toBeCloseTo(0.5, 6); // fresh fit: min(500/1000, 500/1000)
+  });
+});
+
+describe('VerificationViewer — image expiry', () => {
+  it('an error BEFORE any successful load does not fire onImageExpired', () => {
+    const onImageExpired = vi.fn();
+    const { container } = renderViewer({ onImageExpired });
+    fireEvent.error(container.querySelector('img')!);
+    expect(onImageExpired).not.toHaveBeenCalled();
+  });
+
+  it('an error AFTER a successful load fires onImageExpired', () => {
+    const onImageExpired = vi.fn();
+    const { container } = renderViewer({ onImageExpired });
+    loadImage(container);
+    fireEvent.error(container.querySelector('img')!);
+    expect(onImageExpired).toHaveBeenCalledTimes(1);
+  });
+
+  it('a NEW src that errors before it ever loads does not fire expiry (no mint loop)', () => {
+    const onImageExpired = vi.fn();
+    const { container, rerender } = renderViewer({ onImageExpired });
+    const img = container.querySelector('img')!;
+    loadImage(container);
+
+    // The re-minted URL arrives broken: that is a bad URL, not an expiry —
+    // firing again would mint forever.
+    rerender(
+      <VerificationViewer
+        src="https://example.com/doc.png?token=broken"
+        alt="Invoice page 1"
+        onImageExpired={onImageExpired}
+      />,
+    );
+    fireEvent.error(img);
+    expect(onImageExpired).not.toHaveBeenCalled();
+
+    // Once the new src DOES load, a later error re-arms and reports again.
+    fireEvent.load(img);
+    fireEvent.error(img);
+    expect(onImageExpired).toHaveBeenCalledTimes(1);
+  });
+
+  it('reports once per successful load (a duplicate error does not re-fire)', () => {
+    const onImageExpired = vi.fn();
+    const { container } = renderViewer({ onImageExpired });
+    const img = container.querySelector('img')!;
+    loadImage(container);
+
+    fireEvent.error(img);
+    fireEvent.error(img);
+    expect(onImageExpired).toHaveBeenCalledTimes(1);
   });
 });
 

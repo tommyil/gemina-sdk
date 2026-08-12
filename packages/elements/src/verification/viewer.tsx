@@ -5,8 +5,9 @@
  * state/refs/effects shape, with every piece of transform math delegated to
  * `viewer-math.ts` and all styling on the Task 6 `.gemina-verification__*`
  * classes. Tasks 8+9 add wheel zoom, mouse pan, the double-click fit/100%
- * toggle, and touch pan + pinch zoom; later tasks add overlays + flash and
- * the magnifier lens.
+ * toggle, and touch pan + pinch zoom; Task 10 adds coordinate overlays, the
+ * flash-zoom travel animation, and the image-expiry hook; the magnifier lens
+ * remains (Task 11).
  *
  * Coordinate spaces: the console's zoomAtPoint takes clientX/Y and subtracts
  * the canvas rect INSIDE itself; the elements zoomAtPoint (viewer-math.ts) is
@@ -19,7 +20,14 @@
  */
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type * as React from 'react';
-import { centeredTranslation, clampScale, fitScaleFor, zoomAtPoint } from './viewer-math';
+import {
+  centeredTranslation,
+  clampScale,
+  easeOutCubic,
+  fitScaleFor,
+  flashZoomTarget,
+  zoomAtPoint,
+} from './viewer-math';
 import type { Size, Transform } from './viewer-math';
 
 /** Axis-aligned detection region in relative image coordinates (0–1). */
@@ -199,10 +207,43 @@ function ToolbarButton({
 const ZOOM_STEP = 1.2;
 const IDENTITY: Transform = { scale: 1, tx: 0, ty: 0 };
 
+// Console flash constants (ZoomableImageViewer ~56-57): the rect fades over
+// 1500ms while the transform travels for its first 350ms.
+const FLASH_DURATION = 1500; // ms
+const ZOOM_ANIMATION_DURATION = 350; // ms - smooth but fast travel animation
+/** Reduced motion: no travel, no fade — jump to the target and hold the rect
+ * at full opacity for a beat long enough to register, then complete. */
+const REDUCED_MOTION_FLASH_MS = 800;
+
+/** Console's minimum visible rect size, as a ratio of the natural dimension
+ * (~750): hairline detection boxes stay clickable-eye-visible. */
+const MIN_SIZE_RATIO = 0.008;
+
+/** Rect geometry in image pixel space — the overlays render INSIDE the
+ * transform layer, so left/top/width/height are natural-size pixels and the
+ * layer's scale/rotate carries them (console ~742-756). Returns null for
+ * degenerate rects (a single point, or no points at all). */
+function rectGeometry(
+  rect: RelativeRect,
+  natural: Size,
+): { left: number; top: number; width: number; height: number } | null {
+  const xs = rect.points.map((point) => point[0]);
+  const ys = rect.points.map((point) => point[1]);
+  const minX = Math.min(...xs);
+  const minY = Math.min(...ys);
+  const rawWidthRatio = Math.max(0, Math.max(...xs) - minX);
+  const rawHeightRatio = Math.max(0, Math.max(...ys) - minY);
+  if (rawWidthRatio <= 0 && rawHeightRatio <= 0) return null;
+  return {
+    left: minX * natural.w,
+    top: minY * natural.h,
+    width: Math.max(rawWidthRatio, MIN_SIZE_RATIO) * natural.w,
+    height: Math.max(rawHeightRatio, MIN_SIZE_RATIO) * natural.h,
+  };
+}
+
 export function VerificationViewer(props: VerificationViewerProps): React.JSX.Element {
-  const { src, alt, relativeRects } = props;
-  // flashRects / onFlashComplete / onImageExpired are declared for interface
-  // stability and consumed in Task 10.
+  const { src, alt, relativeRects, flashRects, onFlashComplete, onImageExpired } = props;
 
   const canvasRef = useRef<HTMLDivElement | null>(null);
   const imgRef = useRef<HTMLImageElement | null>(null);
@@ -217,6 +258,27 @@ export function VerificationViewer(props: VerificationViewerProps): React.JSX.El
 
   const [isPanning, setIsPanning] = useState(false);
   const panStart = useRef<{ x: number; y: number; tx: number; ty: number } | null>(null);
+
+  // Flash animation state (console ~43-57).
+  const [flashOpacity, setFlashOpacity] = useState(0);
+  const [activeFlashRects, setActiveFlashRects] = useState<RelativeRect[] | null>(null);
+  const travelRafRef = useRef<number | null>(null);
+  const fadeRafRef = useRef<number | null>(null);
+  const reducedFlashTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Render-synced mirror of the transform (console's scaleRef/txRef/tyRef):
+  // the travel animation reads its from-values here instead of closing over
+  // state inside the rAF loop (review carry-forward).
+  const transformRef = useRef(transform);
+  transformRef.current = transform;
+
+  // Latest-value ref so an inline onFlashComplete prop cannot restart the
+  // flash effect on every parent render.
+  const onFlashCompleteRef = useRef(onFlashComplete);
+  onFlashCompleteRef.current = onFlashComplete;
+
+  // True once the CURRENT src has loaded successfully — the expiry gate.
+  const hasLoadedRef = useRef(false);
 
   // Measure the canvas (console lines ~124-133), with a one-shot fallback for
   // environments without ResizeObserver.
@@ -236,11 +298,34 @@ export function VerificationViewer(props: VerificationViewerProps): React.JSX.El
     return () => ro.disconnect();
   }, []);
 
-  // Natural image size (console ~136-139).
+  // Natural image size (console ~136-139), with an identity-preserving setter
+  // (review carry-forward): a re-minted URL for the SAME image (the
+  // onImageExpired flow) reports identical dimensions, and returning the prev
+  // object keeps the fit effect from re-running and resetting the user's
+  // zoom/pan mid-review.
   const handleImgLoad = useCallback(() => {
     const img = imgRef.current;
-    if (img) setNatural({ w: img.naturalWidth, h: img.naturalHeight });
+    if (!img) return;
+    hasLoadedRef.current = true;
+    const w = img.naturalWidth;
+    const h = img.naturalHeight;
+    setNatural((prev) => (prev && prev.w === w && prev.h === h ? prev : { w, h }));
   }, []);
+
+  // Expiry hook — replaces the console's fallbackSrc error handler (~374-378).
+  // The loaded flag resets on every src change: a NEW src that fails before it
+  // ever loads is a broken URL, not an expired one, and firing onImageExpired
+  // there would re-mint forever in a loop. It also disarms when it fires, so
+  // one load reports at most one expiry (the re-minted load re-arms it).
+  useEffect(() => {
+    hasLoadedRef.current = false;
+  }, [src]);
+
+  const handleImgError = useCallback(() => {
+    if (!hasLoadedRef.current) return;
+    hasLoadedRef.current = false;
+    onImageExpired?.();
+  }, [onImageExpired]);
 
   /** The console's `fitScale` memo, including its degenerate-size guard. */
   const currentFitScale = useCallback((): number => {
@@ -295,6 +380,19 @@ export function VerificationViewer(props: VerificationViewerProps): React.JSX.El
     [natural, rotation, currentFitScale],
   );
 
+  // DELIBERATE IMPROVEMENT over the console (reviewer-endorsed): the console
+  // never cancels the flash travel on user input, so its rAF loop keeps
+  // stomping wheel/drag transforms for the rest of its 350ms window. Here any
+  // canvas gesture (wheel, mousedown, touchstart, dblclick) stops the travel
+  // — the user just took the wheel. Only the transform drive stops: the flash
+  // rect keeps fading, and the fade loop still fires onFlashComplete.
+  const cancelFlashTravel = useCallback(() => {
+    if (travelRafRef.current !== null) {
+      cancelAnimationFrame(travelRafRef.current);
+      travelRafRef.current = null;
+    }
+  }, []);
+
   // Wheel zoom (console ~232-249): React's onWheel is passive, so attach a
   // NON-PASSIVE native listener — preventDefault must keep the page from
   // scrolling under the zoom.
@@ -302,10 +400,11 @@ export function VerificationViewer(props: VerificationViewerProps): React.JSX.El
     (event: WheelEvent) => {
       event.preventDefault();
       event.stopPropagation();
+      cancelFlashTravel();
       const factor = event.deltaY > 0 ? 0.92 : 1.08; // console's wheel constants
       zoomAtClientPoint(factor, event.clientX, event.clientY);
     },
-    [zoomAtClientPoint],
+    [zoomAtClientPoint, cancelFlashTravel],
   );
 
   useEffect(() => {
@@ -326,6 +425,8 @@ export function VerificationViewer(props: VerificationViewerProps): React.JSX.El
   // of dropping at the edge.
   const handleMouseDown = useCallback(
     (e: React.MouseEvent<HTMLDivElement>) => {
+      // Any press grabs the canvas — stop the flash travel before the gates.
+      cancelFlashTravel();
       // Primary button only: with document-level listeners a right-click's
       // context menu would swallow the mouseup and leave the pan stuck.
       // (Tap-synthesized compat mouse events report button 0 and pass — fine;
@@ -336,7 +437,7 @@ export function VerificationViewer(props: VerificationViewerProps): React.JSX.El
       panStart.current = { x: e.clientX, y: e.clientY, tx: transform.tx, ty: transform.ty };
       setIsPanning(true);
     },
-    [atFitScale, transform.tx, transform.ty],
+    [atFitScale, transform.tx, transform.ty, cancelFlashTravel],
   );
 
   useEffect(() => {
@@ -378,6 +479,8 @@ export function VerificationViewer(props: VerificationViewerProps): React.JSX.El
 
   const handleTouchStart = useCallback(
     (e: React.TouchEvent<HTMLDivElement>) => {
+      // A finger on the canvas grabs it — stop the flash travel.
+      cancelFlashTravel();
       // Length checks don't narrow TouchList indexing under
       // noUncheckedIndexedAccess, so a/b/their truthiness carry the guard.
       const a = e.touches[0];
@@ -397,7 +500,7 @@ export function VerificationViewer(props: VerificationViewerProps): React.JSX.El
         touchState.current = null;
       }
     },
-    [atFitScale, transform.tx, transform.ty],
+    [atFitScale, transform.tx, transform.ty, cancelFlashTravel],
   );
 
   const handleTouchMove = useCallback(
@@ -446,6 +549,7 @@ export function VerificationViewer(props: VerificationViewerProps): React.JSX.El
   // click point; otherwise back to centered fit.
   const handleDoubleClick = useCallback(
     (e: React.MouseEvent<HTMLDivElement>) => {
+      cancelFlashTravel();
       if (!natural) return;
       const fit = currentFitScale();
       const nearFit = Math.abs(transform.scale - fit) < 0.001;
@@ -456,7 +560,7 @@ export function VerificationViewer(props: VerificationViewerProps): React.JSX.El
         setTransform({ scale: fit, ...centeredTranslation(natural, container, fit, rotation) });
       }
     },
-    [natural, container, rotation, transform.scale, currentFitScale, zoomAtClientPoint],
+    [natural, container, rotation, transform.scale, currentFitScale, zoomAtClientPoint, cancelFlashTravel],
   );
 
   const handleFit = useCallback(() => {
@@ -480,6 +584,101 @@ export function VerificationViewer(props: VerificationViewerProps): React.JSX.El
   useEffect(() => {
     if (!hasRects) setShowRects(false);
   }, [hasRects]);
+
+  // Flash animation + zoom-to-rect travel (console ~458-581). Two parallel
+  // drives: the transform travels to flashZoomTarget over 350ms (easeOutCubic,
+  // from-values read off transformRef), while the flash rect fades 1 - p²
+  // over 1500ms. The FADE loop owns completion: it clears the rects and fires
+  // onFlashComplete — so a gesture-canceled travel never swallows the
+  // callback. Cleanup cancels BOTH loops, which covers unmount mid-flash and
+  // makes a re-trigger (rapid eye-clicks re-running this effect) a clean
+  // restart; the console leaked its fade loop here and only canceled the
+  // travel — fixed deliberately.
+  useEffect(() => {
+    if (!flashRects || flashRects.length === 0 || !natural || !container.w || !container.h) {
+      // A parent nulling flashRects mid-flash declares the flash over: clear
+      // the display (cleanup already canceled both loops) WITHOUT firing
+      // onFlashComplete — the parent initiated this, echoing back would loop.
+      // (The console coasted here on its leaked fade loop to clear the rect;
+      // with the leak fixed, the clear must be explicit.) The prev-identity
+      // bail keeps the common null→null path render-free.
+      setActiveFlashRects((prev) => (prev === null ? prev : null));
+      setFlashOpacity(0);
+      return;
+    }
+
+    const fit = fitScaleFor(natural, container, rotation);
+    const target = flashZoomTarget(flashRects, natural, container, rotation, fit);
+
+    setActiveFlashRects(flashRects);
+    setFlashOpacity(1);
+
+    const prefersReduced =
+      typeof window !== 'undefined' &&
+      typeof window.matchMedia === 'function' &&
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    if (prefersReduced) {
+      // No travel, no fade: jump to the target and hold the rect long enough
+      // to register, then complete. (The stylesheet's reduced-motion block is
+      // the CSS backstop; this is the JS half.)
+      setTransform(target);
+      reducedFlashTimeoutRef.current = setTimeout(() => {
+        reducedFlashTimeoutRef.current = null;
+        setActiveFlashRects(null);
+        setFlashOpacity(0);
+        onFlashCompleteRef.current?.();
+      }, REDUCED_MOTION_FLASH_MS);
+      return () => {
+        if (reducedFlashTimeoutRef.current !== null) {
+          clearTimeout(reducedFlashTimeoutRef.current);
+          reducedFlashTimeoutRef.current = null;
+        }
+      };
+    }
+
+    // Travel: capture the from-values ONCE from the render-synced ref (review
+    // carry-forward — no state reads inside the rAF loop).
+    const from = transformRef.current;
+    const zoomStartTime = Date.now();
+    const animateZoom = () => {
+      const progress = Math.min((Date.now() - zoomStartTime) / ZOOM_ANIMATION_DURATION, 1);
+      const eased = easeOutCubic(progress);
+      setTransform({
+        scale: from.scale + (target.scale - from.scale) * eased,
+        tx: from.tx + (target.tx - from.tx) * eased,
+        ty: from.ty + (target.ty - from.ty) * eased,
+      });
+      travelRafRef.current = progress < 1 ? requestAnimationFrame(animateZoom) : null;
+    };
+    travelRafRef.current = requestAnimationFrame(animateZoom);
+
+    // Flash fade, in parallel: 1 - p² over the 1500ms window, then complete.
+    const flashStartTime = Date.now();
+    const animateFlash = () => {
+      const progress = Math.min((Date.now() - flashStartTime) / FLASH_DURATION, 1);
+      setFlashOpacity(1 - progress * progress);
+      if (progress < 1) {
+        fadeRafRef.current = requestAnimationFrame(animateFlash);
+      } else {
+        fadeRafRef.current = null;
+        setActiveFlashRects(null);
+        setFlashOpacity(0);
+        onFlashCompleteRef.current?.();
+      }
+    };
+    fadeRafRef.current = requestAnimationFrame(animateFlash);
+
+    return () => {
+      cancelFlashTravel();
+      if (fadeRafRef.current !== null) {
+        cancelAnimationFrame(fadeRafRef.current);
+        fadeRafRef.current = null;
+      }
+    };
+    // container is identity-replaced per resize; depend on its values (like
+    // the console) so a same-size measurement can't restart a live flash.
+  }, [flashRects, natural, container.w, container.h, rotation, cancelFlashTravel]);
 
   // Cursor is the promise of what a drag will do (console ~371-372): zoom-in
   // while the whole page fits (drag is inert; wheel/double-click zooms), grab
@@ -548,7 +747,38 @@ export function VerificationViewer(props: VerificationViewerProps): React.JSX.El
             alt={alt ?? 'Document'}
             draggable={false}
             onLoad={handleImgLoad}
+            onError={handleImgError}
           />
+          {/* Detection overlays (toggle-controlled, console ~742-792). Index
+              keys are stable here: rect arrays are replaced wholesale and the
+              boxes are stateless leaves. Geometry inline; appearance in CSS. */}
+          {showRects &&
+            natural &&
+            relativeRects?.map((rect, idx) => {
+              const geometry = rectGeometry(rect, natural);
+              if (!geometry) return null;
+              return (
+                <div key={`rect-${idx}`} className="gemina-verification__rect" style={geometry}>
+                  <span className="gemina-verification__rect-badge">#{idx + 1}</span>
+                </div>
+              );
+            })}
+          {/* Flash overlay (temporary, independent of the toggle). Element-level
+              opacity reproduces the console's per-channel alpha fade exactly —
+              see the __flash-rect comment in styles.ts. */}
+          {activeFlashRects &&
+            natural &&
+            activeFlashRects.map((rect, idx) => {
+              const geometry = rectGeometry(rect, natural);
+              if (!geometry) return null;
+              return (
+                <div
+                  key={`flash-rect-${idx}`}
+                  className="gemina-verification__flash-rect"
+                  style={{ ...geometry, opacity: flashOpacity }}
+                />
+              );
+            })}
         </div>
       </div>
     </div>

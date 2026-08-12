@@ -18,6 +18,7 @@ const CONTRACT_CLASS_NAMES = [
   '.gemina-verification__toolbar-btn--active',
   '.gemina-verification__canvas',
   '.gemina-verification__rect',
+  '.gemina-verification__rect-badge',
   '.gemina-verification__flash-rect',
   '.gemina-verification__panes',
   '.gemina-verification__form',
