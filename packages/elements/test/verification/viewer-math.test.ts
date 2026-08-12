@@ -169,10 +169,12 @@ describe('zoomAtPoint', () => {
     expect(zoomAtPoint(current, 1000, 50, 50, 0, fitScale).scale).toBe(8);
   });
 
-  it('returns the current transform unchanged when clamping makes it a no-op (console early return)', () => {
+  it('returns the SAME transform object when clamping makes it a no-op (console early return)', () => {
     const current: Transform = { scale: fitScale, tx: 41, ty: 17 };
     const next = zoomAtPoint(current, 0.5, 250, 250, 0, fitScale);
-    expect(next).toEqual(current);
+    // Referential identity, not just equality: the viewer relies on the
+    // same-object return for React setState bail-out on clamped wheel events.
+    expect(next).toBe(current);
   });
 });
 
@@ -205,6 +207,17 @@ describe('flashZoomTarget', () => {
     const rects = [{ points: [[0.5, 0.5], [0.5, 0.5]] as [number, number][] }];
     // largerDimension = 0 -> 1, clamped into [0.25, 1.8] -> 1
     expect(flashZoomTarget(rects, natural, container, 0, fitScale).scale).toBe(1);
+  });
+
+  it('empty rects fall back to scale 1 centered on the image midpoint (defense; callers gate on non-empty)', () => {
+    // With no points the bbox stays at its seed (minX=minY=1, maxX=maxY=0):
+    //   center = ((1+0)/2) * natural = the image midpoint (500, 1000)
+    //   bbox dimensions are negative -> largerDimension not > 0 -> scale 1
+    const t = flashZoomTarget([], natural, container, 0, fitScale);
+    expect(t.scale).toBe(1); // 1 already inside [0.25, 1.8]
+    const [sx, sy] = toScreen([natural.w / 2, natural.h / 2], t, 0);
+    expect(sx).toBeCloseTo(container.w / 2, 10);
+    expect(sy).toBeCloseTo(container.h / 2, 10);
   });
 
   it.each([0, 90, 180, 270])(

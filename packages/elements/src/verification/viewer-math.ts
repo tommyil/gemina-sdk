@@ -21,7 +21,9 @@ export interface Transform {
   ty: number;
 }
 
-/** Scale that fits a (possibly rotated) natural size into a container. */
+/** Scale that fits a (possibly rotated) natural size into a container.
+ * rotationDeg is expected in multiples of 90; other angles fall back to the
+ * unrotated box (matching the console). */
 export function fitScaleFor(natural: Size, container: Size, rotationDeg: number): number {
   const rot = ((rotationDeg % 180) + 180) % 180;
   const w = rot === 90 ? natural.h : natural.w;
@@ -32,7 +34,10 @@ export function fitScaleFor(natural: Size, container: Size, rotationDeg: number)
   return isFinite(s) && s > 0 ? s : 1;
 }
 
-/** Rotated bounding box extents; minX/minY compensate rotation offsets. */
+/** Rotated bounding box extents; minX/minY compensate rotation offsets.
+ * rotationDeg is expected in multiples of 90; other angles fall back to the
+ * unrotated box (matching the console). zoomAtPoint/flashZoomTarget use real
+ * trig and work at any angle. */
 export function rotatedBox(
   natural: Size,
   scale: number,
