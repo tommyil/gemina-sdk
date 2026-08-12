@@ -2,12 +2,13 @@
  * Internal document viewer for <GeminaVerification> — image canvas with a
  * zoom/rotate toolbar. Port of the console's ZoomableImageViewer skeleton
  * (gemina-console/src/components/viewers/ZoomableImageViewer.tsx): same
- * state/refs/effects shape, with every piece of transform math delegated to
- * `viewer-math.ts` and all styling on the Task 6 `.gemina-verification__*`
- * classes. Tasks 8+9 add wheel zoom, mouse pan, the double-click fit/100%
- * toggle, and touch pan + pinch zoom; Task 10 adds coordinate overlays, the
- * flash-zoom travel animation, and the image-expiry hook; the magnifier lens
- * remains (Task 11).
+ * state/refs/effects shape, with the gesture/travel transform math delegated
+ * to `viewer-math.ts` (the magnifier's presentation math stays local, exactly
+ * as inline as the console's) and all styling on the Task 6
+ * `.gemina-verification__*` classes. Tasks 8+9 add wheel zoom, mouse pan, the
+ * double-click fit/100% toggle, and touch pan + pinch zoom; Task 10 adds
+ * coordinate overlays, the flash-zoom travel animation, and the image-expiry
+ * hook; Task 11 adds the magnifier loupe.
  *
  * Coordinate spaces: the console's zoomAtPoint takes clientX/Y and subtracts
  * the canvas rect INSIDE itself; the elements zoomAtPoint (viewer-math.ts) is
@@ -219,6 +220,10 @@ const REDUCED_MOTION_FLASH_MS = 800;
  * (~750): hairline detection boxes stay clickable-eye-visible. */
 const MIN_SIZE_RATIO = 0.008;
 
+// Console magnifier constants (ZoomableImageViewer ~59-60).
+const MAG_RADIUS = 150; // px — loupe radius (console: 140-160px)
+const MAG_ZOOM = 2.5; // magnification applied on top of the current scale
+
 /** Rect geometry in image pixel space — the overlays render INSIDE the
  * transform layer, so left/top/width/height are natural-size pixels and the
  * layer's scale/rotate carries them (console ~742-756). Returns null for
@@ -255,6 +260,15 @@ export function VerificationViewer(props: VerificationViewerProps): React.JSX.El
 
   const [showRects, setShowRects] = useState(false);
   const [magnifierOn, setMagnifierOn] = useState(false);
+
+  // Loupe pointer state (console ~37-38): showMag flips on canvas
+  // mousemove/mouseleave, mousePos is container-relative. Both track on EVERY
+  // move regardless of the switch — console parity — so toggling the switch
+  // with the pointer resting over the canvas (keyboard toggle) shows the
+  // loupe at the right spot. The per-move re-render is the console's own
+  // accepted cost; the loupe subtree is tiny.
+  const [showMag, setShowMag] = useState(false);
+  const [mousePos, setMousePos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
 
   const [isPanning, setIsPanning] = useState(false);
   const panStart = useRef<{ x: number; y: number; tx: number; ty: number } | null>(null);
@@ -547,6 +561,24 @@ export function VerificationViewer(props: VerificationViewerProps): React.JSX.El
     if (e.touches.length === 0) touchState.current = null;
   }, []);
 
+  // Loupe pointer tracking (console ~305-308, ~695-703), container-relative
+  // like every other pointer path (Task 7 carry-forward). Show on any canvas
+  // mousemove, hide only on mouseleave — console policy verbatim. On a touch
+  // device a tap synthesizes compat mousemoves that PARK the loupe at the tap
+  // point while the switch is on; the console does nothing about that either
+  // (its loupe is a desktop pattern), and the parked loupe clears on the next
+  // compat mouseleave. Pan is untouched: it lives on document-level listeners.
+  const handleCanvasMouseMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    const rect = canvasRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    setShowMag(true);
+    setMousePos({ x: e.clientX - rect.left, y: e.clientY - rect.top });
+  }, []);
+
+  const handleCanvasMouseLeave = useCallback(() => {
+    setShowMag(false);
+  }, []);
+
   // Double-click toggle (console ~281-294): near fit -> 100% anchored at the
   // click point; otherwise back to centered fit.
   const handleDoubleClick = useCallback(
@@ -689,6 +721,59 @@ export function VerificationViewer(props: VerificationViewerProps): React.JSX.El
   // once zoomed beyond fit, grabbing mid-pan. CSS maps data-cursor to cursors.
   const cursorMode = atFitScale ? 'zoom-in' : isPanning ? 'grabbing' : 'grab';
 
+  // Magnifier loupe (console ~380-431), rotation-aware: invert the current
+  // transform to find the image point under the pointer, clamp it inside the
+  // image, then re-project it at scale × MAG_ZOOM so that point lands at the
+  // loupe's center. The inverse map mirrors zoomAtPoint's — inline here just
+  // as it is in the console (presentation math, not gesture math). NOT
+  // ported: the console's opacity-0 placeholder div for switch-on/pointer-away
+  // (~432-448) — nothing visible ever animated on it, pure dead weight. The
+  // inner img is bare (no onLoad/onError): wiring the expiry handler here
+  // would double-fire onImageExpired for one dying URL.
+  let magnifier: React.ReactNode = null;
+  if (magnifierOn && showMag && natural && transform.scale > 0) {
+    const rad = (rotation * Math.PI) / 180;
+    const cosA = Math.cos(rad);
+    const sinA = Math.sin(rad);
+    const dx = mousePos.x - transform.tx;
+    const dy = mousePos.y - transform.ty;
+    const cxRaw = (cosA * dx + sinA * dy) / transform.scale;
+    const cyRaw = (-sinA * dx + cosA * dy) / transform.scale;
+    const clampedX = Math.max(0, Math.min(cxRaw, natural.w));
+    const clampedY = Math.max(0, Math.min(cyRaw, natural.h));
+    const zoomScale = transform.scale * MAG_ZOOM;
+    const px = clampedX * zoomScale;
+    const py = clampedY * zoomScale;
+    const rotatedX = px * cosA - py * sinA;
+    const rotatedY = px * sinA + py * cosA;
+    const translateX = MAG_RADIUS - rotatedX;
+    const translateY = MAG_RADIUS - rotatedY;
+    magnifier = (
+      <div
+        className="gemina-verification__magnifier"
+        style={{
+          width: MAG_RADIUS * 2,
+          height: MAG_RADIUS * 2,
+          top: mousePos.y - MAG_RADIUS,
+          left: mousePos.x - MAG_RADIUS,
+        }}
+      >
+        <img
+          src={src}
+          alt=""
+          draggable={false}
+          style={{
+            position: 'absolute',
+            width: natural.w,
+            height: natural.h,
+            transformOrigin: '0 0',
+            transform: `translate(${translateX}px, ${translateY}px) rotate(${rotation}deg) scale(${zoomScale})`,
+          }}
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="gemina-verification__viewer">
       <div className="gemina-verification__toolbar">
@@ -730,6 +815,8 @@ export function VerificationViewer(props: VerificationViewerProps): React.JSX.El
         data-cursor={cursorMode}
         onDoubleClick={handleDoubleClick}
         onMouseDown={handleMouseDown}
+        onMouseMove={handleCanvasMouseMove}
+        onMouseLeave={handleCanvasMouseLeave}
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
@@ -784,6 +871,7 @@ export function VerificationViewer(props: VerificationViewerProps): React.JSX.El
               );
             })}
         </div>
+        {magnifier}
       </div>
     </div>
   );

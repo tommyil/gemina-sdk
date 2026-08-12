@@ -1,8 +1,8 @@
 /**
- * VerificationViewer — Tasks 7–10: image + toolbar + fit/100%/zoom/rotate,
+ * VerificationViewer — Tasks 7–11: image + toolbar + fit/100%/zoom/rotate,
  * wheel zoom, mouse pan, double-click toggle, touch pan + pinch zoom,
- * coordinate overlays, flash-zoom travel, and the image-expiry hook. The
- * magnifier toggle exists as state only (visuals arrive in Task 11).
+ * coordinate overlays, flash-zoom travel, the image-expiry hook, and the
+ * magnifier loupe (show/hide policy + rotation-aware math).
  *
  * Flash animation tests run under fake timers with an explicit rAF shim
  * (requestAnimationFrame → setTimeout(cb, 16)) and Date faked, because the
@@ -20,6 +20,7 @@ import { act, cleanup, createEvent, fireEvent, render, screen } from '@testing-l
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { VerificationViewer } from '../../src/verification/viewer';
 import type { RelativeRect } from '../../src/verification/viewer';
+import { ensureVerificationStylesInjected } from '../../src/verification/styles';
 
 /** Controllable ResizeObserver: records instances; `resizeTo` dispatches a
  * fake contentRect so tests give the canvas a real size. */
@@ -1066,6 +1067,120 @@ describe('VerificationViewer — image expiry', () => {
     fireEvent.error(img);
     fireEvent.error(img);
     expect(onImageExpired).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('VerificationViewer — magnifier loupe', () => {
+  function loupeOf(container: HTMLElement): HTMLElement | null {
+    return container.querySelector<HTMLElement>('.gemina-verification__magnifier');
+  }
+
+  function loupeTranslate(loupe: HTMLElement): { x: number; y: number } {
+    const transform = loupe.querySelector('img')!.style.transform;
+    const match = /translate\((-?[\d.]+)px, (-?[\d.]+)px\)/.exec(transform);
+    if (!match) throw new Error(`no translate() in loupe transform: ${transform}`);
+    return { x: Number(match[1]), y: Number(match[2]) };
+  }
+
+  it('shows on mousemove while the switch is on; hides on mouseleave and switch off', () => {
+    const { container, canvas } = mountSized();
+    expect(loupeOf(container)).toBeNull();
+
+    fireEvent.click(screen.getByRole('switch', { name: 'Magnifier' }));
+    // Switch on, but no pointer seen yet — still hidden.
+    expect(loupeOf(container)).toBeNull();
+
+    fireEvent.mouseMove(canvas, { clientX: 200, clientY: 300 });
+    const loupe = loupeOf(container)!;
+    expect(loupe).not.toBeNull();
+    // A second img mirroring the document's src (main img + loupe img).
+    const inner = loupe.querySelector('img')!;
+    expect(inner).not.toBeNull();
+    expect(inner.getAttribute('src')).toBe('https://example.com/doc.png');
+    expect(container.querySelectorAll('img').length).toBe(2);
+
+    // Pointer leaves the canvas → loupe clears (also how a touch-tap-parked
+    // loupe goes away).
+    fireEvent.mouseLeave(canvas);
+    expect(loupeOf(container)).toBeNull();
+
+    fireEvent.mouseMove(canvas, { clientX: 220, clientY: 310 });
+    expect(loupeOf(container)).not.toBeNull();
+
+    fireEvent.click(screen.getByRole('switch', { name: 'Magnifier' }));
+    expect(loupeOf(container)).toBeNull();
+  });
+
+  it('positions and scales with the console math (150px radius, 2.5x), container-relative', () => {
+    const { container, canvas } = mountSized();
+    mockRect(canvas, { left: 100, top: 50, width: 500, height: 500 });
+    fireEvent.click(screen.getByRole('switch', { name: 'Magnifier' }));
+
+    // Client (300, 350) = container-relative (200, 300). Console math at fit
+    // 0.25, tx=125, ty=0: image point = ((200-125)/0.25, 300/0.25) =
+    // (300, 1200); zoomScale = 0.25*2.5 = 0.625; translate =
+    // (150 - 300*0.625, 150 - 1200*0.625) = (-37.5, -600).
+    fireEvent.mouseMove(canvas, { clientX: 300, clientY: 350 });
+    const loupe = loupeOf(container)!;
+    expect(Number.parseFloat(loupe.style.width)).toBe(300); // 2 * MAG_RADIUS
+    expect(Number.parseFloat(loupe.style.height)).toBe(300);
+    expect(Number.parseFloat(loupe.style.left)).toBeCloseTo(200 - 150, 6);
+    expect(Number.parseFloat(loupe.style.top)).toBeCloseTo(300 - 150, 6);
+
+    const inner = loupe.querySelector('img')!;
+    expect(Number.parseFloat(inner.style.width)).toBe(1000); // natural size
+    expect(Number.parseFloat(inner.style.height)).toBe(2000);
+    expect(inner.style.transform).toContain('rotate(0deg)');
+    expect(inner.style.transform).toContain('scale(0.625)');
+    let t = loupeTranslate(loupe);
+    expect(t.x).toBeCloseTo(-37.5, 6);
+    expect(t.y).toBeCloseTo(-600, 6);
+
+    // Pointer past the image's right edge: the looked-at point clamps to the
+    // image bounds (console ~391-392). Container (480, 20) → raw image x
+    // 1420 clamps to 1000; y = 80. translate = (150 - 1000*0.625,
+    // 150 - 80*0.625) = (-475, 100).
+    fireEvent.mouseMove(canvas, { clientX: 580, clientY: 70 });
+    t = loupeTranslate(loupeOf(container)!);
+    expect(t.x).toBeCloseTo(-475, 6);
+    expect(t.y).toBeCloseTo(100, 6);
+  });
+
+  it('mirrors the current rotation (rotation-aware loupe math)', () => {
+    const { container, canvas } = mountSized();
+    fireEvent.click(screen.getByRole('button', { name: 'Rotate 90 degrees' }));
+    fireEvent.click(screen.getByRole('switch', { name: 'Magnifier' }));
+
+    // At 90°, re-fit keeps 0.25 (min(500/2000, 500/1000)) with tx=500,
+    // ty=125. Pointer at (250, 250): inverse-map → image point (500, 1000);
+    // forward at zoomScale 0.625 → rotated (-625, 312.5); translate =
+    // (150+625, 150-312.5) = (775, -162.5) — modulo cos(90°) float dust.
+    fireEvent.mouseMove(canvas, { clientX: 250, clientY: 250 });
+    const loupe = loupeOf(container)!;
+    const inner = loupe.querySelector('img')!;
+    expect(inner.style.transform).toContain('rotate(90deg)');
+    expect(inner.style.transform).toContain('scale(0.625)');
+    const t = loupeTranslate(loupe);
+    expect(t.x).toBeCloseTo(775, 6);
+    expect(t.y).toBeCloseTo(-162.5, 6);
+  });
+
+  it('never intercepts events: pointer-events none rides on the __magnifier class', () => {
+    const { container, canvas } = mountSized();
+    fireEvent.click(screen.getByRole('switch', { name: 'Magnifier' }));
+    fireEvent.mouseMove(canvas, { clientX: 200, clientY: 300 });
+
+    const loupe = loupeOf(container)!;
+    expect(loupe.classList.contains('gemina-verification__magnifier')).toBe(true);
+    // Chrome stays in CSS: the inline style carries geometry only.
+    expect(loupe.getAttribute('style')).not.toContain('pointer-events');
+
+    // The stylesheet's __magnifier block is the source of the rule.
+    ensureVerificationStylesInjected();
+    const sheet = document.head.querySelector('style[data-gemina-verification]')!.textContent!;
+    const block = /\.gemina-verification__magnifier\s*\{[^}]*\}/.exec(sheet);
+    expect(block).not.toBeNull();
+    expect(block![0]).toContain('pointer-events: none');
   });
 });
 
