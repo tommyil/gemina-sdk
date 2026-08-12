@@ -49,7 +49,14 @@ export interface GeminaVerificationProps {
   dir?: GeminaVerificationDirection;
   /** Called exactly once, after a successful feedback submission. */
   onComplete?: (result: VerificationCompletion) => void;
-  /** Called when the component lands in a terminal error/edge state. */
+  /**
+   * Called when the component lands in a terminal error/edge state.
+   *
+   * Multiplicity: fires once per terminal-state ENTRY, not once per component
+   * lifetime — a Retry that fails again re-enters the state and re-fires with
+   * the new failure's reason/detail. It never fires for the already-validated
+   * read-only review (a success state), and never after unmount.
+   */
   onError?: (reason: VerificationErrorReason, detail?: VerificationErrorDetail) => void;
   /** Extra class name(s) for the root element (e.g. to override CSS vars). */
   className?: string;

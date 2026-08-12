@@ -53,13 +53,15 @@ describe('GeminaTokenManager — never persists (§6.11.1 footgun 2)', () => {
     // the package root (vitest's cwd) instead.
     const srcDir = join(process.cwd(), 'src');
     // recursive readdir so nested source dirs (e.g. src/verification/) are
-    // covered too; filter to source files to skip the directory entries.
-    const files = (readdirSync(srcDir, { recursive: true }) as string[]).filter((f) =>
-      /\.(ts|tsx)$/.test(f),
+    // covered too; withFileTypes + isFile() skips directory entries without
+    // narrowing by extension — EVERY shipped source file is scanned.
+    const files = readdirSync(srcDir, { recursive: true, withFileTypes: true }).filter((d) =>
+      d.isFile(),
     );
-    for (const file of files) {
-      const source = readFileSync(join(srcDir, file), 'utf8');
-      expect(source, `${file} must not touch persistent storage`).not.toMatch(
+    for (const dirent of files) {
+      const path = join(dirent.parentPath, dirent.name);
+      const source = readFileSync(path, 'utf8');
+      expect(source, `${dirent.name} must not touch persistent storage`).not.toMatch(
         /(?:localStorage|sessionStorage|indexedDB)\s*[.[(]|document\.cookie|openDatabase\s*\(/,
       );
     }
