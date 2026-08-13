@@ -8,6 +8,6 @@ namespace Gemina.Sdk
     public static class SdkVersion
     {
         /// <summary>The package version, kept in sync with the csproj.</summary>
-        public const string Version = "0.5.4";
+        public const string Version = "0.6.0";
     }
 }
