@@ -819,14 +819,16 @@ export function GeminaVerification(props: GeminaVerificationProps): React.JSX.El
           <div
             className="gemina-verification__confirm"
             onKeyDown={handleConfirmKeyDown}
-            // A press on the scrim must not blur the dialog: preventDefault on
-            // mousedown suppresses the browser's focus-move default, so
-            // activeElement stays on a dialog button and the subtree keydown
-            // handler above stays in the focus path (focus on <body> would put
-            // Escape/Tab out of its reach). Presses on the dialog's own
-            // controls hit target !== currentTarget and keep their default.
+            // A press anywhere NON-interactive — the scrim AND the dialog's
+            // own interior (the confirm text, padding, actions row) — must not
+            // blur the dialog: preventDefault on mousedown suppresses the
+            // browser's focus-move default, so activeElement stays on a dialog
+            // button and the subtree keydown handler above stays in the focus
+            // path (focus on <body> would put Escape/Tab out of its reach).
+            // Only presses on a button keep their default. Trade-off, accepted:
+            // the dialog copy (one sentence) can't be text-selected by mouse.
             onMouseDown={(event) => {
-              if (event.target === event.currentTarget) {
+              if (!(event.target as Element).closest('button')) {
                 event.preventDefault();
               }
             }}
