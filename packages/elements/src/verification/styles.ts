@@ -121,6 +121,10 @@ const VERIFICATION_CSS = `
 }
 .gemina-verification__toolbar {
   display: flex;
+  /* Narrow roots (~<330px) can't fit all 7 buttons on one line: wrap to a
+     second row instead of clipping past the canvas edge. The gap shorthand
+     below already provides the 6px row-gap between wrapped rows. */
+  flex-wrap: wrap;
   align-items: center;
   gap: 6px;
   flex: 0 0 auto;
@@ -442,6 +446,13 @@ const VERIFICATION_CSS = `
   font-size: 12px;
   color: var(--gemina-verification-muted);
   font-variant-numeric: tabular-nums;
+  /* The counts copy ("N confirmed · M corrected") is untranslated English
+     chrome; under dir="rtl" the RTL paragraph direction reorders its
+     leading-number run ("confirmed · 0 corrected 7"). plaintext makes the
+     line take its base direction from its own first strong character, so
+     the English copy lays out LTR inside the RTL widget. The done-state
+     recap reuses this same class, so it is covered too. */
+  unicode-bidi: plaintext;
 }
 .gemina-verification__footer {
   display: flex;

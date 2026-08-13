@@ -96,6 +96,20 @@ describe('verification styles', () => {
     }
   });
 
+  it('wraps the toolbar on narrow roots and keeps the counts copy LTR under RTL', async () => {
+    const { ensureVerificationStylesInjected } = await import('../../src/verification/styles');
+    ensureVerificationStylesInjected();
+
+    const css = document.head.querySelector('style[data-gemina-verification]')?.textContent ?? '';
+    // Below ~330px the 7 toolbar buttons overflow a single line; they must
+    // wrap instead of clipping past the canvas edge.
+    expect(css).toMatch(/\.gemina-verification__toolbar\s*\{[^}]*flex-wrap:\s*wrap/);
+    // "N confirmed · M corrected" is untranslated LTR chrome; without
+    // plaintext the RTL paragraph direction reorders its leading number.
+    // The done-state recap reuses __progress, so this one rule covers both.
+    expect(css).toMatch(/\.gemina-verification__progress\s*\{[^}]*unicode-bidi:\s*plaintext/);
+  });
+
   it('owns the canvas img geometry and the data-cursor affordance states', async () => {
     const { ensureVerificationStylesInjected } = await import('../../src/verification/styles');
     ensureVerificationStylesInjected();
