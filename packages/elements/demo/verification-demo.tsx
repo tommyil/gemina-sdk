@@ -8,15 +8,27 @@
  * their own backend; the Gemina API key never appears in browser code —
  * not even in this demo.
  */
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { GeminaVerification } from '../src/verification';
 import { GeminaTokenManager } from '../src/token-manager';
 
+/**
+ * Drivability params (demo-only, for the visual-verification harness):
+ *   ?baseUrl=…&extractionId=…&token=…   prefill the three inputs
+ *   &autoMount=1                        mount immediately when all are set
+ *   &theme=dark|light                   forwarded to <GeminaVerification>
+ * Hand-driving stays the default when absent.
+ */
+const params = new URLSearchParams(window.location.search);
+const themeParam = params.get('theme');
+const theme: 'light' | 'dark' | 'auto' =
+  themeParam === 'dark' || themeParam === 'light' ? themeParam : 'auto';
+
 function DemoApp() {
-  const [baseUrl, setBaseUrl] = useState('https://api.gemina.co');
-  const [extractionId, setExtractionId] = useState('');
-  const [pastedToken, setPastedToken] = useState('');
+  const [baseUrl, setBaseUrl] = useState(params.get('baseUrl') ?? 'https://api.gemina.co');
+  const [extractionId, setExtractionId] = useState(params.get('extractionId') ?? '');
+  const [pastedToken, setPastedToken] = useState(params.get('token') ?? '');
   const [session, setSession] = useState<{
     tokenManager: GeminaTokenManager;
     baseUrl: string;
@@ -41,6 +53,29 @@ function DemoApp() {
       extractionId: extractionId.trim(),
     });
   };
+
+  // ?theme=dark: darken the demo page chrome too, so the widget is reviewed
+  // against the background a dark embed would actually sit on.
+  useEffect(() => {
+    if (theme === 'dark') {
+      document.body.style.background = '#101418';
+      document.body.style.color = '#e6e9ec';
+    }
+  }, []);
+
+  // ?autoMount=1: mount once on load when the params provided everything.
+  const autoMountedRef = useRef(false);
+  useEffect(() => {
+    if (
+      !autoMountedRef.current &&
+      params.get('autoMount') === '1' &&
+      pastedToken.trim().length > 0 &&
+      extractionId.trim().length > 0
+    ) {
+      autoMountedRef.current = true;
+      mountVerification();
+    }
+  });
 
   return (
     <div>
@@ -82,6 +117,7 @@ function DemoApp() {
             extractionId={session.extractionId}
             tokenManager={session.tokenManager}
             baseUrl={session.baseUrl}
+            theme={theme}
             onComplete={(result) => {
               console.log('verification complete:', result);
               // eslint-disable-next-line no-alert
