@@ -479,6 +479,30 @@ const VERIFICATION_CSS = `
   font-size: 13px;
   color: var(--gemina-verification-muted);
 }
+/* Submit-error banner: message + inline Retry on one line. */
+.gemina-verification__submit-error {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+/* Done: the one saturated moment outside the form — a single accent check. */
+.gemina-verification__state--done { color: var(--gemina-verification-fg); }
+.gemina-verification__done-check {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--gemina-verification-accent);
+  color: var(--gemina-verification-accent-fg);
+}
+.gemina-verification__done-title {
+  font-size: 14px;
+  font-weight: 600;
+}
+.gemina-verification__state--done .gemina-verification__progress { font-size: 13px; }
 
 /* --- Confirm dialog ------------------------------------------------------- */
 .gemina-verification__confirm {
@@ -511,6 +535,31 @@ const VERIFICATION_CSS = `
   border-radius: var(--gemina-verification-radius);
   box-shadow: 0 12px 32px rgba(16, 20, 24, 0.24);
 }
+.gemina-verification__confirm-text {
+  margin: 0;
+  font-size: 13px;
+}
+.gemina-verification__confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+/* Quiet counterpart to __submit: same geometry, bordered, no fill — the
+   accent stays on the final action. */
+.gemina-verification__confirm-cancel {
+  font: inherit;
+  padding: 8px 16px;
+  border: 1px solid var(--gemina-verification-border);
+  border-radius: var(--gemina-verification-radius);
+  background: transparent;
+  color: var(--gemina-verification-fg);
+  cursor: pointer;
+  transition: border-color 120ms ease;
+}
+.gemina-verification__confirm-cancel:hover:not(:disabled) {
+  border-color: var(--gemina-verification-accent);
+}
+.gemina-verification__confirm-cancel:disabled { opacity: 0.5; cursor: default; }
 
 /* --- Focus ---------------------------------------------------------------- */
 .gemina-verification__input:focus-visible {
@@ -521,6 +570,7 @@ const VERIFICATION_CSS = `
 .gemina-verification__eye:focus-visible,
 .gemina-verification__submit:focus-visible,
 .gemina-verification__retry:focus-visible,
+.gemina-verification__confirm-cancel:focus-visible,
 .gemina-verification__fallback summary:focus-visible {
   outline: 2px solid var(--gemina-verification-accent);
   outline-offset: 1px;

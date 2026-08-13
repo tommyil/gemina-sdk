@@ -46,10 +46,17 @@ const CONTRACT_CLASS_NAMES = [
   '.gemina-verification__progress',
   '.gemina-verification__confirm',
   '.gemina-verification__confirm-dialog',
+  '.gemina-verification__confirm-text',
+  '.gemina-verification__confirm-actions',
+  '.gemina-verification__confirm-cancel',
+  '.gemina-verification__submit-error',
   '.gemina-verification__footer',
   '.gemina-verification__submit',
   '.gemina-verification__retry',
   '.gemina-verification__state',
+  '.gemina-verification__state--done',
+  '.gemina-verification__done-check',
+  '.gemina-verification__done-title',
   '.gemina-verification__magnifier',
 ];
 

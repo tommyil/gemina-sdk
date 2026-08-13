@@ -10,16 +10,17 @@
  * loading → unavailable | review — the layout/flash/RTL layer (Task 15):
  * the stacked-below-860px root observer, eye-click → viewer flash wiring,
  * chat-parity Hebrew direction autodetect, and the silent expired-image-URL
- * refresh — and the edit state + progress footer (Task 16): the immutable
+ * refresh — the edit state + progress footer (Task 16): the immutable
  * edits map with delete-on-revert dirty tracking, and the
- * "N confirmed · M corrected" line fed by composeSubmission. The later phases
- * (confirming, submitting, submit-error, done) are declared in the phase
- * union now and wired by the submit flow (Task 17).
+ * "N confirmed · M corrected" line fed by composeSubmission — and the submit
+ * flow (Task 17): the confirm-final dialog, the PUT with 401
+ * invalidate-retry-once, the 409 silent-refetch landing, submit-error with
+ * edits preserved, and the exactly-once onComplete.
  *
  * SSR-safe: no `window`/`document` access at import time; styles are
  * injected on mount.
  */
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import type * as React from 'react';
 import { GeminaClient } from '@gemina/sdk';
 import type { ExtractionPrimaryViewOutDTO } from '@gemina/sdk';
@@ -52,18 +53,28 @@ export type {
 } from './types';
 
 /**
- * The component's complete phase model. Task 14 implements
- * loading/unavailable/review; `confirming`, `submitting`, `submit-error`,
- * and `done` are entered only by the submit flow (Task 17).
+ * The component's complete phase model. `review`, `confirming`, `submitting`,
+ * and `submit-error` form the REVIEW FAMILY: all four render the same review
+ * content (form, edits, aria-live progress — kept mounted so edits stay
+ * visible through the whole submit sequence); confirming/submitting add the
+ * overlay on top, submit-error the inline error banner. The read-only flag
+ * lives in separate `alreadyValidated` state, not in the variants, so the
+ * family shares it without every variant re-carrying it.
  */
 type Phase =
   | { name: 'loading' }
   | { name: 'unavailable'; reason: VerificationErrorReason; message: string; canRetry: boolean }
-  | { name: 'review'; readOnly: boolean; alreadyValidated: boolean }
-  | { name: 'confirming' } // confirm dialog open over review (Task 17)
-  | { name: 'submitting' } // Task 17
-  | { name: 'submit-error'; message: string } // Task 17
-  | { name: 'done'; confirmed: number; corrected: number }; // Task 17
+  | { name: 'review' }
+  | { name: 'confirming' } // confirm dialog open over review
+  | { name: 'submitting' } // PUT in flight; dialog stays, buttons disabled
+  | { name: 'submit-error'; message: string }
+  | { name: 'done'; confirmed: number; corrected: number };
+
+/** The four phases that render the review content. */
+type ReviewFamilyPhase = Extract<
+  Phase,
+  { name: 'review' | 'confirming' | 'submitting' | 'submit-error' }
+>;
 
 /** Hebrew Unicode block (U+0590–U+05FF) — chat.tsx's exact detector. */
 const HEBREW_RE = /[\u0590-\u05FF]/;
@@ -84,6 +95,11 @@ const VERIFICATION_UNAVAILABLE_TEXT = "Verification isn't available for this ext
 // Deliberately does NOT imply the shown data is the corrected data — the
 // primary view returns the ORIGINAL extraction, not the validated values.
 const ALREADY_VALIDATED_TEXT = 'Already verified — showing the original extraction.';
+const CONFIRM_TEXT =
+  'Submit verification? This is final — feedback can be submitted only once and cannot be changed.';
+const SUBMITTING_TEXT = 'Submitting…';
+const SUBMIT_FAILED_TEXT = 'Submission failed — your corrections are still here.';
+const DONE_TITLE_TEXT = 'Feedback submitted';
 
 /** What a successful load pins for the review phase (values + schema together,
  * so the derived memos see one consistent snapshot). */
@@ -115,11 +131,17 @@ export function GeminaVerification(props: GeminaVerificationProps): React.JSX.El
     baseUrl,
     theme = 'auto',
     dir = 'auto',
+    onComplete,
     onError,
     className,
   } = props;
 
   const [phase, setPhase] = useState<Phase>({ name: 'loading' });
+  // Lifted OUT of the review phase variant (Task 17 restructure): the whole
+  // review family reads it (read-only form, banner, hidden progress line)
+  // while confirming/submitting/submit-error carry no flags of their own.
+  // In every load path read-only ⇔ already-validated, so ONE flag serves both.
+  const [alreadyValidated, setAlreadyValidated] = useState(false);
   const [loaded, setLoaded] = useState<LoadedData | null>(null);
   // Dirty fields only: raw schema key → current input string, VERBATIM (no
   // trim/normalize — that is the composer's job at submit). Replaced
@@ -144,6 +166,19 @@ export function GeminaVerification(props: GeminaVerificationProps): React.JSX.El
   // Latest onError without threading its identity through the load callback.
   const onErrorRef = useRef(onError);
   onErrorRef.current = onError;
+  const onCompleteRef = useRef(onComplete);
+  onCompleteRef.current = onComplete;
+  // onComplete fires EXACTLY once per loaded extraction; load() resets it.
+  const completedRef = useRef(false);
+  // Re-entry latch for doSubmit (the disabled Confirm button is the UI guard;
+  // this is the belt for a re-dispatch racing the disabling re-render).
+  const submitInFlightRef = useRef(false);
+  // Set by Cancel: focus returns to the Submit button, but only from the
+  // effect AFTER the review re-render — while the handler runs the phase is
+  // still `confirming`, so the footer button is still disabled and unfocusable.
+  const restoreFocusRef = useRef(false);
+  const submitButtonRef = useRef<HTMLButtonElement | null>(null);
+  const confirmButtonRef = useRef<HTMLButtonElement | null>(null);
 
   /**
    * Enter a terminal unavailable state and notify the host. onError fires
@@ -190,6 +225,9 @@ export function GeminaVerification(props: GeminaVerificationProps): React.JSX.El
     const live = () => mountedRef.current && loadSeqRef.current === seq;
 
     setPhase({ name: 'loading' });
+    // Per-extraction onComplete semantics: a new load (extractionId change,
+    // Retry, the 409 refetch) re-arms the exactly-once guard.
+    completedRef.current = false;
     // A stale flash must not survive into the next review: the viewer
     // unmounts during loading, and a REMOUNTED viewer handed old non-null
     // flashRects would phantom-flash the new document once it sizes up.
@@ -224,7 +262,7 @@ export function GeminaVerification(props: GeminaVerificationProps): React.JSX.El
       return;
     }
 
-    const enterReview = (alreadyValidated: boolean) => {
+    const enterReview = (validated: boolean) => {
       const schema = view.meta.validationFeedback?.validationSchema;
       setLoaded({
         values: view.values,
@@ -237,7 +275,8 @@ export function GeminaVerification(props: GeminaVerificationProps): React.JSX.El
       setEdits(NO_EDITS);
       const url = view.document.imageUrl;
       setImageUrl(typeof url === 'string' && url.length > 0 ? url : null);
-      setPhase({ name: 'review', readOnly: alreadyValidated, alreadyValidated });
+      setAlreadyValidated(validated);
+      setPhase({ name: 'review' });
     };
 
     // Result mapping — EXACT order: purge before status, validated before
@@ -493,6 +532,131 @@ export function GeminaVerification(props: GeminaVerificationProps): React.JSX.El
     void load();
   }, [load]);
 
+  /**
+   * The PUT. Reuses the `submission` memo — the SAME pure composeSubmission
+   * result the progress line displays — so what the reviewer was just shown
+   * ("N confirmed · M corrected") is by construction what goes on the wire.
+   * 401 handling mirrors the GET: invalidate + retry exactly once. Outcomes:
+   * success → done (+ exactly-once onComplete); 409 → SILENT refetch through
+   * load() (the seq-guard invariant), landing in the already-validated
+   * read-only review with no onError; 401 after the retry → submit-error with
+   * the session-expired copy; anything else → submit-error with the server's
+   * description when present. Edits are NEVER cleared on failure — the
+   * submit-error review keeps the form (and the corrections) mounted.
+   */
+  const doSubmit = useCallback(async () => {
+    if (submitInFlightRef.current) {
+      return;
+    }
+    submitInFlightRef.current = true;
+    const seq = loadSeqRef.current;
+    /** Same liveness rule as load(): a newer load owns the state now. */
+    const live = () => mountedRef.current && loadSeqRef.current === seq;
+    setPhase({ name: 'submitting' });
+    const body = submission;
+    const submitOnce = async () => {
+      const token = await tokenManager.getToken();
+      return GeminaClient.withSessionToken(token, baseUrl).documents.validateDocumentExtraction({
+        targetDocumentExtractionId: extractionId,
+        extractionValidationInDTO: { data: body.data },
+      });
+    };
+    try {
+      let result: Awaited<ReturnType<typeof submitOnce>>;
+      try {
+        try {
+          result = await submitOnce();
+        } catch (error) {
+          if (httpStatus(error) !== 401) {
+            throw error;
+          }
+          tokenManager.invalidate();
+          result = await submitOnce();
+        }
+      } catch (error) {
+        const detail = await readErrorEnvelope(error);
+        if (!live()) {
+          return;
+        }
+        if (detail.status === 409) {
+          // Someone verified concurrently. Refetch and land in the
+          // already-validated read-only banner state — deliberately NO
+          // onError (the extraction IS verified; that is a success shape),
+          // and the brief loading flash is accepted.
+          void load();
+          return;
+        }
+        if (detail.status === 401) {
+          // Only after the one mandated retry. Edits are kept: a fresh
+          // sign-in elsewhere + Retry can still succeed.
+          setPhase({ name: 'submit-error', message: SESSION_EXPIRED_TEXT });
+          onErrorRef.current?.('session-expired', detail);
+          return;
+        }
+        setPhase({
+          name: 'submit-error',
+          message: detail.description ?? SUBMIT_FAILED_TEXT,
+        });
+        onErrorRef.current?.('submit-failed', detail);
+        return;
+      }
+      if (!live()) {
+        return;
+      }
+      setPhase({ name: 'done', confirmed: body.confirmed, corrected: body.corrected });
+      if (!completedRef.current) {
+        completedRef.current = true;
+        // The generated client resolves ExtractionValidationResultOutDTO;
+        // its `.data` is the ComparisonSummaryModel the host is promised.
+        onCompleteRef.current?.({ correctedValues: body.byLabel, summary: result.data });
+      }
+    } finally {
+      submitInFlightRef.current = false;
+    }
+  }, [submission, tokenManager, baseUrl, extractionId, load]);
+
+  const handleSubmitClick = useCallback(() => {
+    setPhase({ name: 'confirming' });
+  }, []);
+
+  const handleConfirm = useCallback(() => {
+    void doSubmit();
+  }, [doSubmit]);
+
+  const handleCancelConfirm = useCallback(() => {
+    restoreFocusRef.current = true;
+    setPhase({ name: 'review' });
+  }, []);
+
+  /** Retry goes STRAIGHT back to submitting — confirm-final is never re-asked. */
+  const handleRetrySubmit = useCallback(() => {
+    void doSubmit();
+  }, [doSubmit]);
+
+  const handleConfirmKeyDown = useCallback(
+    (event: React.KeyboardEvent) => {
+      // Escape cancels while the question is open; an in-flight PUT cannot be
+      // aborted, so submitting ignores it.
+      if (event.key === 'Escape' && phase.name === 'confirming') {
+        event.stopPropagation();
+        handleCancelConfirm();
+      }
+    },
+    [phase.name, handleCancelConfirm],
+  );
+
+  // Dialog focus: entering `confirming` moves focus to the final-action
+  // button (Enter submits, Escape cancels); a Cancel hands it back to the
+  // Submit button — from here, AFTER the review re-render re-enabled it.
+  useEffect(() => {
+    if (phase.name === 'confirming') {
+      confirmButtonRef.current?.focus();
+    } else if (phase.name === 'review' && restoreFocusRef.current) {
+      restoreFocusRef.current = false;
+      submitButtonRef.current?.focus();
+    }
+  }, [phase.name]);
+
   const rootClassName = [
     'gemina-verification',
     `gemina-verification--${theme}`,
@@ -503,79 +667,172 @@ export function GeminaVerification(props: GeminaVerificationProps): React.JSX.El
     .filter((part) => part.length > 0)
     .join(' ');
 
-  let content: React.JSX.Element | null;
-  switch (phase.name) {
-    case 'loading':
-      content = (
-        <div className="gemina-verification__state" role="status">
-          {LOADING_TEXT}
+  // One id per instance for the dialog's label (multiple widgets may coexist).
+  const dialogTextId = useId();
+
+  /**
+   * The review family: review | confirming | submitting | submit-error all
+   * render THIS content, so the form (edits included!) and the aria-live
+   * progress region stay mounted through the whole submit sequence. Only the
+   * decorations differ per member: confirming/submitting put the overlay up
+   * (same dialog shell — the copy flips to "Submitting…" and both buttons
+   * disable, which is the double-click guard), submit-error adds the inline
+   * error banner. The form is never readOnly-flipped mid-flight — that would
+   * visually discard the reviewer's edits.
+   */
+  const renderReview = (reviewPhase: ReviewFamilyPhase): React.JSX.Element => {
+    const overlayUp = reviewPhase.name === 'confirming' || reviewPhase.name === 'submitting';
+    return (
+      <>
+        {alreadyValidated && (
+          <div className="gemina-verification__banner">{ALREADY_VALIDATED_TEXT}</div>
+        )}
+        <div className="gemina-verification__panes">
+          {imageUrl !== null && (
+            <VerificationViewer
+              src={imageUrl}
+              relativeRects={overlayRects}
+              flashRects={flashRects}
+              onFlashComplete={handleFlashComplete}
+              onImageExpired={handleImageExpired}
+            />
+          )}
+          <VerificationForm
+            classified={classified}
+            unmatched={unmatched}
+            bindingIndex={bindingIndex}
+            edits={edits}
+            onEdit={handleEdit}
+            readOnly={alreadyValidated}
+            onFlash={handleFlash}
+          />
         </div>
-      );
-      break;
-    case 'unavailable':
-      content = (
-        <div className="gemina-verification__state" role="alert">
-          <div>{phase.message}</div>
-          {phase.canRetry && (
-            <button type="button" className="gemina-verification__retry" onClick={handleRetry}>
+        {reviewPhase.name === 'submit-error' && (
+          <div
+            className="gemina-verification__banner gemina-verification__banner--error gemina-verification__submit-error"
+            role="alert"
+          >
+            <span>{reviewPhase.message}</span>
+            <button
+              type="button"
+              className="gemina-verification__retry"
+              onClick={handleRetrySubmit}
+            >
               Retry
             </button>
-          )}
-        </div>
-      );
-      break;
-    case 'review':
-      content = (
-        <>
-          {phase.alreadyValidated && (
-            <div className="gemina-verification__banner">{ALREADY_VALIDATED_TEXT}</div>
-          )}
-          <div className="gemina-verification__panes">
-            {imageUrl !== null && (
-              <VerificationViewer
-                src={imageUrl}
-                relativeRects={overlayRects}
-                flashRects={flashRects}
-                onFlashComplete={handleFlashComplete}
-                onImageExpired={handleImageExpired}
-              />
-            )}
-            <VerificationForm
-              classified={classified}
-              unmatched={unmatched}
-              bindingIndex={bindingIndex}
-              edits={edits}
-              onEdit={handleEdit}
-              readOnly={phase.readOnly}
-              onFlash={handleFlash}
-            />
           </div>
-          <div className="gemina-verification__footer">
-            {/* aria-live: a reviewer deep in a long form hears the count move
-                as they confirm/correct without tabbing back to the footer. */}
+        )}
+        <div className="gemina-verification__footer">
+          {/* aria-live: a reviewer deep in a long form hears the count move
+              as they confirm/correct without tabbing back to the footer.
+              Hidden when read-only — the already-verified landing would
+              otherwise show "0 corrected" noise about the ORIGINAL payload —
+              while the disabled Submit stays for discoverability. */}
+          {!alreadyValidated && (
             <div className="gemina-verification__progress" aria-live="polite">
               {`${submission.confirmed} confirmed · ${submission.corrected} corrected`}
             </div>
-            {/* TODO(Task 17): onClick → phase 'confirming' (the confirm
-                dialog). Inert until then — entering the phase today would
-                blank the review (the switch renders null for it), so the
-                click stays ungated-off rather than half-wired. */}
-            <button
-              type="button"
-              className="gemina-verification__submit"
-              disabled={phase.readOnly}
+          )}
+          <button
+            type="button"
+            ref={submitButtonRef}
+            className="gemina-verification__submit"
+            disabled={alreadyValidated || reviewPhase.name !== 'review'}
+            onClick={handleSubmitClick}
+          >
+            Submit feedback
+          </button>
+        </div>
+        {overlayUp && (
+          <div className="gemina-verification__confirm" onKeyDown={handleConfirmKeyDown}>
+            <div
+              className="gemina-verification__confirm-dialog"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby={dialogTextId}
             >
-              Submit feedback
-            </button>
+              <p id={dialogTextId} className="gemina-verification__confirm-text">
+                {reviewPhase.name === 'submitting' ? SUBMITTING_TEXT : CONFIRM_TEXT}
+              </p>
+              <div className="gemina-verification__confirm-actions">
+                <button
+                  type="button"
+                  className="gemina-verification__confirm-cancel"
+                  onClick={handleCancelConfirm}
+                  disabled={reviewPhase.name === 'submitting'}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  ref={confirmButtonRef}
+                  className="gemina-verification__submit"
+                  onClick={handleConfirm}
+                  disabled={reviewPhase.name === 'submitting'}
+                >
+                  Confirm submission
+                </button>
+              </div>
+            </div>
           </div>
-        </>
-      );
-      break;
-    default:
-      // confirming / submitting / submit-error / done — unreachable until the
-      // submit flow (Task 17) starts entering them.
-      content = null;
-  }
+        )}
+      </>
+    );
+  };
+
+  // EXHAUSTIVE by construction: the explicit return type makes a phase
+  // variant without a case a compile error (the function could fall through
+  // returning undefined) — a forgotten renderer can never ship as a blank
+  // widget. No default clause, ever.
+  const content = ((): React.JSX.Element => {
+    switch (phase.name) {
+      case 'loading':
+        return (
+          <div className="gemina-verification__state" role="status">
+            {LOADING_TEXT}
+          </div>
+        );
+      case 'unavailable':
+        return (
+          <div className="gemina-verification__state" role="alert">
+            <div>{phase.message}</div>
+            {phase.canRetry && (
+              <button type="button" className="gemina-verification__retry" onClick={handleRetry}>
+                Retry
+              </button>
+            )}
+          </div>
+        );
+      case 'review':
+      case 'confirming':
+      case 'submitting':
+      case 'submit-error':
+        return renderReview(phase);
+      case 'done':
+        return (
+          <div
+            className="gemina-verification__state gemina-verification__state--done"
+            role="status"
+          >
+            <span className="gemina-verification__done-check" aria-hidden="true">
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                <path
+                  d="M4 10.5l4 4 8-9"
+                  stroke="currentColor"
+                  strokeWidth="2.4"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </span>
+            <div className="gemina-verification__done-title">{DONE_TITLE_TEXT}</div>
+            <div className="gemina-verification__progress">
+              {`${phase.confirmed} confirmed · ${phase.corrected} corrected`}
+            </div>
+          </div>
+        );
+    }
+  })();
 
   return (
     <div ref={rootRef} className={rootClassName} dir={effectiveDir}>

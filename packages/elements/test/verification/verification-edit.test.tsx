@@ -197,14 +197,17 @@ describe('GeminaVerification — progress footer', () => {
     expect(screen.queryByText('edited')).toBeNull();
   });
 
-  it('Submit is disabled in read-only (already-validated) review', async () => {
+  it('read-only (already-validated) review: Submit disabled, progress line HIDDEN', async () => {
     getDocumentExtraction.mockResolvedValueOnce(extraction({ meta: { validated: true } }));
     const { container } = renderVerification();
 
     await screen.findByText('Already verified — showing the original extraction.');
+    // Submit stays (disabled) for discoverability…
     const submit = screen.getByRole('button', { name: 'Submit feedback' });
     expect((submit as HTMLButtonElement).disabled).toBe(true);
-    expect(progressEl(container)).toBeTruthy();
+    // …but the progress line is gone: "0 corrected" about the ORIGINAL
+    // payload would be noise on an already-verified extraction (Task 17).
+    expect(container.querySelector('.gemina-verification__progress')).toBeNull();
   });
 });
 
