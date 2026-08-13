@@ -1,11 +1,12 @@
 # @gemina/elements
 
 Embeddable browser UI for [Gemina](https://gemina.co) Document Intelligence:
-a drop-in React chat component (`<GeminaChat>`) plus a security-hardened
-session-token manager (`GeminaTokenManager`). Ask natural-language questions
-about the invoices and financial documents you've processed with Gemina and
-get grounded answers with document citations — without ever exposing your
-Gemina API key to the browser.
+drop-in React components for chat (`<GeminaChat>`) and human verification of
+extractions (`<GeminaVerification>`), plus a security-hardened session-token
+manager (`GeminaTokenManager`). Ask natural-language questions about the
+invoices and financial documents you've processed with Gemina, or put a
+verify-and-correct step in front of your workflow — without ever exposing
+your Gemina API key to the browser.
 
 ## Install
 
@@ -23,9 +24,13 @@ Subpath exports:
 
 | Import | Contents | Needs React? |
 |---|---|---|
-| `@gemina/elements` | Everything | For `GeminaChat` only |
+| `@gemina/elements` | Everything | For the UI components only |
 | `@gemina/elements/token-manager` | `GeminaTokenManager` | No |
 | `@gemina/elements/chat` | `<GeminaChat>` | Yes |
+| `@gemina/elements/verification` | `<GeminaVerification>` | Yes |
+
+Both components are also exported from the package root, for bundlers and
+TS configs that can't resolve `exports` subpaths.
 
 ## The security model (read this first)
 
@@ -242,6 +247,125 @@ Importing either module touches no `window`/`document`, and no timers are
 created at construction — safe for Next.js/Remix server rendering. Style
 injection happens in an effect (mount, client-only). Render `<GeminaChat>`
 normally; it becomes interactive on hydration.
+
+## `<GeminaVerification>`
+
+A human-in-the-loop verification step for one extraction: the document image
+(zoomable, with per-field location flashes) next to every extracted field as
+an editable input. The end-user confirms or corrects, submits once, and the
+corrections go to Gemina's accuracy scoring **and** to your `onComplete`
+callback so your workflow can continue with the verified data. Same security
+model as chat, with one addition: the session token should be **scoped to the
+extraction** being verified.
+
+```tsx
+import { useMemo } from "react";
+import { GeminaVerification } from "@gemina/elements/verification";
+import { GeminaTokenManager } from "@gemina/elements/token-manager";
+
+function VerifyStep({ extractionId }: { extractionId: string }) {
+  // Stable per extraction — never construct the manager inline in JSX.
+  const tokenManager = useMemo(
+    () =>
+      new GeminaTokenManager({
+        fetchToken: async () => {
+          const res = await fetch("/api/gemina-verify-session", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ extractionId }),
+          });
+          if (!res.ok) throw new Error("Failed to mint Gemina session token");
+          return res.json(); // { token, expiresIn }
+        },
+      }),
+    [extractionId]
+  );
+
+  return (
+    <GeminaVerification
+      extractionId={extractionId}
+      tokenManager={tokenManager}
+      onComplete={({ correctedValues, summary }) => {
+        // Continue your workflow with the verified data.
+      }}
+    />
+  );
+}
+```
+
+The `extractionId` in that request comes from the browser — a curious
+end-user can substitute any ID:
+
+> **Shared responsibility:** Your mint endpoint MUST authorize the requested
+> `extractionIds` against the requesting end-user before minting. Gemina
+> enforces the claim; you enforce who gets the claim.
+
+### The scoped mint endpoint (server-side, yours)
+
+Same as the chat mint endpoint, plus `extractionIds` — a claim signed into
+the token that pins it to specific extractions:
+
+```bash
+curl -X POST https://api.gemina.co/api/v1/sessions/token \
+  -H "X-API-Key: $GEMINA_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"ttlSeconds": 900, "extractionIds": ["<extraction-uuid>"]}'
+```
+
+A token minted without `extractionIds` still works (scope falls back to the
+`endUserId` pin, or tenant-wide) — but an unscoped browser token lets any
+end-user with devtools read any extraction in your account. Scope it.
+
+### Props
+
+| Prop | Type | Default | Description |
+|---|---|---|---|
+| `extractionId` | `string` | **required** | The extraction to verify. Must be inside the session token's scope. |
+| `tokenManager` | `GeminaTokenManager` | **required** | Session-token source. Must be a stable instance — see the notes below. |
+| `baseUrl` | `string` | `https://api.gemina.co` | Gemina API base URL. |
+| `theme` | `"light" \| "dark" \| "auto"` | `"auto"` | `"auto"` follows `prefers-color-scheme`. |
+| `dir` | `"ltr" \| "rtl" \| "auto"` | `"auto"` | `"auto"` flips to RTL when the extraction's field values contain Hebrew. |
+| `onComplete` | `(result: VerificationCompletion) => void` | — | Called exactly once, after a successful submission. `correctedValues` is every submitted entry keyed by human label; `summary` is Gemina's scoring response. |
+| `onError` | `(reason, detail?) => void` | — | Called on each terminal error/edge-state entry (a failed Retry re-fires it). Never fires for the already-verified read-only view. |
+| `className` | `string` | — | Extra class(es) on the root (handy for CSS-variable overrides). |
+
+`onError`'s `reason` is a stable union — match on it, never on message text:
+
+```
+"purged" | "not-available" | "not-completed" | "verification-unavailable"
+  | "session-expired" | "load-failed" | "submit-failed"
+```
+
+### Edge states
+
+| Situation | Behavior |
+|---|---|
+| `validated: true` on load | Read-only review + "already verified" banner; no submit. A success state — no `onError`. |
+| Purged (retention policy) | "No longer available" state; `onError("purged")`. |
+| 404 — nonexistent *or* out of token scope | Neutral "not available" state (no existence leak); `onError("not-available")`. |
+| Extraction didn't complete | "Extraction did not complete" state; `onError("not-completed")`. |
+| Completed, but no verification schema | `onError("verification-unavailable")`. |
+| `401` | `tokenManager.invalidate()` + one automatic retry with a fresh token; a second 401 → `onError("session-expired")`. On the submit path, edits are preserved. |
+| Network/5xx on load | Retry button; `onError("load-failed")`. |
+| Network/5xx on submit | Corrections preserved in place, inline retry — user input is never lost; `onError("submit-failed")`. |
+| `409` on submit (verified concurrently) | Silent refetch → the read-only already-verified view; no `onError`. |
+
+### One-shot semantics
+
+Submission is final; corrections are delivered to your `onComplete` and to
+Gemina's accuracy scoring — they are not retrievable afterwards. The UI puts
+an explicit confirm step, stating exactly that, in front of the submit.
+
+### Integration notes
+
+- **`onComplete` is best-effort delivery.** If the network drops the success
+  response, the verification IS recorded server-side but `onComplete` does
+  not fire (the component lands in the already-verified state on retry).
+  Treat the server's verification status as the source of truth.
+- **`tokenManager` must be a stable instance** — module-level, `useMemo`, or
+  `useRef`. Constructing it inline in JSX re-fetches on every render.
+- **`getToken()` has no built-in timeout** — enforce your own inside
+  `fetchToken` (e.g. `AbortSignal.timeout`).
 
 ## What this package refuses to do
 
