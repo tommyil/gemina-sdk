@@ -34,6 +34,11 @@
       "types": "./dist/chat.d.ts",
       "import": "./dist/chat.js",
       "require": "./dist/chat.cjs"
+    },
+    "./verification": {
+      "types": "./dist/verification.d.ts",
+      "import": "./dist/verification.js",
+      "require": "./dist/verification.cjs"
     }
   },
   "sideEffects": false,
@@ -41,7 +46,7 @@
     "dist"
   ],
   "scripts": {
-    "build": "tsup",
+    "build": "tsup && node scripts/check-exports.mjs",
     "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },

@@ -7,4 +7,15 @@ export type { FetchTokenResult, GeminaTokenManagerOptions } from './token-manage
 export { GeminaChat } from './chat';
 export type { GeminaChatProps, GeminaChatTheme, GeminaChatDirection } from './chat';
 
+// Verification UI (React — also available as `@gemina/elements/verification`).
+export { GeminaVerification } from './verification/index';
+export type {
+  GeminaVerificationProps,
+  GeminaVerificationTheme,
+  GeminaVerificationDirection,
+  VerificationErrorReason,
+  VerificationErrorDetail,
+  VerificationCompletion,
+} from './verification/index';
+
 export { VERSION } from './version';

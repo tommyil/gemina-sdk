@@ -1,0 +1,63 @@
+<!doctype html>
+<!--
+  @gemina/elements manual demo — <GeminaVerification>.
+
+  Build the bundle (one line, from packages/elements/):
+
+    npx esbuild demo/verification-demo.tsx --bundle --outfile=demo/verification-demo.js \
+      --jsx=automatic --define:process.env.NODE_ENV='"production"'
+
+  Then serve this folder (any static server):
+
+    npx serve demo
+
+  Paste a session token into the page (simulating what YOUR backend would
+  mint via POST /v1/sessions/token). To get one for testing, run this
+  SERVER-SIDE (never put the API key in a browser or in this page).
+  NOTE: the extractionIds scope requires backend >= the verification release:
+
+    curl -s -X POST "https://api.gemina.co/api/v1/sessions/token" \
+      -H "X-API-Key: $GEMINA_API_KEY" \
+      -H "Content-Type: application/json" \
+      -d '{"ttlSeconds": 900, "extractionIds": ["<extraction-uuid>"]}'
+
+  Copy the "token" value from the response, and use the same extraction id
+  here. Tokens expire after <= 15 minutes — mint a fresh one and re-mount
+  when they do.
+-->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>@gemina/elements verification demo</title>
+    <style>
+      /* Same chrome as the chat demo, one deliberate change: 1140px wide —
+         at the chat demo's 720px the widget would sit below its own 860px
+         breakpoint and always render single-column. */
+      body {
+        font-family: system-ui, sans-serif;
+        max-width: 1140px;
+        margin: 2rem auto;
+        padding: 0 1rem;
+      }
+      /* "@gemina/elements" is one long token chromium won't break at 320px —
+         without this the heading (not the widget) extends page scrollWidth. */
+      h1 { overflow-wrap: anywhere; }
+      label { display: block; margin: 0.75rem 0 0.25rem; font-weight: 600; }
+      input, textarea { width: 100%; box-sizing: border-box; padding: 0.5rem; }
+      button { margin-top: 0.75rem; padding: 0.5rem 1.25rem; }
+      #verification-slot { margin-top: 1.5rem; }
+      .hint { color: #667085; font-size: 0.85rem; }
+    </style>
+  </head>
+  <body>
+    <h1>@gemina/elements verification demo</h1>
+    <p class="hint">
+      Paste a session token minted by a backend (see the comment in this
+      file's source) plus the extraction id it is scoped to. The Gemina API
+      key must never appear here.
+    </p>
+    <div id="root"></div>
+    <script src="./verification-demo.js"></script>
+  </body>
+</html>
