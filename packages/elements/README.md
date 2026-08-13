@@ -90,7 +90,8 @@ const tokenManager = new GeminaTokenManager({
   auto-refreshes once the token is within `refreshSkewSeconds` of expiry.
   Concurrent callers share a single in-flight fetch (no request stampede).
 - `invalidate(): void` — drops the cached token so the next `getToken()`
-  re-mints (used internally by `<GeminaChat>` on a 401).
+  re-mints (used internally by `<GeminaChat>` and `<GeminaVerification>`
+  on a 401).
 - No timers run while idle; refresh happens lazily inside `getToken()`, so
   it is SSR-safe and never keeps a Node process alive.
 - The token is stored in module-private state (a `WeakMap` keyed by the
@@ -243,10 +244,11 @@ mixed-language conversations stay readable. Pass `dir="rtl"` or
 
 ### SSR
 
-Importing either module touches no `window`/`document`, and no timers are
-created at construction — safe for Next.js/Remix server rendering. Style
-injection happens in an effect (mount, client-only). Render `<GeminaChat>`
-normally; it becomes interactive on hydration.
+Importing any of the three modules touches no `window`/`document`, and no
+timers are created at construction — safe for Next.js/Remix server
+rendering. Style injection happens in an effect (mount, client-only).
+Render `<GeminaChat>` or `<GeminaVerification>` normally; they become
+interactive on hydration.
 
 ## `<GeminaVerification>`
 
