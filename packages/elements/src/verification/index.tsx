@@ -695,7 +695,11 @@ export function GeminaVerification(props: GeminaVerificationProps): React.JSX.El
           event.preventDefault();
           cancel.focus();
         } else if (active !== cancel && active !== confirm) {
-          // Focus somehow left the dialog (scrim click) — pull it back in.
+          // Belt only: focus INSIDE the overlay subtree but on neither button
+          // (no such element exists today). This is NOT scrim-click recovery —
+          // a blur to <body> would put keydowns outside this subtree handler
+          // entirely; the scrim's mousedown preventDefault is what keeps that
+          // blur from ever happening.
           event.preventDefault();
           confirm.focus();
         }
@@ -812,7 +816,21 @@ export function GeminaVerification(props: GeminaVerificationProps): React.JSX.El
           </button>
         </div>
         {overlayUp && (
-          <div className="gemina-verification__confirm" onKeyDown={handleConfirmKeyDown}>
+          <div
+            className="gemina-verification__confirm"
+            onKeyDown={handleConfirmKeyDown}
+            // A press on the scrim must not blur the dialog: preventDefault on
+            // mousedown suppresses the browser's focus-move default, so
+            // activeElement stays on a dialog button and the subtree keydown
+            // handler above stays in the focus path (focus on <body> would put
+            // Escape/Tab out of its reach). Presses on the dialog's own
+            // controls hit target !== currentTarget and keep their default.
+            onMouseDown={(event) => {
+              if (event.target === event.currentTarget) {
+                event.preventDefault();
+              }
+            }}
+          >
             <div
               className="gemina-verification__confirm-dialog"
               role="dialog"

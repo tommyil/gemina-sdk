@@ -725,6 +725,24 @@ describe('GeminaVerification — stacked layout (root width observer)', () => {
     expect(ro.disconnected).toBe(true);
   });
 
+  it('reads the BORDER box, not contentRect: 880 border / 840 content is two-column', async () => {
+    getDocumentExtraction.mockResolvedValueOnce(extraction());
+    const { container } = renderVerification();
+    await screen.findByLabelText('Supplier Name');
+    const root = container.querySelector('.gemina-verification')!;
+    const ro = ResizeObserverStub.forClass('gemina-verification');
+
+    // Prove the dispatch reaches the live observer at all…
+    ro.resizeTo(500, 700);
+    expect(root.className).toContain('gemina-verification--stacked');
+
+    // …then a padded host where the boxes disagree: border box 880 (≥ 860),
+    // content box 840 (< 860). Border-box semantics keep two columns — a
+    // revert to contentRect would stack here and fail.
+    ro.resizeToBoxes(880, 840);
+    expect(root.className).not.toContain('gemina-verification--stacked');
+  });
+
   it('a zero-width measurement (hidden/unmeasured host) never forces stacking', async () => {
     getDocumentExtraction.mockResolvedValueOnce(extraction());
     const { container } = renderVerification();

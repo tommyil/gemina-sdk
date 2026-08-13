@@ -171,12 +171,22 @@ function mockRect(
 }
 
 describe('VerificationViewer — rendering', () => {
-  it('renders the document image with the given src and alt', () => {
+  it('renders the document image with the given src and alt — alt names the CANVAS label', () => {
     const { container } = renderViewer();
     const img = container.querySelector('img');
     expect(img).not.toBeNull();
     expect(img!.getAttribute('src')).toBe('https://example.com/doc.png');
     expect(img!.getAttribute('alt')).toBe('Invoice page 1');
+    // The canvas is the ONE labeled image to AT; the alt prop is its name.
+    const canvas = container.querySelector('.gemina-verification__canvas')!;
+    expect(canvas.getAttribute('aria-label')).toBe('Invoice page 1');
+  });
+
+  it('without alt, the canvas label falls back to "Document image" (img alt to "Document")', () => {
+    const { container } = render(<VerificationViewer src="https://example.com/doc.png" />);
+    const canvas = container.querySelector('.gemina-verification__canvas')!;
+    expect(canvas.getAttribute('aria-label')).toBe('Document image');
+    expect(container.querySelector('img')!.getAttribute('alt')).toBe('Document');
   });
 
   it('structures the viewer as toolbar + canvas under __viewer', () => {

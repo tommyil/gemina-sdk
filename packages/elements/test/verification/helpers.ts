@@ -51,6 +51,20 @@ export class ResizeObserverStub {
     });
   }
 
+  /** Like resizeTo, but the two boxes DISAGREE — a padded/bordered host,
+   * where border box > content box — so a test can pin WHICH box an
+   * observer reads. */
+  resizeToBoxes(borderInlineSize: number, contentWidth: number): void {
+    act(() => {
+      this.callback([
+        {
+          contentRect: { width: contentWidth, height: 700 },
+          borderBoxSize: [{ inlineSize: borderInlineSize, blockSize: 700 }],
+        },
+      ]);
+    });
+  }
+
   /** The instance observing the first element carrying `className` as a class token. */
   static forClass(className: string): ResizeObserverStub {
     const found = ResizeObserverStub.instances.find((instance) =>

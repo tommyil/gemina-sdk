@@ -208,6 +208,27 @@ describe('GeminaVerification — confirm dialog', () => {
     expect(document.activeElement).toBe(confirmButton());
   });
 
+  it('a scrim mousedown is default-prevented — focus stays in the dialog; button presses keep theirs', async () => {
+    await startEditedReview();
+
+    fireEvent.click(submitButton());
+    expect(document.activeElement).toBe(confirmButton());
+
+    // dispatchEvent returns false ⇔ preventDefault ran: the browser's
+    // mousedown default (move focus to the press target — here the scrim,
+    // i.e. blur to <body>, which would drop the overlay's keydown handler
+    // out of the focus path) is suppressed. The test env doesn't implement
+    // that focus-move default, so the return value is the real assertion;
+    // activeElement is the behavior it stands for.
+    const overlay = document.querySelector<HTMLElement>('.gemina-verification__confirm')!;
+    expect(fireEvent.mouseDown(overlay)).toBe(false);
+    expect(document.activeElement).toBe(confirmButton());
+
+    // Presses on the dialog's own controls (target !== currentTarget) keep
+    // their default — Cancel/Confirm stay normally clickable/focusable.
+    expect(fireEvent.mouseDown(screen.getByRole('button', { name: 'Cancel' }))).toBe(true);
+  });
+
   it('double-click Confirm submits once (button disabled while submitting)', async () => {
     let resolvePut: (value: unknown) => void = () => {};
     validateDocumentExtraction.mockReturnValueOnce(

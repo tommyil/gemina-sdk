@@ -824,9 +824,11 @@ export function VerificationViewer(props: VerificationViewerProps): React.JSX.El
         // One composite picture to AT: the inner <img>, overlay boxes, flash
         // and loupe are all facets of "the document image" — announcing each
         // separately would be noise, so the canvas is the labeled image and
-        // everything inside is presentational.
+        // everything inside is presentational. The host's `alt` prop names
+        // THIS label (the inner img's alt is unread by AT here but kept for
+        // non-AT contexts: broken-image text, save/copy affordances).
         role="img"
-        aria-label="Document image"
+        aria-label={alt ?? 'Document image'}
         onDoubleClick={handleDoubleClick}
         onMouseDown={handleMouseDown}
         onMouseMove={handleCanvasMouseMove}
