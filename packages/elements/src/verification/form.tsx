@@ -68,12 +68,17 @@ export function ConfidenceDot(props: {
       label = `${confidence.level} confidence`;
   }
 
-  const title = [label, ...confidence.reasons.map(formatLabel)].join('\n');
+  const reasons = confidence.reasons.map(formatLabel);
+  const title = [label, ...reasons].join('\n');
+  // The title tooltip is hover-only; the reasons must also reach AT (and the
+  // keyboard), so the accessible NAME carries them: "Low confidence: Blurry
+  // Region, Low OCR Quality". One string, no extra DOM.
+  const ariaLabel = reasons.length > 0 ? `${label}: ${reasons.join(', ')}` : label;
   return (
     <span
       className={`gemina-verification__dot gemina-verification__dot--${variant}`}
       role="img"
-      aria-label={label}
+      aria-label={ariaLabel}
       title={title}
     />
   );
@@ -598,7 +603,16 @@ export function VerificationForm(props: VerificationFormProps): React.JSX.Elemen
   const { classified, unmatched, bindingIndex, edits, onEdit, readOnly, onFlash } = props;
   const shared: SectionShared = { bindingIndex, edits, onEdit, readOnly, onFlash };
   return (
-    <div className="gemina-verification__form">
+    // A real, labeled <form> (role "form" landmark): AT users can jump
+    // straight to the editable fields. Submission is owned by the root's
+    // footer button, never by the form element itself — preventDefault stops
+    // implicit submission (Enter in a payload with exactly one input would
+    // otherwise navigate).
+    <form
+      className="gemina-verification__form"
+      aria-label="Extraction fields"
+      onSubmit={(event) => event.preventDefault()}
+    >
       <HeaderSection headers={classified.headers} simpleLists={classified.simpleLists} shared={shared} />
       {classified.entities.map((entity) => (
         <EntitySection key={entity.pointer} entity={entity} shared={shared} />
@@ -608,6 +622,6 @@ export function VerificationForm(props: VerificationFormProps): React.JSX.Elemen
       ))}
       <FallbackSection fallback={classified.fallback} />
       <UnmatchedSection unmatched={unmatched} shared={shared} />
-    </div>
+    </form>
   );
 }

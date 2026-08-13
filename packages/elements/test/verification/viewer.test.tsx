@@ -21,6 +21,7 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vite
 import { VerificationViewer } from '../../src/verification/viewer';
 import type { RelativeRect } from '../../src/verification/viewer';
 import { ensureVerificationStylesInjected } from '../../src/verification/styles';
+import { fitScaleFor, flashZoomTarget } from '../../src/verification/viewer-math';
 
 /** Controllable ResizeObserver: records instances; `resizeTo` dispatches a
  * fake contentRect so tests give the canvas a real size. */
@@ -147,7 +148,7 @@ function fireWheel(
  * `.length` and `[i].clientX/Y`. */
 function fireTouch(
   el: HTMLElement,
-  type: 'touchStart' | 'touchMove' | 'touchEnd',
+  type: 'touchStart' | 'touchMove' | 'touchEnd' | 'touchCancel',
   touches: Array<{ clientX: number; clientY: number }>,
 ): void {
   fireEvent[type](el, { touches });
@@ -532,6 +533,34 @@ describe('VerificationViewer — touch pan + pinch zoom', () => {
     expect(topOf(img)).toBeCloseTo(startTop + 60, 6);
   });
 
+  it('touchcancel resets the gesture exactly like a full lift (browser-cancelled pinch)', () => {
+    const { img, canvas } = mountSized();
+    fireTouch(canvas, 'touchStart', [
+      { clientX: 200, clientY: 250 },
+      { clientX: 300, clientY: 250 },
+    ]);
+    fireTouch(canvas, 'touchMove', [
+      { clientX: 150, clientY: 250 },
+      { clientX: 350, clientY: 250 },
+    ]);
+    expect(scaleOf(img)).toBeCloseTo(0.5, 6); // gesture was live
+
+    // The browser cancels (edge swipe, notification shade): all touches gone.
+    fireTouch(canvas, 'touchCancel', []);
+    const style = layerOf(img).getAttribute('style');
+    fireTouch(canvas, 'touchMove', [
+      { clientX: 100, clientY: 250 },
+      { clientX: 400, clientY: 250 },
+    ]); // stale pinch state would zoom; a reset one is inert
+    expect(layerOf(img).getAttribute('style')).toBe(style);
+
+    // Same for a cancelled one-finger pan: a later move must not drag.
+    fireTouch(canvas, 'touchStart', [{ clientX: 200, clientY: 200 }]);
+    fireTouch(canvas, 'touchCancel', []);
+    fireTouch(canvas, 'touchMove', [{ clientX: 400, clientY: 400 }]);
+    expect(layerOf(img).getAttribute('style')).toBe(style);
+  });
+
   it('touchEnd with zero touches resets a pinch (a following move does nothing)', () => {
     const { img, canvas } = mountSized();
     fireTouch(canvas, 'touchStart', [
@@ -683,6 +712,12 @@ describe('VerificationViewer — coordinate overlays', () => {
     expect(badges.length).toBe(2);
     expect(badges[0]!.textContent).toBe('#1');
     expect(badges[1]!.textContent).toBe('#2');
+
+    // Decorative to AT: each rect (badge riding inside) is aria-hidden — the
+    // canvas is announced as ONE labeled image.
+    for (const box of Array.from(rects)) {
+      expect(box.getAttribute('aria-hidden')).toBe('true');
+    }
   });
 
   it('clamps hairline rects to the console 0.008 minimum size ratio', () => {
@@ -768,9 +803,11 @@ describe('VerificationViewer — flash-zoom', () => {
 
     flash(RECTS);
 
-    // Flash rect appears immediately at full opacity, overlay-rect geometry.
+    // Flash rect appears immediately at full opacity, overlay-rect geometry,
+    // hidden from AT (a decorative highlight on the labeled canvas image).
     const rect = container.querySelector<HTMLElement>('.gemina-verification__flash-rect')!;
     expect(rect).not.toBeNull();
+    expect(rect.getAttribute('aria-hidden')).toBe('true');
     expect(Number(rect.style.opacity)).toBe(1);
     expect(Number.parseFloat(rect.style.left)).toBeCloseTo(100, 6);
     expect(Number.parseFloat(rect.style.top)).toBeCloseTo(200, 6);
@@ -928,6 +965,11 @@ describe('VerificationViewer — flash-zoom', () => {
     act(() => {
       vi.advanceTimersByTime(96);
     });
+    // In-flight precondition: the new travel is really driving (moved beyond
+    // its start, short of its target) and sits away from fit — so the Fit
+    // click below meaningfully cancels rather than confirming a no-op.
+    expect(scaleOf(img)).toBeGreaterThan(afterZoom.s);
+    expect(scaleOf(img)).toBeLessThan(TARGET.scale);
     fireEvent.click(screen.getByRole('button', { name: 'Fit to screen' }));
     expect(scaleOf(img)).toBeCloseTo(0.25, 6);
     act(() => {
@@ -942,6 +984,9 @@ describe('VerificationViewer — flash-zoom', () => {
     act(() => {
       vi.advanceTimersByTime(96);
     });
+    // In-flight precondition again: mid-travel between fit and the target.
+    expect(scaleOf(img)).toBeGreaterThan(0.25);
+    expect(scaleOf(img)).toBeLessThan(TARGET.scale);
     fireEvent.click(screen.getByRole('button', { name: 'Actual size (100%)' }));
     expect(scaleOf(img)).toBe(1);
     act(() => {
@@ -953,6 +998,45 @@ describe('VerificationViewer — flash-zoom', () => {
 
     // Only the transform drive died each time — the LAST fade still completes
     // and fires exactly once (earlier fades were canceled by the re-triggers).
+    act(() => {
+      vi.advanceTimersByTime(1200);
+    });
+    expect(container.querySelector('.gemina-verification__flash-rect')).toBeNull();
+    expect(onFlashComplete).toHaveBeenCalledTimes(1);
+  });
+
+  it('rotating mid-travel restarts the flash cleanly toward a rotation-correct target', () => {
+    const onFlashComplete = vi.fn();
+    const { container, img, flash } = mountForFlash(onFlashComplete);
+
+    flash(RECTS);
+    act(() => {
+      vi.advanceTimersByTime(96); // mid-travel toward the rotation-0 target
+    });
+    const midScale = scaleOf(img);
+    expect(midScale).toBeGreaterThan(0.25);
+    expect(midScale).toBeLessThan(TARGET.scale);
+
+    // Rotation is a dep of the flash effect: cleanup cancels both loops, the
+    // re-run recomputes the target for the NEW rotation and restarts travel
+    // AND fade (opacity back to 1) — never coasting to a stale pre-rotation
+    // transform (see handleRotate's comment in viewer.tsx).
+    fireEvent.click(screen.getByRole('button', { name: 'Rotate 90 degrees' }));
+    const restarted = container.querySelector<HTMLElement>('.gemina-verification__flash-rect')!;
+    expect(Number(restarted.style.opacity)).toBe(1);
+
+    const natural = { w: 1000, h: 2000 };
+    const box = { w: 500, h: 500 };
+    const target90 = flashZoomTarget(RECTS, natural, box, 90, fitScaleFor(natural, box, 90));
+    act(() => {
+      vi.advanceTimersByTime(400); // past the restarted 350ms travel window
+    });
+    expect(transformOf(img)).toContain('rotate(90deg)');
+    expect(scaleOf(img)).toBeCloseTo(target90.scale, 6);
+    expect(leftOf(img)).toBeCloseTo(target90.tx, 6);
+    expect(topOf(img)).toBeCloseTo(target90.ty, 6);
+
+    // The restarted fade completes on its own 1500ms clock — exactly once.
     act(() => {
       vi.advanceTimersByTime(1200);
     });

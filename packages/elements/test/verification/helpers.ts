@@ -3,10 +3,18 @@
  */
 import { act } from '@testing-library/react';
 
+/** The entry shape the stub dispatches: borderBoxSize (what the root's
+ * stacked observer reads) alongside contentRect (what the viewer's canvas
+ * observer reads) — one resizeTo drives both observer styles. */
+interface StubEntry {
+  contentRect: { width: number; height: number };
+  borderBoxSize: Array<{ inlineSize: number; blockSize: number }>;
+}
+
 /**
  * Controllable ResizeObserver stub (the viewer tests' pattern): records
- * instances and their observed targets; `resizeTo` dispatches a fake
- * contentRect so a test can drive an element's width without layout.
+ * instances and their observed targets; `resizeTo` dispatches a fake entry so
+ * a test can drive an element's width without layout.
  * Install per-describe via `vi.stubGlobal('ResizeObserver', ResizeObserverStub)`
  * so the other tests keep exercising the no-ResizeObserver fallback path.
  */
@@ -15,13 +23,9 @@ export class ResizeObserverStub {
 
   target: Element | null = null;
   disconnected = false;
-  private readonly callback: (
-    entries: Array<{ contentRect: { width: number; height: number } }>,
-  ) => void;
+  private readonly callback: (entries: StubEntry[]) => void;
 
-  constructor(
-    callback: (entries: Array<{ contentRect: { width: number; height: number } }>) => void,
-  ) {
+  constructor(callback: (entries: StubEntry[]) => void) {
     this.callback = callback;
     ResizeObserverStub.instances.push(this);
   }
@@ -38,7 +42,12 @@ export class ResizeObserverStub {
 
   resizeTo(width: number, height: number): void {
     act(() => {
-      this.callback([{ contentRect: { width, height } }]);
+      this.callback([
+        {
+          contentRect: { width, height },
+          borderBoxSize: [{ inlineSize: width, blockSize: height }],
+        },
+      ]);
     });
   }
 

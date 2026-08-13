@@ -87,6 +87,11 @@ const IMAGE_REFRESH_THROTTLE_MS = 60_000;
 
 const LOADING_TEXT = 'Loading extraction…';
 const SESSION_EXPIRED_TEXT = 'Session expired — please reload the page or sign in again.';
+// The SUBMIT-side 401 copy must NOT suggest reloading: the reviewer's edits
+// live only in component state, and a reload would destroy them — while a
+// fresh sign-in in another tab plus Retry preserves and submits them.
+const SUBMIT_SESSION_EXPIRED_TEXT =
+  'Session expired — sign in again in another tab, then press Retry. Your corrections are still here.';
 const NOT_AVAILABLE_TEXT = 'This extraction is not available.';
 const LOAD_FAILED_TEXT = "Couldn't load the extraction.";
 const PURGED_TEXT = 'Document no longer available (retention policy).';
@@ -112,6 +117,19 @@ interface LoadedData {
  * One shared instance (SectionShared contract: `edits` is compared by
  * reference, so "no edits" must always be the same object). */
 const NO_EDITS: ReadonlyMap<string, string> = new Map();
+
+/**
+ * Unavailable reasons that are FAILURES (a thrown fetch: 401/404/network/5xx)
+ * announce assertively as role="alert". The meta-derived landings (purged,
+ * not-completed, verification-unavailable) are calm facts about the extraction
+ * — the load succeeded, there is just nothing to verify — and announce
+ * politely as role="status".
+ */
+const ALERT_REASONS: ReadonlySet<VerificationErrorReason> = new Set([
+  'session-expired',
+  'not-available',
+  'load-failed',
+]);
 
 /**
  * Embeddable Gemina extraction-verification UI.
@@ -179,6 +197,11 @@ export function GeminaVerification(props: GeminaVerificationProps): React.JSX.El
   const restoreFocusRef = useRef(false);
   const submitButtonRef = useRef<HTMLButtonElement | null>(null);
   const confirmButtonRef = useRef<HTMLButtonElement | null>(null);
+  const cancelButtonRef = useRef<HTMLButtonElement | null>(null);
+  // Focus landings for the phases that unmount the dialog under the keyboard
+  // user: the submit-error Retry button, and the done state (tabIndex -1).
+  const retrySubmitButtonRef = useRef<HTMLButtonElement | null>(null);
+  const doneStateRef = useRef<HTMLDivElement | null>(null);
 
   /**
    * Enter a terminal unavailable state and notify the host. onError fires
@@ -324,10 +347,16 @@ export function GeminaVerification(props: GeminaVerificationProps): React.JSX.El
       return;
     }
     const observer = new ResizeObserver((entries) => {
-      const rect = entries[0]?.contentRect;
-      if (rect) {
-        apply(rect.width);
+      const entry = entries[0];
+      if (!entry) {
+        return;
       }
+      // Border-box width: the element's OUTER width — the same box the
+      // no-ResizeObserver fallback's getBoundingClientRect measures, so the
+      // 860px breakpoint means one thing on both paths. contentRect is the
+      // pre-borderBoxSize fallback (Safari < 15.4), off by padding + border.
+      const width = entry.borderBoxSize?.[0]?.inlineSize ?? entry.contentRect.width;
+      apply(width);
     });
     observer.observe(el);
     return () => observer.disconnect();
@@ -588,8 +617,9 @@ export function GeminaVerification(props: GeminaVerificationProps): React.JSX.El
         }
         if (detail.status === 401) {
           // Only after the one mandated retry. Edits are kept: a fresh
-          // sign-in elsewhere + Retry can still succeed.
-          setPhase({ name: 'submit-error', message: SESSION_EXPIRED_TEXT });
+          // sign-in elsewhere + Retry can still succeed — hence the
+          // submit-specific copy (never "reload the page").
+          setPhase({ name: 'submit-error', message: SUBMIT_SESSION_EXPIRED_TEXT });
           onErrorRef.current?.('session-expired', detail);
           return;
         }
@@ -635,25 +665,62 @@ export function GeminaVerification(props: GeminaVerificationProps): React.JSX.El
 
   const handleConfirmKeyDown = useCallback(
     (event: React.KeyboardEvent) => {
-      // Escape cancels while the question is open; an in-flight PUT cannot be
-      // aborted, so submitting ignores it.
-      if (event.key === 'Escape' && phase.name === 'confirming') {
+      // Keys only act while the QUESTION is open. During `submitting` the
+      // in-flight PUT cannot be aborted (Escape is ignored) and both dialog
+      // buttons are disabled — nothing inside is focusable, so there is
+      // nothing to trap either; the phase resolves to done/submit-error in
+      // one round-trip and the phase-entry effect re-anchors focus there.
+      if (phase.name !== 'confirming') {
+        return;
+      }
+      if (event.key === 'Escape') {
         event.stopPropagation();
         handleCancelConfirm();
+        return;
+      }
+      // Minimal focus trap: the dialog has exactly two tabbables (Cancel and
+      // Confirm), so Tab/Shift+Tab wrap between them instead of escaping into
+      // the scrimmed background the overlay only covers visually.
+      if (event.key === 'Tab') {
+        const cancel = cancelButtonRef.current;
+        const confirm = confirmButtonRef.current;
+        if (cancel === null || confirm === null) {
+          return;
+        }
+        const active = document.activeElement;
+        if (event.shiftKey && active === cancel) {
+          event.preventDefault();
+          confirm.focus();
+        } else if (!event.shiftKey && active === confirm) {
+          event.preventDefault();
+          cancel.focus();
+        } else if (active !== cancel && active !== confirm) {
+          // Focus somehow left the dialog (scrim click) — pull it back in.
+          event.preventDefault();
+          confirm.focus();
+        }
       }
     },
     [phase.name, handleCancelConfirm],
   );
 
-  // Dialog focus: entering `confirming` moves focus to the final-action
-  // button (Enter submits, Escape cancels); a Cancel hands it back to the
-  // Submit button — from here, AFTER the review re-render re-enabled it.
+  // Phase-entry focus anchoring. Entering `confirming` moves focus to the
+  // final-action button (Enter submits, Escape cancels); a Cancel hands it
+  // back to the Submit button — from here, AFTER the review re-render
+  // re-enabled it. The two phases that unmount the dialog under the keyboard
+  // user get their own landings (without them focus drops to <body>):
+  // submit-error → the inline Retry button; done → the state container
+  // (tabIndex -1, no ring — a non-interactive announcement landing).
   useEffect(() => {
     if (phase.name === 'confirming') {
       confirmButtonRef.current?.focus();
     } else if (phase.name === 'review' && restoreFocusRef.current) {
       restoreFocusRef.current = false;
       submitButtonRef.current?.focus();
+    } else if (phase.name === 'submit-error') {
+      retrySubmitButtonRef.current?.focus();
+    } else if (phase.name === 'done') {
+      doneStateRef.current?.focus();
     }
   }, [phase.name]);
 
@@ -715,6 +782,7 @@ export function GeminaVerification(props: GeminaVerificationProps): React.JSX.El
             <span>{reviewPhase.message}</span>
             <button
               type="button"
+              ref={retrySubmitButtonRef}
               className="gemina-verification__retry"
               onClick={handleRetrySubmit}
             >
@@ -757,6 +825,7 @@ export function GeminaVerification(props: GeminaVerificationProps): React.JSX.El
               <div className="gemina-verification__confirm-actions">
                 <button
                   type="button"
+                  ref={cancelButtonRef}
                   className="gemina-verification__confirm-cancel"
                   onClick={handleCancelConfirm}
                   disabled={reviewPhase.name === 'submitting'}
@@ -794,7 +863,10 @@ export function GeminaVerification(props: GeminaVerificationProps): React.JSX.El
         );
       case 'unavailable':
         return (
-          <div className="gemina-verification__state" role="alert">
+          <div
+            className="gemina-verification__state"
+            role={ALERT_REASONS.has(phase.reason) ? 'alert' : 'status'}
+          >
             <div>{phase.message}</div>
             {phase.canRetry && (
               <button type="button" className="gemina-verification__retry" onClick={handleRetry}>
@@ -811,6 +883,10 @@ export function GeminaVerification(props: GeminaVerificationProps): React.JSX.El
       case 'done':
         return (
           <div
+            ref={doneStateRef}
+            // Programmatic focus landing only — see the phase-entry focus
+            // effect. Not tab-reachable; the stylesheet suppresses the ring.
+            tabIndex={-1}
             className="gemina-verification__state gemina-verification__state--done"
             role="status"
           >

@@ -46,7 +46,7 @@
     "dist"
   ],
   "scripts": {
-    "build": "tsup",
+    "build": "tsup && node scripts/check-exports.mjs",
     "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },

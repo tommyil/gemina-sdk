@@ -295,7 +295,9 @@ export function VerificationViewer(props: VerificationViewerProps): React.JSX.El
   const hasLoadedRef = useRef(false);
 
   // Measure the canvas (console lines ~124-133), with a one-shot fallback for
-  // environments without ResizeObserver.
+  // environments without ResizeObserver. contentRect on purpose (unlike the
+  // root's stacked observer, which reads border-box): the fit/zoom math needs
+  // the CONTENT area the image is positioned within.
   useLayoutEffect(() => {
     const el = canvasRef.current;
     if (!el) return;
@@ -611,6 +613,12 @@ export function VerificationViewer(props: VerificationViewerProps): React.JSX.El
     setTransform({ scale: target, ...centeredTranslation(natural, container, target, rotation) });
   }, [natural, container, rotation, currentFitScale, cancelFlashTravel]);
 
+  // Deliberately does NOT cancelFlashTravel: `rotation` is a dep of the flash
+  // effect, so a rotate mid-travel re-runs it — cleanup cancels both loops,
+  // then the effect recomputes flashZoomTarget for the NEW rotation and
+  // restarts travel (and fade, from full opacity) from the current transform.
+  // The rect therefore lands rotation-correct instead of coasting toward a
+  // stale pre-rotation target (pinned by the rotate-mid-travel test).
   const handleRotate = useCallback(() => {
     setRotation((r) => (r + 90) % 360);
   }, []);
@@ -813,6 +821,12 @@ export function VerificationViewer(props: VerificationViewerProps): React.JSX.El
         ref={canvasRef}
         className="gemina-verification__canvas"
         data-cursor={cursorMode}
+        // One composite picture to AT: the inner <img>, overlay boxes, flash
+        // and loupe are all facets of "the document image" — announcing each
+        // separately would be noise, so the canvas is the labeled image and
+        // everything inside is presentational.
+        role="img"
+        aria-label="Document image"
         onDoubleClick={handleDoubleClick}
         onMouseDown={handleMouseDown}
         onMouseMove={handleCanvasMouseMove}
@@ -820,6 +834,10 @@ export function VerificationViewer(props: VerificationViewerProps): React.JSX.El
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
+        // The browser cancelling a gesture (edge swipe, notification shade)
+        // must reset it exactly like a full lift — a stale touchState would
+        // make the NEXT touch continue a dead pan/pinch.
+        onTouchCancel={handleTouchEnd}
       >
         {/* Canvas geometry (not layout) — inline by design; CSS owns appearance. */}
         <div
@@ -842,21 +860,29 @@ export function VerificationViewer(props: VerificationViewerProps): React.JSX.El
           />
           {/* Detection overlays (toggle-controlled, console ~742-792). Index
               keys are stable here: rect arrays are replaced wholesale and the
-              boxes are stateless leaves. Geometry inline; appearance in CSS. */}
+              boxes are stateless leaves. Geometry inline; appearance in CSS.
+              aria-hidden per rect (badge included): the canvas is one labeled
+              image to AT — the "#N" chips are visual decoration on it. */}
           {showRects &&
             natural &&
             relativeRects?.map((rect, idx) => {
               const geometry = rectGeometry(rect, natural);
               if (!geometry) return null;
               return (
-                <div key={`rect-${idx}`} className="gemina-verification__rect" style={geometry}>
+                <div
+                  key={`rect-${idx}`}
+                  className="gemina-verification__rect"
+                  style={geometry}
+                  aria-hidden="true"
+                >
                   <span className="gemina-verification__rect-badge">#{idx + 1}</span>
                 </div>
               );
             })}
           {/* Flash overlay (temporary, independent of the toggle). Element-level
-              opacity reproduces the console's per-channel alpha fade exactly —
-              see the __flash-rect comment in styles.ts. */}
+              opacity is equivalent to the console's per-channel alpha fade
+              modulo overlapping-layer compositing — see the __flash-rect
+              comment in styles.ts. aria-hidden: purely decorative highlight. */}
           {activeFlashRects &&
             natural &&
             activeFlashRects.map((rect, idx) => {
@@ -867,6 +893,7 @@ export function VerificationViewer(props: VerificationViewerProps): React.JSX.El
                   key={`flash-rect-${idx}`}
                   className="gemina-verification__flash-rect"
                   style={{ ...geometry, opacity: flashOpacity }}
+                  aria-hidden="true"
                 />
               );
             })}

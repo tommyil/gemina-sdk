@@ -178,10 +178,34 @@ describe('GeminaVerification — confirm dialog', () => {
     fireEvent.click(confirmButton());
     expect(screen.getByLabelText<HTMLInputElement>('Supplier Name').value).toBe('Acme Ltd.');
     expect(screen.queryByRole('textbox', { name: 'Supplier Name' })).toBeTruthy();
+    // While the PUT is in flight BOTH dialog buttons disable — Cancel too:
+    // the request cannot be aborted, so "Cancel" would be a lie.
+    expect((screen.getByRole('button', { name: 'Cancel' }) as HTMLButtonElement).disabled).toBe(
+      true,
+    );
+    expect(confirmButton().disabled).toBe(true);
 
     resolvePut(VALIDATION_RESULT);
     await flushMicrotasks();
     expect(screen.getByText('Feedback submitted')).toBeTruthy();
+  });
+
+  it('Tab wraps between Cancel and Confirm while the dialog is open (focus trap)', async () => {
+    await startEditedReview();
+
+    fireEvent.click(submitButton());
+    const dialog = screen.getByRole('dialog');
+    const cancel = screen.getByRole('button', { name: 'Cancel' });
+    // Entry focus: the final-action button.
+    expect(document.activeElement).toBe(confirmButton());
+
+    // Tab from the LAST tabbable (Confirm) wraps to the first (Cancel)…
+    fireEvent.keyDown(dialog, { key: 'Tab' });
+    expect(document.activeElement).toBe(cancel);
+    // …plain Tab from Cancel would land on Confirm natively (not trapped);
+    // Shift+Tab from the FIRST tabbable (Cancel) wraps back to the last.
+    fireEvent.keyDown(dialog, { key: 'Tab', shiftKey: true });
+    expect(document.activeElement).toBe(confirmButton());
   });
 
   it('double-click Confirm submits once (button disabled while submitting)', async () => {
@@ -260,6 +284,10 @@ describe('GeminaVerification — submit success', () => {
     expect(state).toBeTruthy();
     expect(screen.getByText('Feedback submitted')).toBeTruthy();
     expect(screen.getByText('1 confirmed · 1 corrected')).toBeTruthy();
+    // Announced politely, and focus lands on the state container (tabIndex
+    // -1) — the dialog under the keyboard user just unmounted.
+    expect(state!.getAttribute('role')).toBe('status');
+    expect(document.activeElement).toBe(state);
 
     expect(onComplete).toHaveBeenCalledTimes(1);
     expect(onComplete).toHaveBeenCalledWith({
@@ -315,6 +343,8 @@ describe('GeminaVerification — submit failures (edits NEVER cleared)', () => {
     expect(alert.textContent).toContain('Feedback could not be stored.');
     expect(screen.getByLabelText<HTMLInputElement>('Supplier Name').value).toBe('Acme Ltd.');
     expect(screen.getByText('edited')).toBeTruthy();
+    // Focus lands on Retry when the dialog unmounts into submit-error.
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Retry' }));
     expect(onError).toHaveBeenCalledTimes(1);
     expect(onError).toHaveBeenCalledWith('submit-failed', {
       status: 500,
@@ -359,7 +389,7 @@ describe('GeminaVerification — submit failures (edits NEVER cleared)', () => {
     expect(onError).not.toHaveBeenCalled();
   });
 
-  it('401 twice → session-expired submit-error, edits kept', async () => {
+  it('401 twice → session-expired submit-error with SUBMIT-side copy (no "reload"), edits kept', async () => {
     validateDocumentExtraction
       .mockRejectedValueOnce(httpError(401))
       .mockRejectedValueOnce(httpError(401));
@@ -367,9 +397,14 @@ describe('GeminaVerification — submit failures (edits NEVER cleared)', () => {
 
     await submitAndConfirm();
 
-    expect(
-      screen.getByText('Session expired — please reload the page or sign in again.'),
-    ).toBeTruthy();
+    // Submit-specific copy: the load-path text says "reload the page", which
+    // would DESTROY the state-held edits here — this copy must never suggest
+    // it, and must point at the preserved-corrections + Retry path instead.
+    const alert = screen.getByRole('alert');
+    expect(alert.textContent).toContain(
+      'Session expired — sign in again in another tab, then press Retry. Your corrections are still here.',
+    );
+    expect(alert.textContent).not.toContain('reload');
     // Edits survive: a fresh sign-in elsewhere + Retry can still succeed.
     expect(screen.getByLabelText<HTMLInputElement>('Supplier Name').value).toBe('Acme Ltd.');
     expect(screen.getByRole('button', { name: 'Retry' })).toBeTruthy();
@@ -379,5 +414,63 @@ describe('GeminaVerification — submit failures (edits NEVER cleared)', () => {
       description: undefined,
     });
     expect(onComplete).not.toHaveBeenCalled();
+  });
+});
+
+describe('GeminaVerification — unmount mid-submit', () => {
+  /** Mount, edit, confirm-submit with the PUT held pending; return the
+   * settlers so a test can resolve/reject AFTER the widget is gone. */
+  async function startPendingSubmit() {
+    let resolvePut: (value: unknown) => void = () => {};
+    let rejectPut: (reason: unknown) => void = () => {};
+    validateDocumentExtraction.mockReturnValueOnce(
+      new Promise((resolve, reject) => {
+        resolvePut = resolve;
+        rejectPut = reject;
+      }),
+    );
+    const utils = await startEditedReview();
+    fireEvent.click(submitButton());
+    fireEvent.click(confirmButton());
+    // The token mint is async — flush it so the PUT is genuinely IN FLIGHT
+    // (not merely queued) when the test unmounts.
+    await flushMicrotasks();
+    expect(validateDocumentExtraction).toHaveBeenCalledTimes(1);
+    return { ...utils, resolvePut, rejectPut };
+  }
+
+  it('a PUT that RESOLVES after unmount fires no onComplete and no act warnings', async () => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    try {
+      const { unmount, onComplete, onError, resolvePut } = await startPendingSubmit();
+
+      unmount();
+      resolvePut(VALIDATION_RESULT);
+      await flushMicrotasks();
+
+      expect(onComplete).not.toHaveBeenCalled();
+      expect(onError).not.toHaveBeenCalled();
+      // React act/update warnings arrive via console.error — none allowed.
+      expect(errorSpy).not.toHaveBeenCalled();
+    } finally {
+      errorSpy.mockRestore();
+    }
+  });
+
+  it('a PUT that REJECTS after unmount fires no onError and no act warnings', async () => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    try {
+      const { unmount, onComplete, onError, rejectPut } = await startPendingSubmit();
+
+      unmount();
+      rejectPut(httpError(500, { description: 'too late' }));
+      await flushMicrotasks();
+
+      expect(onError).not.toHaveBeenCalled();
+      expect(onComplete).not.toHaveBeenCalled();
+      expect(errorSpy).not.toHaveBeenCalled();
+    } finally {
+      errorSpy.mockRestore();
+    }
   });
 });

@@ -149,19 +149,22 @@ describe('ConfidenceDot', () => {
     expect(container.firstChild).toBeNull();
   });
 
-  it('title tooltip = label line + one formatted reason per line', () => {
+  it('reasons reach AT through the accessible NAME, not only the hover title', () => {
     render(
       <ConfidenceDot
         confidence={{ level: 'high', reasons: ['low_ocr_quality', 'blurry_scan'] }}
       />,
     );
-    const dot = screen.getByRole('img', { name: 'High confidence' });
+    // The title tooltip is mouse-only; the aria-label carries the reasons too
+    // (formatted, comma-joined) so screen-reader users hear WHY.
+    const dot = screen.getByRole('img', { name: 'High confidence: Low OCR Quality, Blurry Scan' });
     expect(dot.getAttribute('title')).toBe('High confidence\nLow OCR Quality\nBlurry Scan');
   });
 
-  it('title without reasons is the bare label — no trailing newline', () => {
+  it('without reasons both name and title are the bare label — no trailing separator', () => {
     render(<ConfidenceDot confidence={{ level: 'low', reasons: [] }} />);
     const dot = screen.getByRole('img', { name: 'Low confidence' });
+    expect(dot.getAttribute('aria-label')).toBe('Low confidence');
     expect(dot.getAttribute('title')).toBe('Low confidence');
   });
 });

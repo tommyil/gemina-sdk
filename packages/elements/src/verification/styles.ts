@@ -201,9 +201,10 @@ const VERIFICATION_CSS = `
 .gemina-verification__flash-rect {
   /* Fade is driven by JS via element-level opacity (rAF travel animation);
      no CSS animation here so the two never fight. Element-level opacity is
-     EXACTLY the console's per-channel fade: it multiplies the border (1·o),
-     background (0.25·o), and glow (0.6·o / 0.3·o) alphas uniformly, which is
-     what the console computed channel by channel. */
+     equivalent to the console's per-channel fade — border (1·o), background
+     (0.25·o), glow (0.6·o / 0.3·o) — modulo overlapping-layer compositing:
+     per-channel alphas blend border-over-background where they overlap,
+     element opacity flattens the group first. Indistinguishable in practice. */
   position: absolute;
   z-index: 3;
   pointer-events: none;
@@ -225,11 +226,14 @@ const VERIFICATION_CSS = `
 }
 
 /* --- Form pane ------------------------------------------------------------ */
+/* A real <form> element (labeled AT landmark) — margin reset guards against
+   host/UA form margins. */
 .gemina-verification__form {
   display: flex;
   flex-direction: column;
   gap: 12px;
   min-width: 0;
+  margin: 0;
 }
 .gemina-verification__section {
   background: var(--gemina-verification-bg);
@@ -488,6 +492,11 @@ const VERIFICATION_CSS = `
 }
 /* Done: the one saturated moment outside the form — a single accent check. */
 .gemina-verification__state--done { color: var(--gemina-verification-fg); }
+/* Programmatic focus landing (tabIndex -1), not an interactive control: no
+   ring — the accent check IS the visual landing; focus moves here purely so
+   keyboard/AT users don't drop to <body> when the dialog unmounts. */
+.gemina-verification__state--done:focus,
+.gemina-verification__state--done:focus-visible { outline: none; }
 .gemina-verification__done-check {
   display: flex;
   align-items: center;

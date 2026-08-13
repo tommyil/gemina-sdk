@@ -9,7 +9,9 @@ export interface FieldBinding {
    * The RAW resolved node — never unwrapped — or NOT_FOUND. This is what an
    * untouched binding submits verbatim: the server resolves the same pointer
    * against the same model tree (casing aside), so wrapper objects compare
-   * dict-vs-dict and score correct.
+   * dict-vs-dict and score correct. Note: dict-valued submissions additionally
+   * require INNER-key casing identity with the server's scoring dict — which
+   * holds for custom_template's uncamelized dicts, the only reachable case.
    */
   serverValue: unknown | NotFound;
   /** DISPLAY value: serverValue unwrapped via isValueObject, else serverValue. */

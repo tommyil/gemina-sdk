@@ -1,6 +1,13 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 
 import { VERSION } from '../../src/version';
+
+// Order-proofing: every test leaves a clean head, so the pristine-import
+// assertion below holds under ANY test order (shuffle/isolate) instead of
+// depending on running first.
+afterEach(() => {
+  document.head.querySelector('style[data-gemina-verification]')?.remove();
+});
 
 /**
  * The class names below are the styling contract for Tasks 7–17: every
