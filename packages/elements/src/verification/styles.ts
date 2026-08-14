@@ -274,6 +274,10 @@ const VERIFICATION_CSS = `
 }
 .gemina-verification__dd {
   display: flex;
+  /* Wrap so a field error takes its OWN line (it sets flex-basis:100%).
+     Without this it competes with the input for width, and at 390px the
+     message wrapped to one word per line while the input shrank to ~55px. */
+  flex-wrap: wrap;
   align-items: center;
   gap: 6px;
   margin: 0; /* resets the UA's margin-inline-start on <dd> */
@@ -348,6 +352,7 @@ const VERIFICATION_CSS = `
    and list items — the fragment has no container of its own. */
 .gemina-verification__cell {
   display: flex;
+  flex-wrap: wrap; /* same reason as __dd: the field error needs its own line */
   align-items: center;
   gap: 6px;
   min-width: 0;
@@ -607,6 +612,157 @@ const VERIFICATION_CSS = `
     animation: none;
     transition: none;
   }
+}
+
+/* A label that carries a description. Dotted underline is the long-standing
+   convention for "there is more here", and tabIndex makes it reachable, so the
+   tooltip is not mouse-only. */
+.gemina-verification__label-described {
+  text-decoration: underline dotted;
+  text-underline-offset: 3px;
+  cursor: help;
+}
+.gemina-verification__label-described:focus-visible {
+  outline: 2px solid var(--gemina-verification-accent);
+  outline-offset: 2px;
+}
+
+/* Rows worth a second look. Uses the EXISTING confidence tokens — no new
+   colours — as a start-edge rule, which is the one edge a reviewer scans down
+   a long table. Logical property, so it lands on the right side under RTL. */
+.gemina-verification__row--low > td:first-child,
+.gemina-verification__row--medium > td:first-child {
+  border-inline-start: 3px solid transparent;
+}
+.gemina-verification__row--low > td:first-child {
+  border-inline-start-color: var(--gemina-verification-confidence-low);
+}
+.gemina-verification__row--medium > td:first-child {
+  border-inline-start-color: var(--gemina-verification-confidence-medium);
+}
+
+/* --- Row editing ----------------------------------------------------------
+   Quiet by design: adding and removing lines is a correction, not the primary
+   action, so the controls stay muted until hovered and the accent is left to
+   Submit. */
+.gemina-verification__row-actions {
+  white-space: nowrap;
+  text-align: end; /* logical — RTL for free */
+}
+.gemina-verification__row-btn {
+  font: inherit;
+  line-height: 1;
+  padding: 2px 7px;
+  margin-inline-start: 4px;
+  border-radius: calc(var(--gemina-verification-radius) - 5px);
+  border: 1px solid var(--gemina-verification-border);
+  background: transparent;
+  color: var(--gemina-verification-muted);
+  cursor: pointer;
+  transition: border-color 120ms ease, color 120ms ease;
+}
+.gemina-verification__row-btn:hover {
+  border-color: var(--gemina-verification-accent);
+  color: var(--gemina-verification-fg);
+}
+.gemina-verification__table-footer {
+  display: flex;
+  padding: 8px 10px 0;
+}
+.gemina-verification__add-row {
+  font: inherit;
+  font-size: 12px;
+  padding: 4px 10px;
+  border-radius: calc(var(--gemina-verification-radius) - 4px);
+  border: 1px dashed var(--gemina-verification-border);
+  background: transparent;
+  color: var(--gemina-verification-muted);
+  cursor: pointer;
+}
+.gemina-verification__add-row:hover {
+  border-style: solid;
+  border-color: var(--gemina-verification-accent);
+  color: var(--gemina-verification-fg);
+}
+
+/* --- Typed controls -------------------------------------------------------
+   A <select> for a closed roster must sit on the same baseline as the text
+   inputs beside it in a table row, so it inherits the input's box entirely and
+   only overrides what a select needs. */
+.gemina-verification__input:is(select) {
+  cursor: pointer;
+  /* A select's intrinsic width follows its longest option — the 24-member unit
+     roster would blow out the column. */
+  max-width: 100%;
+}
+/* The error border must beat --dirty and --missed: an invalid value is the
+   most urgent thing true about the field, and the reviewer cannot submit
+   until it is fixed. Placed after both for cascade order. */
+.gemina-verification__input--invalid,
+.gemina-verification__input--invalid:focus-visible {
+  border-color: var(--gemina-verification-error);
+}
+/* Sits under the control it describes. Basis 100% breaks it onto its own line
+   inside the flex row FieldInput renders into, so it never squeezes the
+   input. */
+.gemina-verification__field-error {
+  flex-basis: 100%;
+  margin-block-start: 4px;
+  color: var(--gemina-verification-error);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+/* Replaces __progress while anything is invalid — same slot, so the footer
+   never grows a second status line competing for the same attention. */
+.gemina-verification__attention {
+  color: var(--gemina-verification-error);
+  font-size: 13px;
+}
+
+/* --- Tooltip -------------------------------------------------------------
+   Renders in a portal on document.body, inside a div carrying the root's
+   class list — so these rules and every --gemina-verification-* custom
+   property resolve exactly as they do in the component.
+
+   Quieter than __confirm-dialog on purpose: an annotation, not a decision.
+   Same border and shadow family, one step down in radius (the nested-element
+   convention used by __chip et al), surface rather than bg so it separates
+   from the panel it floats over, and a shorter shadow so it reads as sitting
+   just above the page rather than over a scrim. */
+.gemina-verification__tip {
+  position: fixed;
+  z-index: 2147483000; /* above the host's own modal — this is the topmost layer */
+  max-width: 260px;    /* ~60 characters: past that a tooltip should be body copy */
+  padding: 8px 10px;
+  background: var(--gemina-verification-surface);
+  color: var(--gemina-verification-fg);
+  border: 1px solid var(--gemina-verification-border);
+  border-radius: calc(var(--gemina-verification-radius) - 4px);
+  box-shadow: 0 6px 16px rgba(16, 20, 24, 0.18);
+  font-family: var(--gemina-verification-font);
+  font-size: 12px;
+  line-height: 1.45;
+  text-align: start;   /* logical — RTL for free */
+  pointer-events: none; /* never eat the hover that opened it */
+}
+/* Structured content: a level heading over a reasons list. The list is the
+   reason this exists at all — title= could only ever have been one line. */
+.gemina-verification__tip-title {
+  display: block;
+  font-weight: 600;
+  margin-block-end: 4px;
+}
+.gemina-verification__tip-list {
+  margin: 0;
+  padding-inline-start: 16px;
+}
+.gemina-verification__tip-list li + li {
+  margin-block-start: 2px;
+}
+/* A muted lead-in for single-fact tips ("Was:"), so the VALUE reads first. */
+.gemina-verification__tip-label {
+  color: var(--gemina-verification-muted);
 }
 `;
 

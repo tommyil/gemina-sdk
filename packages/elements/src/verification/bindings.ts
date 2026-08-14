@@ -1,5 +1,8 @@
 import { isValueObject } from './classify';
-import { NOT_FOUND, parseSchemaKey } from './pointer';
+import { coerceInput } from './field-types';
+import type { CellView } from './row-cells';
+import type { ValidationFieldDescriptor } from './field-types';
+import { NOT_FOUND, parseSchemaKey, snakeToCamel } from './pointer';
 import type { NotFound, SchemaKey } from './pointer';
 
 /** One server-mandated submission slot, bound to whatever was extracted there. */
@@ -29,6 +32,15 @@ export interface FieldBinding {
    * and primitives.
    */
   editable: boolean;
+  /**
+   * The server's type metadata for this field, matched by exact key.
+   *
+   * `undefined` whenever the backend predates the typed contract OR the host
+   * is on an SDK generated before it — the converter drops what it does not
+   * know. Every consumer treats that as "the plain text input we always had",
+   * which is why nothing here is required.
+   */
+  field?: ValidationFieldDescriptor;
 }
 
 function unescapeSegment(raw: string): string {
@@ -37,11 +49,6 @@ function unescapeSegment(raw: string): string {
 
 function escapeSegment(segment: string): string {
   return segment.replace(/~/g, '~0').replace(/\//g, '~1');
-}
-
-/** `vendor_name` → `vendorName`; plain lower single words are identical under both. */
-function snakeToCamel(segment: string): string {
-  return segment.replace(/_([a-zA-Z0-9])/g, (_, ch: string) => ch.toUpperCase());
 }
 
 /** Best-effort camelization of a whole pointer (used when resolution fails). */
@@ -116,8 +123,26 @@ function stripValueSuffix(pointer: string): string {
   return pointer.endsWith('/value') ? pointer.slice(0, -'/value'.length) : pointer;
 }
 
-/** Parse + resolve every schema key. Malformed entries are skipped (backend parity). */
-export function buildBindings(validationSchema: string[], values: unknown): FieldBinding[] {
+/**
+ * Parse + resolve every schema key. Malformed entries are skipped (backend
+ * parity).
+ *
+ * `fields` is the server's typed descriptors, indexed here by their opaque
+ * key. Matching is by key and ONLY by key: labels repeat across rows of a
+ * table (`total` appears once per line item), so a label match would type one
+ * row's cell from another row's descriptor.
+ */
+export function buildBindings(
+  validationSchema: string[],
+  values: unknown,
+  fields?: ValidationFieldDescriptor[],
+): FieldBinding[] {
+  const descriptors = new Map<string, ValidationFieldDescriptor>();
+  for (const descriptor of fields ?? []) {
+    if (typeof descriptor?.key === 'string') {
+      descriptors.set(descriptor.key, descriptor);
+    }
+  }
   const bindings: FieldBinding[] = [];
   for (const raw of validationSchema) {
     const key = parseSchemaKey(raw);
@@ -137,6 +162,7 @@ export function buildBindings(validationSchema: string[], values: unknown): Fiel
       extracted,
       fieldPointer: stripValueSuffix(resolvedPointer),
       editable,
+      field: descriptors.get(key.raw),
     });
   }
   return bindings;
@@ -171,6 +197,12 @@ export function toInputString(extracted: unknown | NotFound): string {
   return String(extracted);
 }
 
+/** One table's alignment, exactly as `ExtractionValidationInDTO.rowSources`. */
+export interface RowSourcesEntry {
+  table: string;
+  sources: Array<number | null>;
+}
+
 export interface SubmissionResult {
   /** Body for `ExtractionValidationInDTO.data` — raw schema keys, ALL asserted fields. */
   data: Record<string, unknown>;
@@ -178,6 +210,12 @@ export interface SubmissionResult {
   byLabel: Record<string, unknown>;
   confirmed: number;
   corrected: number;
+  /**
+   * How the submitted tables align to the extracted ones. EMPTY when no row
+   * was added or removed, so an untouched submission's wire payload stays
+   * byte-identical to what it was before row editing existed.
+   */
+  rowSources: RowSourcesEntry[];
 }
 
 /**
@@ -207,31 +245,82 @@ export interface SubmissionResult {
 export function composeSubmission(
   bindings: FieldBinding[],
   edits: ReadonlyMap<string, string>,
+  options: {
+    /**
+     * The resolved cells, when the caller has them. Supplying these is what
+     * makes row editing work: they carry the SUBMITTED key for each cell and
+     * mark the ones belonging to rows the reviewer added. Omitted, every
+     * binding is submitted under its own raw key — exactly today's behaviour.
+     */
+    cells?: readonly CellView[];
+    rowSources?: RowSourcesEntry[];
+  } = {},
 ): SubmissionResult {
+  const cells: readonly CellView[] = options.cells ?? bindings.map((binding) => ({
+    editKey: binding.key.raw,
+    submitKey: binding.key.raw,
+    column: binding.key.label,
+    rowKey: binding.key.raw,
+    binding,
+    added: false,
+  }));
   const data: Record<string, unknown> = {};
   const byLabel: Record<string, unknown> = {};
   let confirmed = 0;
   let corrected = 0;
 
-  for (const binding of bindings) {
-    const edit = edits.get(binding.key.raw);
+  for (const cell of cells) {
+    const { binding } = cell;
+    // The label follows the SUBMITTED key, not the source binding. After a
+    // deletion, source row 1 is submitted as row 0 — handing the host
+    // `line_1_description` for what the wire calls row 0 would have
+    // `onComplete` disagree with the payload it describes.
+    const label = parseSchemaKey(cell.submitKey)?.label ?? binding.key.label;
+    const edit = edits.get(cell.editKey);
     if (edit !== undefined) {
       const trimmed = edit.trim();
+      // Nothing extracted and nothing typed: there is no assertion to make.
+      // For an ADDED row this is also what keeps an empty cell out of the
+      // payload — its aligned counterpart does not exist, so an omission
+      // cannot become an `extra`.
       if (trimmed === '' && binding.serverValue === NOT_FOUND) {
         continue;
       }
-      const value = trimmed === '' ? null : trimmed;
-      data[binding.key.raw] = value;
-      byLabel[binding.key.label] = value;
+      // Typed by the field's own descriptor, so a number reaches the server as
+      // a number. A cleared input stays null — it asserts absence and must
+      // never become 0 or an empty string.
+      const value = trimmed === '' ? null : coerceInput(trimmed, binding.field);
+      data[cell.submitKey] = value;
+      byLabel[label] = value;
       corrected += 1;
     } else {
       if (binding.serverValue === NOT_FOUND) {
         continue;
       }
-      data[binding.key.raw] = binding.serverValue;
-      byLabel[binding.key.label] = binding.serverValue;
+      // Untouched cells of a row that still maps to a source submit that
+      // source's extracted value — under its SUBMITTED key, so the payload
+      // mirrors the approved table rather than the extracted one.
+      data[cell.submitKey] = binding.serverValue;
+      byLabel[label] = binding.serverValue;
       confirmed += 1;
     }
   }
-  return { data, byLabel, confirmed, corrected };
+  return { data, byLabel, confirmed, corrected, rowSources: options.rowSources ?? [] };
+}
+
+/**
+ * How many rows the extraction actually found at a table pointer.
+ *
+ * Reuses the SAME casing-aware walk the bindings use, because the server's
+ * pointers are snake_case while the payload is camelCase — counting with a
+ * naive lookup would report 0 for every table in production and quietly
+ * disable every row control.
+ *
+ * 0 for a pointer that resolves to anything but an array, which covers both
+ * "no such table" and the zero-row case identically — and both want the same
+ * empty plan.
+ */
+export function countRowsAt(values: unknown, pointer: string): number {
+  const { node } = resolveCasingAware(values, pointer);
+  return Array.isArray(node) ? node.length : 0;
 }

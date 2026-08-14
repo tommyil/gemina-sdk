@@ -211,11 +211,11 @@ describe('VerificationViewer — rendering', () => {
     ];
     for (const name of names) {
       const btn = screen.getByRole('button', { name });
-      expect(btn.getAttribute('title'), name).toBe(name);
+      expect(btn.getAttribute('title'), name).toBeNull(); // retired — see tip.tsx
       expect(btn.getAttribute('type')).toBe('button');
     }
     const magnifier = screen.getByRole('switch', { name: 'Magnifier' });
-    expect(magnifier.getAttribute('title')).toBe('Magnifier');
+    expect(magnifier.getAttribute('title')).toBeNull(); // retired — see tip.tsx
   });
 
   it('leaves the img free of inline geometry styling (the stylesheet owns it)', () => {
@@ -1226,18 +1226,18 @@ describe('VerificationViewer — magnifier loupe', () => {
     expect(Number.parseFloat(inner.style.height)).toBe(2000);
     expect(inner.style.transform).toContain('rotate(0deg)');
     expect(inner.style.transform).toContain('scale(0.625)');
-    let t = loupeTranslate(loupe);
-    expect(t.x).toBeCloseTo(-37.5, 6);
-    expect(t.y).toBeCloseTo(-600, 6);
+    // MAG_BORDER is subtracted because the inner img is absolutely positioned
+    // and so lands against the loupe's PADDING box, inset by the 2px ring.
+    const t = loupeTranslate(loupe);
+    expect(t.x).toBeCloseTo(-39.5, 6); // 150 - 2 - 300*0.625
+    expect(t.y).toBeCloseTo(-602, 6);  // 150 - 2 - 1200*0.625
 
-    // Pointer past the image's right edge: the looked-at point clamps to the
-    // image bounds (console ~391-392). Container (480, 20) → raw image x
-    // 1420 clamps to 1000; y = 80. translate = (150 - 1000*0.625,
-    // 150 - 80*0.625) = (-475, 100).
+    // Pointer past the image's right edge: raw image x 1420 is OFF THE IMAGE.
+    // It used to clamp to 1000 and show the right-hand edge column as though
+    // it were under the pointer; there is nothing there to magnify, so the
+    // loupe hides instead.
     fireEvent.mouseMove(canvas, { clientX: 580, clientY: 70 });
-    t = loupeTranslate(loupeOf(container)!);
-    expect(t.x).toBeCloseTo(-475, 6);
-    expect(t.y).toBeCloseTo(100, 6);
+    expect(loupeOf(container)).toBeNull();
   });
 
   it('mirrors the current rotation (rotation-aware loupe math)', () => {
@@ -1255,8 +1255,56 @@ describe('VerificationViewer — magnifier loupe', () => {
     expect(inner.style.transform).toContain('rotate(90deg)');
     expect(inner.style.transform).toContain('scale(0.625)');
     const t = loupeTranslate(loupe);
-    expect(t.x).toBeCloseTo(775, 6);
-    expect(t.y).toBeCloseTo(-162.5, 6);
+    expect(t.x).toBeCloseTo(773, 6);    // 150 - 2 + 625
+    expect(t.y).toBeCloseTo(-164.5, 6); // 150 - 2 - 312.5
+  });
+
+  it('hides the loupe when the pointer is over the letterbox, not the image', () => {
+    // At fit the 1000x2000 image occupies x in [125, 375] of a 500-wide
+    // canvas, so x=40 is letterbox — background, not document.
+    const { container, canvas } = mountSized();
+    fireEvent.click(screen.getByRole('switch', { name: 'Magnifier' }));
+
+    fireEvent.mouseMove(canvas, { clientX: 40, clientY: 250 });
+    expect(loupeOf(container)).toBeNull();
+
+    // ...and comes straight back when the pointer returns to the image.
+    fireEvent.mouseMove(canvas, { clientX: 250, clientY: 250 });
+    expect(loupeOf(container)).not.toBeNull();
+  });
+
+  it('hides at every off-image edge, not just one', () => {
+    const { container, canvas } = mountSized();
+    fireEvent.click(screen.getByRole('switch', { name: 'Magnifier' }));
+    for (const [x, y, where] of [
+      [40, 250, 'left letterbox'],
+      [460, 250, 'right letterbox'],
+      [250, -5, 'above the canvas'],
+    ] as Array<[number, number, string]>) {
+      fireEvent.mouseMove(canvas, { clientX: x, clientY: y });
+      expect(loupeOf(container), where).toBeNull();
+    }
+  });
+
+  it('the exact image edge still counts as ON the image', () => {
+    // Boundary: container x=125 maps to image x=0. A strict `<` would blink
+    // the loupe out along the whole left edge of the document.
+    const { container, canvas } = mountSized();
+    fireEvent.click(screen.getByRole('switch', { name: 'Magnifier' }));
+    fireEvent.mouseMove(canvas, { clientX: 125, clientY: 0 });
+    expect(loupeOf(container)).not.toBeNull();
+  });
+
+  it('the border offset in the maths matches the border width in the CSS', () => {
+    // The maths compensates for a ring width declared in a different file.
+    // If someone restyles the loupe, this fails rather than silently
+    // reintroducing the skew the compensation exists to cancel.
+    ensureVerificationStylesInjected();
+    const sheet = document.head.querySelector('style[data-gemina-verification]')!.textContent!;
+    const block = /\.gemina-verification__magnifier\s*\{[^}]*\}/.exec(sheet)!;
+    const border = /border:\s*(\d+)px/.exec(block[0]);
+    expect(border, 'loupe border declaration').not.toBeNull();
+    expect(Number(border![1])).toBe(2); // === MAG_BORDER in viewer.tsx
   });
 
   it('never intercepts events: pointer-events none rides on the __magnifier class', () => {

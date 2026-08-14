@@ -74,3 +74,17 @@ export function resolvePointer(doc: unknown, pointer: string): unknown | NotFoun
   }
   return current;
 }
+
+/**
+ * `vendor_name` -> `vendorName`. The client's ONLY casing rule.
+ *
+ * Lives here, alone, on purpose. Schema pointers are snake_case while the
+ * payload is camelCase, so this rule decides whether a pointer resolves at
+ * all — and a second copy that drifts from it is exactly how a field silently
+ * stops resolving (see the grossLinePrice alias bug: a wire name this rule
+ * could not reproduce made an extracted value render as "Not detected" and
+ * score a false `extra` on every row).
+ */
+export function snakeToCamel(segment: string): string {
+  return segment.replace(/_([a-zA-Z0-9])/g, (_unused, ch: string) => ch.toUpperCase());
+}

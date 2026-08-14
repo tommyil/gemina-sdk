@@ -36,7 +36,15 @@ import type { FieldBinding } from './bindings';
 import { toInputString } from './bindings';
 import type { ClassifiedCell, ClassifiedData, ClassifiedField } from './classify';
 import { ROW_META_KEY, formatLabel, formatValue } from './classify';
+import { ISO_4217_CODES, cellSchemaKey, validateInput } from './field-types';
+import type { RowMutableTable, ValidationFieldDescriptor } from './field-types';
+import { displayColumns, matchesTablePointer } from './row-cells';
+import type { PlannedCell, PlannedRow } from './row-cells';
+import { cellEditKey } from './row-plan';
+import type { RowPlanEntry } from './row-plan';
+import { parseSchemaKey } from './pointer';
 import { NOT_FOUND } from './pointer';
+import { Tip } from './tip';
 import { IconEye } from './viewer';
 
 /** Colored dot + native tooltip. Absent (or blank-level) confidence renders nothing. */
@@ -69,18 +77,32 @@ export function ConfidenceDot(props: {
   }
 
   const reasons = confidence.reasons.map(formatLabel);
-  const title = [label, ...reasons].join('\n');
-  // The title tooltip is hover-only; the reasons must also reach AT (and the
-  // keyboard), so the accessible NAME carries them: "Low confidence: Blurry
-  // Region, Low OCR Quality". One string, no extra DOM.
+  // The reasons must reach AT (and the keyboard) regardless of the tooltip, so
+  // the accessible NAME carries them: "Low confidence: Blurry Region, Low OCR
+  // Quality". One string, no extra DOM. The tip is the SIGHTED channel for the
+  // same facts — hence `aria-describedby` is all Tip adds, and the name is
+  // left alone so nothing is announced twice.
   const ariaLabel = reasons.length > 0 ? `${label}: ${reasons.join(', ')}` : label;
+  // A heading over a list — the shape `title=` could never express, and the
+  // reason this component exists. Matches the console's FieldValue treatment.
+  const tip = (
+    <>
+      <strong className="gemina-verification__tip-title">{label}</strong>
+      {reasons.length > 0 ? (
+        <ul className="gemina-verification__tip-list">
+          {reasons.map((reason) => <li key={reason}>{reason}</li>)}
+        </ul>
+      ) : null}
+    </>
+  );
   return (
-    <span
-      className={`gemina-verification__dot gemina-verification__dot--${variant}`}
-      role="img"
-      aria-label={ariaLabel}
-      title={title}
-    />
+    <Tip content={tip}>
+      <span
+        className={`gemina-verification__dot gemina-verification__dot--${variant}`}
+        role="img"
+        aria-label={ariaLabel}
+      />
+    </Tip>
   );
 }
 
@@ -94,19 +116,20 @@ export function EyeButton(props: {
     return null;
   }
   return (
-    <button
-      type="button"
-      className="gemina-verification__eye"
-      title="Show on document"
-      aria-label="Show on document"
-      onClick={(event) => {
-        // Rows use click-to-flash (Task 13); the field eye must not double-fire it.
-        event.stopPropagation();
-        onFlash();
-      }}
-    >
-      <IconEye />
-    </button>
+    <Tip content="Show on document">
+      <button
+        type="button"
+        className="gemina-verification__eye"
+        aria-label="Show on document"
+        onClick={(event) => {
+          // Rows use click-to-flash (Task 13); the field eye must not double-fire it.
+          event.stopPropagation();
+          onFlash();
+        }}
+      >
+        <IconEye />
+      </button>
+    </Tip>
   );
 }
 
@@ -116,13 +139,30 @@ export function FieldInput(props: {
   /** Current value if dirty, else undefined (input falls back to initial). */
   edit: string | undefined;
   /** Parent deletes the edits entry when value returns to the initial string. */
-  onEdit: (rawKey: string, value: string) => void;
+  /** `binding` travels with the change so revert detection never has to
+   *  resolve an edit key back to a field — a cell key could not be. */
+  onEdit: (editKey: string, value: string, binding: FieldBinding) => void;
   readOnly: boolean;
   /** formatLabel(label) — the visible label lives in the surrounding layout. */
   ariaLabel: string;
+  /**
+   * A row-level error decided outside this field (the unit-size pair rule).
+   * Wins over per-field validation and applies even when untouched: the field
+   * is invalid because of its SIBLING, so dirtiness here is irrelevant.
+   */
+  pairError?: string;
+  /**
+   * The key this field's edit is stored under. Defaults to the raw schema key
+   * (headers, and tables with no row plan); a row-mutable table passes a
+   * `cellEditKey` so the edit follows the ROW rather than the position.
+   */
+  editKey?: string;
 }): React.JSX.Element {
-  const { binding, edit, onEdit, readOnly, ariaLabel } = props;
+  const { binding, edit, onEdit, readOnly, ariaLabel, pairError } = props;
+  const editKey = props.editKey ?? binding.key.raw;
   const editedBadgeId = React.useId();
+  const errorId = React.useId();
+  const currencyListId = React.useId();
 
   // Container serverValues (value-object wrappers, arrays, objects) can never
   // score correct from a string edit — the server's coerce_like only adopts
@@ -138,35 +178,107 @@ export function FieldInput(props: {
 
   const dirty = edit !== undefined;
   const missed = binding.serverValue === NOT_FOUND;
+  const field = binding.field;
+  const value = dirty ? edit : toInputString(binding.extracted);
+
+  // Only a value the reviewer TYPED can be invalid. An extracted value that is
+  // off-roster is the model's output, not their mistake: it is preserved (see
+  // the pinned option below) and must not block a submission they never
+  // touched. Task 6.4's gate reads the same rule.
+  const error = pairError ?? (dirty ? validateInput(value, field) : null);
   const className = [
     'gemina-verification__input',
     dirty ? 'gemina-verification__input--dirty' : '',
     missed ? 'gemina-verification__input--missed' : '',
+    error ? 'gemina-verification__input--invalid' : '',
   ]
     .filter(Boolean)
     .join(' ');
 
+  // Space-separated, never overwritten: the edited badge and the error are
+  // both descriptions of the same control and a reviewer needs to hear both.
+  const describedBy = [dirty ? editedBadgeId : '', error ? errorId : '']
+    .filter(Boolean)
+    .join(' ');
+  const shared = {
+    className,
+    'aria-label': ariaLabel,
+    'aria-describedby': describedBy || undefined,
+    'aria-invalid': error ? (true as const) : undefined,
+    onChange: (event: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
+      onEdit(editKey, event.target.value, binding),
+  };
+
+  // A closed roster is a choice, not a spelling test. The extracted value is
+  // PINNED as an option when it is off-roster, so opening the select can never
+  // silently destroy what the model found.
+  const roster = field?.enum && field.enum.length > 0 ? field.enum : null;
+  const offRoster = roster && value !== '' && !roster.includes(value) ? value : null;
+
+  const control = roster ? (
+    <select {...shared} value={value} dir="auto">
+      {/* Clearing stays possible: an empty submission asserts "not present". */}
+      <option value="">—</option>
+      {offRoster ? <option value={offRoster}>{offRoster} (as extracted)</option> : null}
+      {roster.map((option) => <option key={option} value={option}>{option}</option>)}
+    </select>
+  ) : (
+    <input
+      {...shared}
+      // `date` gets the native picker; everything else stays text so the
+      // server's own leniency (commas, underscores) is not fought by the
+      // browser's number parsing.
+      type={field?.type === 'date' ? 'date' : 'text'}
+      // Per-input bidi: a Latin value inside an RTL (Hebrew) document — or
+      // vice versa — must lay out by its own content, not the widget's dir.
+      dir="auto"
+      // RAW value only — a display-formatted "1,500" round-tripped into the
+      // submission would score as a correction (see toInputString).
+      value={value}
+      // A hint to the soft keyboard, NOT validation — validateInput is that.
+      inputMode={field?.type === 'number' || field?.type === 'integer' ? 'decimal' : undefined}
+      list={field?.format === 'iso4217' ? currencyListId : undefined}
+      placeholder={missed ? 'Not detected — fill in if present' : undefined}
+      autoComplete="off"
+    />
+  );
+
   return (
     <>
-      <input
-        type="text"
-        className={className}
-        // Per-input bidi: a Latin value inside an RTL (Hebrew) document — or
-        // vice versa — must lay out by its own content, not the widget's dir.
-        dir="auto"
-        // RAW value only — a display-formatted "1,500" round-tripped into the
-        // submission would score as a correction (see toInputString).
-        value={dirty ? edit : toInputString(binding.extracted)}
-        onChange={(event) => onEdit(binding.key.raw, event.target.value)}
-        placeholder={missed ? 'Not detected — fill in if present' : undefined}
-        aria-label={ariaLabel}
-        aria-describedby={dirty ? editedBadgeId : undefined}
-        autoComplete="off"
-      />
-      {dirty ? (
-        <span className="gemina-verification__edited" id={editedBadgeId}>
-          edited
+      {control}
+      {field?.format === 'iso4217' ? (
+        <datalist id={currencyListId}>
+          {ISO_4217_CODES.map((code) => <option key={code} value={code} />)}
+        </datalist>
+      ) : null}
+      {error ? (
+        <span className="gemina-verification__field-error" id={errorId} role="alert">
+          {error}
         </span>
+      ) : null}
+      {dirty ? (
+        // The badge is where the ORIGINAL belongs, now that the input holds
+        // the edit — otherwise the extracted value is simply gone from the
+        // screen the moment someone corrects it.
+        //
+        // Known limit: the badge is a non-focusable span, so this channel is
+        // hover-only. AT is not worse off than before (nothing carried the
+        // original previously), and the input's aria-describedby still names
+        // the field as edited. Giving it a keyboard path needs a focusable
+        // affordance, which belongs with the Phase 8 row work, not here.
+        <Tip
+          content={
+            <>
+              <span className="gemina-verification__tip-label">Was: </span>
+              {formatValue(binding.extracted === NOT_FOUND ? null : binding.extracted,
+                binding.key.label)}
+            </>
+          }
+        >
+          <span className="gemina-verification__edited" id={editedBadgeId}>
+            edited
+          </span>
+        </Tip>
       ) : null}
     </>
   );
@@ -188,9 +300,24 @@ interface FlashRect {
  * comparator short-circuits on `prevEdits === nextEdits`, so an in-place
  * mutation renders no update at all. */
 interface SectionShared {
+  /** Edit key -> row-level error. Empty for every extraction without the pair. */
+  pairErrors: ReadonlyMap<string, string>;
+  /** Server-declared row-mutable tables. Empty disables every row control. */
+  rowMutableTables: readonly RowMutableTable[];
+  /**
+   * Table pointer -> its rows, already resolved to cells. Computed ONCE by the
+   * parent: computing it here as well would produce a second object per render
+   * and defeat the row memo, which compares it by reference.
+   */
+  plannedTables: ReadonlyMap<string, PlannedRow[]>;
+  onAddRow: (tablePointer: string, afterPosition: number) => void;
+  onRemoveRow: (tablePointer: string, position: number) => void;
+
   bindingIndex: Map<string, FieldBinding>;
   edits: ReadonlyMap<string, string>;
-  onEdit: (rawKey: string, value: string) => void;
+  /** `binding` travels with the change so revert detection never has to
+   *  resolve an edit key back to a field — a cell key could not be. */
+  onEdit: (editKey: string, value: string, binding: FieldBinding) => void;
   readOnly: boolean;
   onFlash: (rects: FlashRect[]) => void;
 }
@@ -200,7 +327,26 @@ interface SectionShared {
  * The SectionShared stability contract applies (see above), and `classified`
  * must be the memoized product of one `classifyData` call — a fresh object
  * per render defeats both the row memo and the fallback-section memo. */
-export interface VerificationFormProps extends SectionShared {
+/** One shared empty instance: `shared` is compared by reference downstream, so
+ *  "no row errors" must always be the SAME object. */
+const NO_PAIR_ERRORS: ReadonlyMap<string, string> = new Map();
+const NO_TABLES: readonly RowMutableTable[] = [];
+const NO_PLANNED: ReadonlyMap<string, PlannedRow[]> = new Map();
+const NOOP_ROW = () => {};
+
+export interface VerificationFormProps
+  extends Omit<SectionShared, 'pairErrors' | 'rowMutableTables' | 'plannedTables' | 'onAddRow' | 'onRemoveRow'> {
+  /**
+   * All optional on the public surface. The pair rule and the row plans are
+   * internal details of the full component, and a host — or a test — rendering
+   * the form directly should not have to know they exist. Omitting them yields
+   * exactly the pre-row-editing form: no controls, raw-key edits.
+   */
+  pairErrors?: ReadonlyMap<string, string>;
+  rowMutableTables?: readonly RowMutableTable[];
+  plannedTables?: ReadonlyMap<string, PlannedRow[]>;
+  onAddRow?: (tablePointer: string, afterPosition: number) => void;
+  onRemoveRow?: (tablePointer: string, position: number) => void;
   classified: ClassifiedData;
   /** Bindings whose pointer matched NO rendered field — the "model missed the
    *  whole field" case; rendered as an extra "Not detected" section of empty inputs. */
@@ -211,6 +357,24 @@ export interface VerificationFormProps extends SectionShared {
  * must never hijack typing, button presses, or link follows. */
 function isInteractiveTarget(target: EventTarget | null): boolean {
   return target instanceof Element && target.closest('input, button, a, select, textarea') !== null;
+}
+
+/**
+ * A field label, with the model's description as a tooltip when there is one.
+ *
+ * Plain text when there is not: an empty tooltip trigger is worse than none,
+ * because it promises information it does not have.
+ */
+function FieldLabel(props: { label: string; description?: string | null }): React.JSX.Element {
+  const { label, description } = props;
+  if (!description) {
+    return <span>{label}</span>;
+  }
+  return (
+    <Tip content={description}>
+      <span className="gemina-verification__label-described" tabIndex={0}>{label}</span>
+    </Tip>
+  );
 }
 
 /** One label/value pair inside a description list (headers + entity cards). */
@@ -226,12 +390,17 @@ function FieldPair(props: {
     <>
       <dt className="gemina-verification__dt">
         <ConfidenceDot confidence={cell.confidence} />
-        <span>{label}</span>
+        {/* The model's own field description, which the backend publishes per
+            field. Without this it is carried all the way to the client and
+            then dropped — and it is the only place a reviewer can learn what
+            a field like "assignment number" is actually supposed to contain. */}
+        <FieldLabel label={label} description={binding?.field?.description} />
       </dt>
       <dd className="gemina-verification__dd">
         {binding !== undefined ? (
           <FieldInput
             binding={binding}
+            pairError={shared.pairErrors.get(binding.key.raw)}
             edit={shared.edits.get(binding.key.raw)}
             onEdit={shared.onEdit}
             readOnly={shared.readOnly}
@@ -290,6 +459,7 @@ function HeaderSection(props: {
                       {binding !== undefined ? (
                         <FieldInput
                           binding={binding}
+                          pairError={shared.pairErrors.get(binding.key.raw)}
                           edit={shared.edits.get(binding.key.raw)}
                           onEdit={shared.onEdit}
                           readOnly={shared.readOnly}
@@ -361,7 +531,9 @@ function EntitySection(props: {
 }
 
 interface TableRowViewProps {
-  row: Record<string, ClassifiedCell>;
+  /** The classified row behind this render — undefined for a row the reviewer added. */
+  row: Record<string, ClassifiedCell> | undefined;
+  /** Position in the SUBMITTED table: what the reviewer sees, and what labels count. */
   rowIndex: number;
   columns: string[];
   /** formatLabel(tableKey), precomputed once per table. */
@@ -369,15 +541,19 @@ interface TableRowViewProps {
   hasCoords: boolean;
   hasRowConfidence: boolean;
   shared: SectionShared;
+  /** Resolved cells + row identity. Present ONLY for a row-mutable table. */
+  planned?: PlannedRow;
+  /** The server's pointer for this table — the key the row handlers take. */
+  tablePointer?: string;
 }
 
 function TableRowView(props: TableRowViewProps): React.JSX.Element {
-  const { row, rowIndex, columns, tableLabel, hasCoords, hasRowConfidence, shared } = props;
+  const { row, rowIndex, columns, tableLabel, hasCoords, hasRowConfidence, shared, planned, tablePointer } = props;
   const { bindingIndex, edits, onEdit, readOnly, onFlash } = shared;
 
   const rects = React.useMemo(() => {
     const collected: FlashRect[] = [];
-    for (const [key, cell] of Object.entries(row)) {
+    for (const [key, cell] of Object.entries(row ?? {})) {
       if (key !== ROW_META_KEY && cell.coordinates) {
         collected.push(cell.coordinates);
       }
@@ -397,9 +573,29 @@ function TableRowView(props: TableRowViewProps): React.JSX.Element {
     [rects, onFlash],
   );
 
+  /** Cells by column: from the plan when there is one, else today's lookup. */
+  const cellFor = (column: string) => {
+    const classified = row?.[column];
+    const fromPlan = planned?.cells.find((cell: PlannedCell) => cell.column === column);
+    if (fromPlan) {
+      return { classified, binding: fromPlan.binding, editKey: fromPlan.editKey };
+    }
+    const binding = classified === undefined ? undefined : bindingIndex.get(classified.pointer);
+    return { classified, binding, editKey: binding?.key.raw };
+  };
+
   const firstRect = rects.length > 0 ? rects[0]! : null;
+  const showControls = planned !== undefined && tablePointer !== undefined && !readOnly;
+  // A REDUNDANT channel: the confidence dot and its tooltip already carry the
+  // meaning, so this marker does not have to pass contrast on its own — it is
+  // there so a reviewer can find the rows worth checking by scanning the edge
+  // of a 150-line table instead of reading every dot.
+  const rowLevel = (row?.[ROW_META_KEY]?.confidence?.level ?? '').toLowerCase();
+  const rowClass = rowLevel === 'low' || rowLevel === 'medium'
+    ? `gemina-verification__row--${rowLevel}`
+    : undefined;
   return (
-    <tr onClick={handleRowClick}>
+    <tr onClick={handleRowClick} className={rowClass}>
       {hasCoords ? (
         <td>
           {/* EyeButton's coordinates prop is only the render gate here — the
@@ -409,39 +605,66 @@ function TableRowView(props: TableRowViewProps): React.JSX.Element {
       ) : null}
       {hasRowConfidence ? (
         <td>
-          <ConfidenceDot confidence={row[ROW_META_KEY]?.confidence ?? null} />
+          <ConfidenceDot confidence={row?.[ROW_META_KEY]?.confidence ?? null} />
         </td>
       ) : null}
       {columns.map((column) => {
-        const cell = row[column];
-        const binding = cell === undefined ? undefined : bindingIndex.get(cell.pointer);
+        const { classified, binding, editKey } = cellFor(column);
         return (
           <td key={column}>
             <div className="gemina-verification__cell">
               {binding !== undefined ? (
                 <FieldInput
                   binding={binding}
-                  edit={edits.get(binding.key.raw)}
+                  editKey={editKey}
+                  pairError={editKey === undefined ? undefined : shared.pairErrors.get(editKey)}
+                  edit={editKey === undefined ? undefined : edits.get(editKey)}
                   onEdit={onEdit}
                   readOnly={readOnly}
                   ariaLabel={`${tableLabel} row ${rowIndex + 1} — ${formatLabel(column)}`}
                 />
               ) : (
-                <span>{cell === undefined ? '-' : formatValue(cell.value, column)}</span>
+                <span>{classified === undefined ? '-' : formatValue(classified.value, column)}</span>
               )}
-              <ConfidenceDot confidence={cell?.confidence ?? null} />
+              <ConfidenceDot confidence={classified?.confidence ?? null} />
             </div>
           </td>
         );
       })}
+      {showControls ? (
+        <td className="gemina-verification__row-actions">
+          {/* Row-numbered labels: "Remove line" repeated N times is unusable
+              with a screen reader, and the number is what the reviewer sees. */}
+          <Tip content="Insert a line below">
+            <button
+              type="button"
+              className="gemina-verification__row-btn"
+              aria-label={`Insert line below line ${rowIndex + 1}`}
+              onClick={() => shared.onAddRow(tablePointer!, rowIndex)}
+            >
+              +
+            </button>
+          </Tip>
+          <Tip content="Remove this line">
+            <button
+              type="button"
+              className="gemina-verification__row-btn"
+              aria-label={`Remove line ${rowIndex + 1}`}
+              onClick={() => shared.onRemoveRow(tablePointer!, rowIndex)}
+            >
+              ×
+            </button>
+          </Tip>
+        </td>
+      ) : null}
     </tr>
   );
 }
 
 /** Bail out unless THIS row's data or its slice of the edits changed. The
- * comparator inspects only edits for bindings on this row's cells, so one
- * keystroke re-renders one row. Callbacks are compared by reference: the
- * parent must pass referentially stable `onEdit`/`onFlash` (and a stable
+ * comparator inspects only edits for this row's cells, so one keystroke
+ * re-renders one row. Callbacks are compared by reference: the parent must
+ * pass referentially stable `onEdit`/`onFlash` (and a stable
  * `classified`/`bindingIndex`) or the memoization degrades to plain renders. */
 function areRowPropsEqual(prev: TableRowViewProps, next: TableRowViewProps): boolean {
   if (
@@ -451,23 +674,34 @@ function areRowPropsEqual(prev: TableRowViewProps, next: TableRowViewProps): boo
     || prev.tableLabel !== next.tableLabel
     || prev.hasCoords !== next.hasCoords
     || prev.hasRowConfidence !== next.hasRowConfidence
+    || prev.planned !== next.planned
+    || prev.tablePointer !== next.tablePointer
     || prev.shared.bindingIndex !== next.shared.bindingIndex
     || prev.shared.onEdit !== next.shared.onEdit
     || prev.shared.onFlash !== next.shared.onFlash
     || prev.shared.readOnly !== next.shared.readOnly
   ) {
+    // NOT compared by reference: `pairErrors` is derived from `edits`, so a new
+    // Map arrives on EVERY keystroke and a blanket check would re-render every
+    // row in the table. Its per-cell values are checked below instead.
     return false;
   }
   if (prev.shared.edits === next.shared.edits) {
     return true;
   }
+  // Compare by EDIT key, which under a row plan is the cell key rather than
+  // the raw schema key — comparing raw keys would leave a row stale after an
+  // edit to a row that moved.
   for (const column of next.columns) {
-    const cell = next.row[column];
-    const binding = cell === undefined ? undefined : next.shared.bindingIndex.get(cell.pointer);
-    if (
-      binding !== undefined
-      && prev.shared.edits.get(binding.key.raw) !== next.shared.edits.get(binding.key.raw)
-    ) {
+    const planned = next.planned?.cells.find((cell: PlannedCell) => cell.column === column);
+    const classified = next.row?.[column];
+    const editKey = planned?.editKey
+      ?? (classified === undefined ? undefined : next.shared.bindingIndex.get(classified.pointer)?.key.raw);
+    if (editKey === undefined) {
+      continue;
+    }
+    if (prev.shared.edits.get(editKey) !== next.shared.edits.get(editKey)
+      || prev.shared.pairErrors.get(editKey) !== next.shared.pairErrors.get(editKey)) {
       return false;
     }
   }
@@ -476,6 +710,61 @@ function areRowPropsEqual(prev: TableRowViewProps, next: TableRowViewProps): boo
 
 const TableRow = React.memo(TableRowView, areRowPropsEqual);
 
+
+/**
+ * Promote a row-mutable table the classifier could not see as one.
+ *
+ * An EMPTY array classifies as a header, not a table (classify.ts) — so an
+ * extraction that found no line items has no table, no columns and nowhere to
+ * put "Add line". That is the case this feature exists for: the model found
+ * nothing and the reviewer types it in.
+ *
+ * Done as a post-classification promotion driven by the SERVER's contract
+ * rather than by changing the classifier, whose heuristics are shared with the
+ * console and proven. The header the empty array produced is suppressed, or it
+ * would render twice — once as "Line Items: []" and once as the table.
+ */
+function withEmptyMutableTables(
+  classified: ClassifiedData,
+  tables: readonly RowMutableTable[],
+): { tables: ClassifiedData['tables']; suppressed: ReadonlySet<string> } {
+  if (tables.length === 0) {
+    return { tables: classified.tables, suppressed: EMPTY_SUPPRESSED };
+  }
+  const promoted = [...classified.tables];
+  const suppressed = new Set<string>();
+  for (const table of tables) {
+    if (classified.tables.some((candidate) => matchesTablePointer(table.pointer, candidate.pointer))) {
+      continue;
+    }
+    const header = classified.headers.find(
+      (candidate) => matchesTablePointer(table.pointer, candidate.pointer),
+    );
+    // The classifier normalises an empty array to `value: null`, so BOTH
+    // spellings mean "no rows". Nothing else is promoted: a pointer that
+    // resolved to real data is a contract mismatch, and inventing a table for
+    // it would put row controls over data the scorer cannot align. The
+    // server's own declaration is what makes this safe — the reviewer can only
+    // ever add rows to a table the scorer knows how to align.
+    const empty = header !== undefined
+      && (header.value === null || (Array.isArray(header.value) && header.value.length === 0));
+    if (!empty) {
+      continue;
+    }
+    suppressed.add(header!.pointer);
+    promoted.push({
+      key: header!.key,
+      pointer: header!.pointer,
+      columns: [],
+      rows: [],
+      overallConfidence: null,
+    });
+  }
+  return { tables: promoted, suppressed };
+}
+
+const EMPTY_SUPPRESSED: ReadonlySet<string> = new Set();
+
 /** Table bucket: the console DataTable's column model without antd. */
 function TableSection(props: {
   table: ClassifiedData['tables'][number];
@@ -483,6 +772,20 @@ function TableSection(props: {
 }): React.JSX.Element {
   const { table, shared } = props;
   const label = formatLabel(table.key);
+
+  // Row editing is offered ONLY where the server declared it. Any wide array
+  // of objects looks like a table to the classifier — custom_template's do —
+  // and controls on one the scorer cannot align would mis-score permanently.
+  const mutable = React.useMemo(
+    () => shared.rowMutableTables.find((entry) => matchesTablePointer(entry.pointer, table.pointer)),
+    [shared.rowMutableTables, table.pointer],
+  );
+  const columns = React.useMemo(
+    () => (mutable ? displayColumns(mutable, table.columns) : table.columns),
+    [mutable, table.columns],
+  );
+  const planned = mutable ? shared.plannedTables.get(mutable.pointer) : undefined;
+
   // Full-row scans — memoized so keystroke re-renders don't re-walk every cell.
   const hasCoords = React.useMemo(
     () =>
@@ -495,11 +798,34 @@ function TableSection(props: {
     () => table.rows.some((row) => Boolean(row[ROW_META_KEY]?.confidence?.level)),
     [table],
   );
+  // Column descriptions come from the server's declared columns, so they are
+  // present even for a zero-row table — the case where a reviewer typing a
+  // line in most needs to know what each column means.
+  const columnDescriptions = React.useMemo(() => {
+    const map = new Map<string, string>();
+    for (const column of mutable?.columns ?? []) {
+      if (typeof column.key === 'string' && column.description) {
+        map.set(column.key, column.description);
+      }
+    }
+    return map;
+  }, [mutable]);
+  const rowCount = planned ? planned.length : table.rows.length;
+  // `ConfidenceModel` is a closed high|medium|low, so the scale is total: a row
+  // with no confidence at all is not "needing review", it is unmeasured.
+  const needsReview = React.useMemo(
+    () => table.rows.filter((row) => {
+      const level = (row[ROW_META_KEY]?.confidence?.level ?? '').toLowerCase();
+      return level === 'low' || level === 'medium';
+    }).length,
+    [table.rows],
+  );
+  const showControls = planned !== undefined && mutable !== undefined && !shared.readOnly;
   return (
     <section className="gemina-verification__section" aria-label={label}>
       <div className="gemina-verification__section-header">
         <span>
-          {label} ({table.rows.length} rows)
+          {label} ({rowCount} rows{needsReview > 0 ? ` · ${needsReview} need review` : ''})
         </span>
         <ConfidenceDot confidence={table.overallConfidence} />
       </div>
@@ -509,27 +835,62 @@ function TableSection(props: {
             <tr>
               {hasCoords ? <th aria-label="Show row on document" /> : null}
               {hasRowConfidence ? <th aria-label="Row confidence" /> : null}
-              {table.columns.map((column) => (
-                <th key={column}>{formatLabel(column)}</th>
+              {columns.map((column) => (
+                <th key={column}>
+                  <FieldLabel
+                    label={formatLabel(column)}
+                    description={columnDescriptions.get(column)}
+                  />
+                </th>
               ))}
+              {showControls ? <th aria-label="Row actions" /> : null}
             </tr>
           </thead>
           <tbody>
-            {table.rows.map((row, rowIndex) => (
-              <TableRow
-                key={rowIndex}
-                row={row}
-                rowIndex={rowIndex}
-                columns={table.columns}
-                tableLabel={label}
-                hasCoords={hasCoords}
-                hasRowConfidence={hasRowConfidence}
-                shared={shared}
-              />
-            ))}
+            {planned
+              ? planned.map((plannedRow, position) => (
+                <TableRow
+                  // Keyed by ROW ID, not position: a position key would make
+                  // React reuse a deleted row's DOM (and its focus) for its
+                  // successor.
+                  key={plannedRow.entry.id}
+                  row={plannedRow.entry.source === null ? undefined : table.rows[plannedRow.entry.source]}
+                  rowIndex={position}
+                  columns={columns}
+                  tableLabel={label}
+                  hasCoords={hasCoords}
+                  hasRowConfidence={hasRowConfidence}
+                  shared={shared}
+                  planned={plannedRow}
+                  tablePointer={mutable!.pointer}
+                />
+              ))
+              : table.rows.map((row, rowIndex) => (
+                <TableRow
+                  key={rowIndex}
+                  row={row}
+                  rowIndex={rowIndex}
+                  columns={columns}
+                  tableLabel={label}
+                  hasCoords={hasCoords}
+                  hasRowConfidence={hasRowConfidence}
+                  shared={shared}
+                />
+              ))}
           </tbody>
         </table>
       </div>
+      {showControls ? (
+        <div className="gemina-verification__table-footer">
+          <button
+            type="button"
+            className="gemina-verification__add-row"
+            onClick={() => shared.onAddRow(mutable!.pointer, rowCount - 1)}
+          >
+            Add line
+          </button>
+        </div>
+      ) : null}
     </section>
   );
 }
@@ -584,6 +945,7 @@ function UnmatchedSection(props: {
             <dd className="gemina-verification__dd">
               <FieldInput
                 binding={binding}
+                pairError={shared.pairErrors.get(binding.key.raw)}
                 edit={shared.edits.get(binding.key.raw)}
                 onEdit={shared.onEdit}
                 readOnly={shared.readOnly}
@@ -600,8 +962,22 @@ function UnmatchedSection(props: {
 /** The whole form pane: every classified bucket in console order, then the
  * unmatched "Not detected" section. Empty buckets render nothing. */
 export function VerificationForm(props: VerificationFormProps): React.JSX.Element {
-  const { classified, unmatched, bindingIndex, edits, onEdit, readOnly, onFlash } = props;
-  const shared: SectionShared = { bindingIndex, edits, onEdit, readOnly, onFlash };
+  const {
+    classified, unmatched, bindingIndex, edits, onEdit, readOnly, onFlash,
+    pairErrors, rowMutableTables, plannedTables, onAddRow, onRemoveRow,
+  } = props;
+  const { tables: promotedTables, suppressed } = React.useMemo(
+    () => withEmptyMutableTables(classified, rowMutableTables ?? NO_TABLES),
+    [classified, rowMutableTables],
+  );
+  const shared: SectionShared = {
+    bindingIndex, edits, onEdit, readOnly, onFlash,
+    pairErrors: pairErrors ?? NO_PAIR_ERRORS,
+    rowMutableTables: rowMutableTables ?? NO_TABLES,
+    plannedTables: plannedTables ?? NO_PLANNED,
+    onAddRow: onAddRow ?? NOOP_ROW,
+    onRemoveRow: onRemoveRow ?? NOOP_ROW,
+  };
   return (
     // A real, labeled <form> (role "form" landmark): AT users can jump
     // straight to the editable fields. Submission is owned by the root's
@@ -613,11 +989,15 @@ export function VerificationForm(props: VerificationFormProps): React.JSX.Elemen
       aria-label="Extraction fields"
       onSubmit={(event) => event.preventDefault()}
     >
-      <HeaderSection headers={classified.headers} simpleLists={classified.simpleLists} shared={shared} />
+      <HeaderSection
+        headers={classified.headers.filter((header) => !suppressed.has(header.pointer))}
+        simpleLists={classified.simpleLists}
+        shared={shared}
+      />
       {classified.entities.map((entity) => (
         <EntitySection key={entity.pointer} entity={entity} shared={shared} />
       ))}
-      {classified.tables.map((table) => (
+      {promotedTables.map((table) => (
         <TableSection key={table.pointer} table={table} shared={shared} />
       ))}
       <FallbackSection fallback={classified.fallback} />

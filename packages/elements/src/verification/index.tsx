@@ -25,13 +25,25 @@ import type * as React from 'react';
 import { GeminaClient } from '@gemina/sdk';
 import type { ExtractionPrimaryViewOutDTO } from '@gemina/sdk';
 import { httpStatus, readErrorEnvelope } from '../internal/response-like';
+import { readDescriptors, readRowMutableTables, validateInput } from './field-types';
+import type { RowMutableTable, ValidationFieldDescriptor } from './field-types';
 import {
   buildBindings,
   composeSubmission,
+  countRowsAt,
   indexBindingsByFieldPointer,
   toInputString,
 } from './bindings';
-import type { FieldBinding } from './bindings';
+import type { FieldBinding, RowSourcesEntry } from './bindings';
+import {
+  collectCellViews, displayColumns, matchesTablePointer, planTableCells, pruneEmptyAddedRows,
+  unitSizePairErrors,
+} from './row-cells';
+import type { PlannedRow } from './row-cells';
+import {
+  initialRowPlan, insertRowAfter, isIdentityPlan, nextAddedRowId, removeRow, rowSourcesOf,
+} from './row-plan';
+import type { RowPlanEntry } from './row-plan';
 import { classifyData, ROW_META_KEY } from './classify';
 import { VerificationForm } from './form';
 import { ensureVerificationStylesInjected } from './styles';
@@ -100,23 +112,58 @@ const VERIFICATION_UNAVAILABLE_TEXT = "Verification isn't available for this ext
 // Deliberately does NOT imply the shown data is the corrected data — the
 // primary view returns the ORIGINAL extraction, not the validated values.
 const ALREADY_VALIDATED_TEXT = 'Already verified — showing the original extraction.';
+// "Feedback" is retired from every user-visible string: it framed the
+// reviewer's corrections as an optional opinion collected for someone else,
+// when they are the values that get recorded. The word survives only in code
+// comments and in the API surface (`meta.validationFeedback`, the `onError`
+// reason names), which are contract rather than copy.
 const CONFIRM_TEXT =
-  'Submit verification? This is final — feedback can be submitted only once and cannot be changed.';
+  "Submit these values? This is final — they can be submitted once and can't be changed.";
 const SUBMITTING_TEXT = 'Submitting…';
 const SUBMIT_FAILED_TEXT = 'Submission failed — your corrections are still here.';
-const DONE_TITLE_TEXT = 'Feedback submitted';
+// Same verb as the action that produced it: Submit -> Submitted.
+const DONE_TITLE_TEXT = 'Submitted';
 
 /** What a successful load pins for the review phase (values + schema together,
  * so the derived memos see one consistent snapshot). */
 interface LoadedData {
   values: unknown;
   schema: string[];
+  /** Empty whenever the backend or the host's SDK predates the typed contract. */
+  fields: ValidationFieldDescriptor[];
+  /**
+   * Tables the SERVER declares row-mutable. Empty means no row controls
+   * anywhere — the correct behaviour against a pre-1.5.0 backend, and the
+   * reason a `custom_template` table never grows an Add line button.
+   */
+  rowMutableTables: RowMutableTable[];
 }
 
 /** The empty edits map — the initial state AND every load's reset value.
  * One shared instance (SectionShared contract: `edits` is compared by
  * reference, so "no edits" must always be the same object). */
 const NO_EDITS: ReadonlyMap<string, string> = new Map();
+
+/** Same reference-stability contract as NO_EDITS, for the row plans. */
+const NO_ROW_PLANS: ReadonlyMap<string, RowPlanEntry[]> = new Map();
+const NO_PLANNED_TABLES: ReadonlyMap<string, PlannedRow[]> = new Map();
+
+/**
+ * The identity plan for every table the server declared row-mutable.
+ *
+ * Returns the shared empty map when there are none, so a pre-1.5.0 backend
+ * keeps the exact reference-equality behaviour the row memo depends on.
+ */
+function seedRowPlans(tables: RowMutableTable[], values: unknown): ReadonlyMap<string, RowPlanEntry[]> {
+  if (tables.length === 0) {
+    return NO_ROW_PLANS;
+  }
+  const plans = new Map<string, RowPlanEntry[]>();
+  for (const table of tables) {
+    plans.set(table.pointer, initialRowPlan(countRowsAt(values, table.pointer), table.pointer));
+  }
+  return plans;
+}
 
 /**
  * Unavailable reasons that are FAILURES (a thrown fetch: 401/404/network/5xx)
@@ -161,6 +208,10 @@ export function GeminaVerification(props: GeminaVerificationProps): React.JSX.El
   // In every load path read-only ⇔ already-validated, so ONE flag serves both.
   const [alreadyValidated, setAlreadyValidated] = useState(false);
   const [loaded, setLoaded] = useState<LoadedData | null>(null);
+  // One plan per row-mutable table, keyed by its pointer. Reset with the
+  // edits on every load: a plan outliving its extraction would map rows to
+  // sources that no longer exist.
+  const [rowPlans, setRowPlans] = useState<ReadonlyMap<string, RowPlanEntry[]>>(NO_ROW_PLANS);
   // Dirty fields only: raw schema key → current input string, VERBATIM (no
   // trim/normalize — that is the composer's job at submit). Replaced
   // immutably on every change; delete-on-revert keeps composeSubmission's
@@ -290,12 +341,15 @@ export function GeminaVerification(props: GeminaVerificationProps): React.JSX.El
       setLoaded({
         values: view.values,
         schema: Array.isArray(schema) ? schema : [],
+        fields: readDescriptors(view.meta.validationFeedback?.validationFields),
+        rowMutableTables: readRowMutableTables(view.meta.validationFeedback?.rowMutableTables),
       });
       // Fresh extraction data → clean editing slate, batched with setLoaded so
       // new bindings never pair with old edits for even one commit. Covers the
       // extractionId change, Retry, AND the Task-17 409-refetch (all of which
       // route through load()).
       setEdits(NO_EDITS);
+      setRowPlans(seedRowPlans(readRowMutableTables(view.meta.validationFeedback?.rowMutableTables), view.values));
       const url = view.document.imageUrl;
       setImageUrl(typeof url === 'string' && url.length > 0 ? url : null);
       setAlreadyValidated(validated);
@@ -366,8 +420,19 @@ export function GeminaVerification(props: GeminaVerificationProps): React.JSX.El
   // `classified`/`bindingIndex` are compared by reference in the row memo). ---
   // classifyData is total (null/garbage values → empty buckets) — no guard.
   const classified = useMemo(() => classifyData(loaded?.values), [loaded]);
-  const bindings = useMemo(() => buildBindings(loaded?.schema ?? [], loaded?.values), [loaded]);
+  const bindings = useMemo(
+    () => buildBindings(loaded?.schema ?? [], loaded?.values, loaded?.fields),
+    [loaded],
+  );
   const bindingIndex = useMemo(() => indexBindingsByFieldPointer(bindings), [bindings]);
+  // By RAW key — how a planned table cell finds the extracted value behind it.
+  const bindingsByRawKey = useMemo(() => {
+    const map = new Map<string, FieldBinding>();
+    for (const binding of bindings) {
+      map.set(binding.key.raw, binding);
+    }
+    return map;
+  }, [bindings]);
   // Bindings whose fieldPointer matches no classified leaf — the "model
   // missed the whole field" case, rendered as the form's Not-detected section.
   const unmatched = useMemo(() => {
@@ -456,15 +521,6 @@ export function GeminaVerification(props: GeminaVerificationProps): React.JSX.El
   // so handleEdit stays permanently stable (SectionShared contract: the
   // table-row memo compares onEdit by reference; a per-load identity would
   // silently re-render every row once per load).
-  const bindingsByRawKey = useMemo(() => {
-    const map = new Map<string, FieldBinding>();
-    for (const binding of bindings) {
-      map.set(binding.key.raw, binding);
-    }
-    return map;
-  }, [bindings]);
-  const bindingsByRawKeyRef = useRef(bindingsByRawKey);
-  bindingsByRawKeyRef.current = bindingsByRawKey;
 
   // The edit tracker. The value is stored VERBATIM — never trimmed or
   // normalized (IME safety: the input must echo exactly what the user is
@@ -474,33 +530,103 @@ export function GeminaVerification(props: GeminaVerificationProps): React.JSX.El
   // Every change builds a NEW Map (SectionShared: the row-memo comparator
   // short-circuits on reference equality, so in-place mutation renders nothing);
   // no-op updates return `prev` unchanged to keep that same short-circuit.
-  const handleEdit = useCallback((rawKey: string, value: string) => {
-    const binding = bindingsByRawKeyRef.current.get(rawKey);
+  const handleEdit = useCallback((editKey: string, value: string, binding: FieldBinding) => {
     // Pristine = the input shows exactly what an untouched input would show:
     // toInputString of the binding's DISPLAY value (FieldInput's prefill) —
     // including '' for a never-extracted fill-in.
-    const pristine = binding !== undefined && value === toInputString(binding.extracted);
+    const pristine = value === toInputString(binding.extracted);
     setEdits((prev) => {
       if (pristine) {
-        if (!prev.has(rawKey)) {
+        if (!prev.has(editKey)) {
           return prev;
         }
         const next = new Map(prev);
-        next.delete(rawKey);
+        next.delete(editKey);
         return next;
       }
-      if (prev.get(rawKey) === value) {
+      if (prev.get(editKey) === value) {
         return prev;
       }
       const next = new Map(prev);
-      next.set(rawKey, value);
+      next.set(editKey, value);
       return next;
     });
   }, []);
 
   // Progress counts — composeSubmission IS the source of truth (the same call
   // Task 17 submits), so the line can never disagree with what would be sent.
-  const submission = useMemo(() => composeSubmission(bindings, edits), [bindings, edits]);
+  /**
+   * Every row-mutable table's rows, resolved to cells. Computed once and shared
+   * with the form, the pair rule and the submit gate — deriving it per consumer
+   * is how they would come to disagree about which row a cell belongs to.
+   */
+  const plannedTables = useMemo(() => {
+    const tables = loaded?.rowMutableTables ?? [];
+    if (tables.length === 0) {
+      return NO_PLANNED_TABLES;
+    }
+    const out = new Map<string, PlannedRow[]>();
+    for (const table of tables) {
+      const plan = rowPlans.get(table.pointer);
+      if (plan === undefined) {
+        continue;
+      }
+      const classifiedTable = classified.tables.find(
+        (candidate) => matchesTablePointer(table.pointer, candidate.pointer),
+      );
+      const columns = displayColumns(table, classifiedTable?.columns ?? []);
+      out.set(table.pointer, planTableCells(table, plan, columns, bindingsByRawKey));
+    }
+    return out;
+  }, [loaded, rowPlans, classified, bindingsByRawKey]);
+
+  /** Every editable cell, planned or not — the pair rule and the gate share it. */
+  const cellViews = useMemo(
+    () => collectCellViews(bindings, plannedTables),
+    [bindings, plannedTables],
+  );
+
+  /**
+   * The same tables, minus added rows nobody typed into. Used for SUBMISSION
+   * only — the empty row stays on screen so the reviewer can still fill it in.
+   */
+  const submissionTables = useMemo(
+    () => pruneEmptyAddedRows(plannedTables, edits),
+    [plannedTables, edits],
+  );
+  const submissionCells = useMemo(
+    () => collectCellViews(bindings, submissionTables),
+    [bindings, submissionTables],
+  );
+
+  /**
+   * The alignment for every table whose row set the reviewer actually changed.
+   *
+   * Identity plans are OMITTED, not sent as a no-op: the wire payload for an
+   * untouched submission has to stay byte-identical to what it was before row
+   * editing existed, and a pre-2b backend silently ignores the key anyway.
+   */
+  const rowSources = useMemo(() => {
+    const entries: RowSourcesEntry[] = [];
+    for (const table of loaded?.rowMutableTables ?? []) {
+      // From the PRUNED rows, so an abandoned "Add line" leaves no trace.
+      const rows = submissionTables.get(table.pointer);
+      if (rows === undefined) {
+        continue;
+      }
+      const plan = rows.map((row) => row.entry);
+      if (isIdentityPlan(plan, countRowsAt(loaded?.values, table.pointer))) {
+        continue;
+      }
+      entries.push({ table: table.pointer, sources: rowSourcesOf(plan) });
+    }
+    return entries;
+  }, [loaded, submissionTables]);
+
+  const submission = useMemo(
+    () => composeSubmission(bindings, edits, { cells: submissionCells, rowSources }),
+    [bindings, edits, submissionCells, rowSources],
+  );
 
   // Flash wiring (form → viewer). STABLE callback — the table-row memo
   // compares onFlash by reference, so rows never re-render on unrelated
@@ -561,6 +687,76 @@ export function GeminaVerification(props: GeminaVerificationProps): React.JSX.El
     void load();
   }, [load]);
 
+  /** Row controls. Both replace the whole map so the row memo sees a new
+   *  reference exactly when a plan actually changed. */
+  const handleAddRow = useCallback((tablePointer: string, afterPosition: number) => {
+    // Minted HERE, not inside the updater: an updater must be pure, and React
+    // invokes it twice under Strict Mode.
+    const id = nextAddedRowId(tablePointer);
+    setRowPlans((prev) => {
+      const plan = prev.get(tablePointer);
+      if (plan === undefined) {
+        return prev;
+      }
+      const next = new Map(prev);
+      next.set(tablePointer, insertRowAfter(plan, afterPosition, id));
+      return next;
+    });
+  }, []);
+
+  const handleRemoveRow = useCallback((tablePointer: string, position: number) => {
+    setRowPlans((prev) => {
+      const plan = prev.get(tablePointer);
+      if (plan === undefined) {
+        return prev;
+      }
+      const nextPlan = removeRow(plan, position);
+      if (nextPlan === plan) {
+        return prev;
+      }
+      const next = new Map(prev);
+      next.set(tablePointer, nextPlan);
+      return next;
+    });
+  }, []);
+
+  /**
+   * How many edited fields the reviewer must fix before this can be submitted.
+   *
+   * Derived from `edits` x descriptors, NOT from every binding: an extracted
+   * value that fails validation is the model's output, not the reviewer's
+   * mistake, and blocking a submission on a field they never touched would be
+   * indefensible. FieldInput applies the identical rule when deciding whether
+   * to show its inline error, so the count and the red borders can never
+   * disagree.
+   *
+   * Validation is one-shot and irreversible, so the gate is a hard disable
+   * rather than a warning.
+   */
+  /**
+   * The one cross-field rule the server enforces, surfaced before submission
+   * rather than discovered after it. See `unitSizePairErrors`.
+   */
+  const pairErrors = useMemo(() => unitSizePairErrors(cellViews, edits), [cellViews, edits]);
+
+  const invalidCount = useMemo(() => {
+    // Row-level errors count even with no edits at all: the extraction itself
+    // can arrive with one half of the pair filled.
+    const rowLevel = pairErrors.size;
+    if (edits.size === 0) {
+      return rowLevel;
+    }
+    const byEditKey = new Map(cellViews.map((view) => [view.editKey, view.binding]));
+    let count = 0;
+    for (const [editKey, value] of edits) {
+      // A cell already flagged by the row rule must not be counted twice.
+      if (!pairErrors.has(editKey) && validateInput(value, byEditKey.get(editKey)?.field) !== null) {
+        count += 1;
+      }
+    }
+    return count + rowLevel;
+  }, [edits, cellViews, pairErrors]);
+
   /**
    * The PUT. Reuses the `submission` memo — the SAME pure composeSubmission
    * result the progress line displays — so what the reviewer was just shown
@@ -587,7 +783,13 @@ export function GeminaVerification(props: GeminaVerificationProps): React.JSX.El
       const token = await tokenManager.getToken();
       return GeminaClient.withSessionToken(token, baseUrl).documents.validateDocumentExtraction({
         targetDocumentExtractionId: extractionId,
-        extractionValidationInDTO: { data: body.data },
+        // Conditional spread, matching the house pattern: without a row edit
+        // the request body is byte-identical to what it was before this
+        // feature, so nothing changes for the overwhelmingly common path.
+        extractionValidationInDTO: {
+          data: body.data,
+          ...(body.rowSources.length > 0 ? { rowSources: body.rowSources } : {}),
+        },
       });
     };
     try {
@@ -776,6 +978,11 @@ export function GeminaVerification(props: GeminaVerificationProps): React.JSX.El
             onEdit={handleEdit}
             readOnly={alreadyValidated}
             onFlash={handleFlash}
+            pairErrors={pairErrors}
+            rowMutableTables={loaded?.rowMutableTables}
+            plannedTables={plannedTables}
+            onAddRow={handleAddRow}
+            onRemoveRow={handleRemoveRow}
           />
         </div>
         {reviewPhase.name === 'submit-error' && (
@@ -800,19 +1007,30 @@ export function GeminaVerification(props: GeminaVerificationProps): React.JSX.El
               Hidden when read-only — the already-verified landing would
               otherwise show "0 corrected" noise about the ORIGINAL payload —
               while the disabled Submit stays for discoverability. */}
+          {/* One job per element: while anything is invalid the footer states
+              the blocker, and the progress count steps aside rather than
+              competing with it for the same corner of the screen. */}
           {!alreadyValidated && (
-            <div className="gemina-verification__progress" aria-live="polite">
-              {`${submission.confirmed} confirmed · ${submission.corrected} corrected`}
-            </div>
+            invalidCount > 0 ? (
+              <div className="gemina-verification__attention" aria-live="polite">
+                {invalidCount === 1
+                  ? '1 field needs attention'
+                  : `${invalidCount} fields need attention`}
+              </div>
+            ) : (
+              <div className="gemina-verification__progress" aria-live="polite">
+                {`${submission.confirmed} confirmed · ${submission.corrected} corrected`}
+              </div>
+            )
           )}
           <button
             type="button"
             ref={submitButtonRef}
             className="gemina-verification__submit"
-            disabled={alreadyValidated || reviewPhase.name !== 'review'}
+            disabled={alreadyValidated || reviewPhase.name !== 'review' || invalidCount > 0}
             onClick={handleSubmitClick}
           >
-            Submit feedback
+            Submit
           </button>
         </div>
         {overlayUp && (

@@ -2,7 +2,11 @@ import { describe, expect, it } from 'vitest';
 import {
   buildBindings, composeSubmission, indexBindingsByFieldPointer, toInputString,
 } from '../../src/verification/bindings';
+import {
+  UNIT_PAIR_MESSAGE, collectCellViews, unitSizePairErrors,
+} from '../../src/verification/row-cells';
 import { NOT_FOUND } from '../../src/verification/pointer';
+import type { FieldType } from '../../src/verification/field-types';
 
 const values = {
   supplier_name: { value: 'Acme Ltd', confidence: 'high' },
@@ -171,5 +175,200 @@ describe('composeSubmission', () => {
     const result = composeSubmission(bindings, new Map());
     expect(Object.values(result.data).every((v) => typeof v !== 'symbol')).toBe(true);
     expect(Object.values(result.byLabel).every((v) => typeof v !== 'symbol')).toBe(true);
+  });
+});
+
+/**
+ * The typed descriptors the backend publishes alongside the opaque key list
+ * (`meta.validationFeedback.validationFields`). They are what turns a row of
+ * text inputs into a typed form, so they must reach the binding that renders
+ * the field — and their ABSENCE must be a no-op, because the component ships
+ * ahead of the backend that emits them and against hosts pinned to older SDKs.
+ */
+describe('buildBindings — typed descriptors', () => {
+  it('attaches the typed descriptor to its binding by key', () => {
+    const bindings = buildBindings(
+      ['label:currency|ptr:/currency'],
+      { currency: 'USD' },
+      [{
+        key: 'label:currency|ptr:/currency',
+        label: 'currency',
+        type: 'string',
+        format: 'iso4217',
+        description: 'ISO 4217 code',
+      }],
+    );
+    expect(bindings[0]?.field?.format).toBe('iso4217');
+    expect(bindings[0]?.field?.description).toBe('ISO 4217 code');
+  });
+
+  it('leaves field undefined when the backend has not shipped validationFields', () => {
+    // The deploy-gate guard: a pre-1.5.0 backend sends no descriptors, and the
+    // component must degrade to untyped inputs rather than break.
+    const bindings = buildBindings(['label:currency|ptr:/currency'], { currency: 'USD' });
+    expect(bindings[0]?.field).toBeUndefined();
+  });
+
+  it('matches descriptors by exact key, never by label', () => {
+    // Two tables can carry the same label; the opaque key is the only identity.
+    const bindings = buildBindings(
+      ['label:total|ptr:/line_items/0/total', 'label:total|ptr:/line_items/1/total'],
+      { line_items: [{ total: 1 }, { total: 2 }] },
+      [{ key: 'label:total|ptr:/line_items/1/total', label: 'total', type: 'number' }],
+    );
+    expect(bindings[0]?.field).toBeUndefined();
+    expect(bindings[1]?.field?.type).toBe('number');
+  });
+
+  it('ignores a descriptor whose key matches no schema entry', () => {
+    const bindings = buildBindings(
+      ['label:currency|ptr:/currency'],
+      { currency: 'USD' },
+      [{ key: 'label:ghost|ptr:/ghost', label: 'ghost', type: 'string' }],
+    );
+    expect(bindings).toHaveLength(1);
+    expect(bindings[0]?.field).toBeUndefined();
+  });
+});
+
+/**
+ * Typed RENDERING without typed PARSING leaves the approval payload as
+ * unusable as before: edits are strings all the way through.
+ *
+ * It matters on the wire because the server's `coerce_like` adopts the
+ * EXTRACTED value's type before comparing — and skips coercion entirely when
+ * the target is NOT_FOUND, which is exactly the never-extracted and added-row
+ * cases. And it matters in `onComplete`, which hands the host the client-side
+ * `byLabel` values, never the backend-normalised ones: a host receiving
+ * approved data would get "12" where it expects 12.
+ */
+describe('composeSubmission — typed values', () => {
+  const NUM_KEY = 'label:quantity|ptr:/line_items/0/quantity';
+  const typed = (type: FieldType, value: unknown) => buildBindings(
+    [NUM_KEY],
+    { line_items: [{ quantity: value }] },
+    [{ key: NUM_KEY, label: 'quantity', type }],
+  );
+
+  it('submits a number field as a number, not a string', () => {
+    const { data, byLabel } = composeSubmission(typed('number', 1), new Map([[NUM_KEY, '12']]));
+    expect(data[NUM_KEY]).toBe(12);
+    expect(byLabel['quantity']).toBe(12);
+  });
+
+  it('submits an integer field as a number', () => {
+    const { data } = composeSubmission(typed('integer', 1), new Map([[NUM_KEY, '12']]));
+    expect(data[NUM_KEY]).toBe(12);
+  });
+
+  it('strips the separators the server would have stripped anyway', () => {
+    const { data } = composeSubmission(typed('number', 1), new Map([[NUM_KEY, '1,500']]));
+    expect(data[NUM_KEY]).toBe(1500);
+  });
+
+  it('submits a boolean field as a boolean', () => {
+    const { data } = composeSubmission(typed('boolean', false), new Map([[NUM_KEY, 'true']]));
+    expect(data[NUM_KEY]).toBe(true);
+    const off = composeSubmission(typed('boolean', true), new Map([[NUM_KEY, 'false']]));
+    expect(off.data[NUM_KEY]).toBe(false);
+  });
+
+  it('leaves untyped fields as strings — no descriptor, no coercion', () => {
+    const bindings = buildBindings([NUM_KEY], { line_items: [{ quantity: 1 }] });
+    const { data } = composeSubmission(bindings, new Map([[NUM_KEY, '12']]));
+    expect(data[NUM_KEY]).toBe('12');
+  });
+
+  it('leaves string and date fields as strings', () => {
+    const { data } = composeSubmission(typed('date', '2026-01-01'), new Map([[NUM_KEY, '2026-08-14']]));
+    expect(data[NUM_KEY]).toBe('2026-08-14');
+    const asString = composeSubmission(typed('string', 'a'), new Map([[NUM_KEY, '12']]));
+    expect(asString.data[NUM_KEY]).toBe('12');
+  });
+
+  it('still submits null for a cleared typed field', () => {
+    // Clearing asserts absence; it must not become 0 or NaN.
+    const { data } = composeSubmission(typed('number', 1), new Map([[NUM_KEY, '  ']]));
+    expect(data[NUM_KEY]).toBeNull();
+  });
+
+  it('never emits NaN — an unparseable value cannot reach the wire', () => {
+    // Task 6.4's gate blocks submission first, but if it were ever bypassed
+    // the raw string is safer than NaN, which JSON.stringify turns into null
+    // and would silently score as "absent".
+    const { data } = composeSubmission(typed('number', 1), new Map([[NUM_KEY, 'twelve']]));
+    expect(data[NUM_KEY]).toBe('twelve');
+    expect(Number.isNaN(data[NUM_KEY] as number)).toBe(false);
+  });
+});
+
+/**
+ * The one cross-field rule the server enforces.
+ *
+ * `_unit_size_pair_rule` (invoice_line_item.py:50-56) nulls BOTH `unit_size`
+ * and `unit_size_uom` whenever either is missing — on every parse, including
+ * the scorer's. So a reviewer who fills one and not the other has both
+ * silently zeroed before scoring, and `onComplete` hands the host a value the
+ * backend had already discarded. Flagging it is the only way they find out.
+ */
+describe('unitSizePairErrors', () => {
+  /** The rule reads CELL VIEWS now, so an added row's cells work the same way. */
+  const pairErrorsFor = (bindings: ReturnType<typeof buildBindings>, edits: Map<string, string>) =>
+    unitSizePairErrors(collectCellViews(bindings, new Map()), edits);
+
+  const SIZE = 'label:line_0_unit_size|ptr:/line_items/0/unit_size';
+  const UOM = 'label:line_0_unit_size_uom|ptr:/line_items/0/unit_size_uom';
+  const rows = (unitSize: unknown, uom: unknown) => buildBindings(
+    [SIZE, UOM],
+    { line_items: [{ unit_size: unitSize, unit_size_uom: uom }] },
+  );
+
+  it('flags BOTH cells when only the size is filled', () => {
+    const errors = pairErrorsFor(rows(0.5, null), new Map());
+    expect(errors.get(SIZE)).toBe(UNIT_PAIR_MESSAGE);
+    expect(errors.get(UOM)).toBe(UNIT_PAIR_MESSAGE);
+  });
+
+  it('flags BOTH cells when only the unit is filled', () => {
+    const errors = pairErrorsFor(rows(null, 'ML'), new Map());
+    expect(errors.size).toBe(2);
+  });
+
+  it('is silent when both are filled, and when neither is', () => {
+    expect(pairErrorsFor(rows(0.5, 'ML'), new Map()).size).toBe(0);
+    expect(pairErrorsFor(rows(null, null), new Map()).size).toBe(0);
+  });
+
+  it('reads the EDIT, not just the extraction', () => {
+    // Orphaning the pair by typing is the common case — the extraction itself
+    // usually arrives consistent because the server already nulled it.
+    const errors = pairErrorsFor(rows(null, null), new Map([[SIZE, '0.5']]));
+    expect(errors.size).toBe(2);
+  });
+
+  it('clears once the sibling is supplied', () => {
+    const errors = pairErrorsFor(rows(0.5, null), new Map([[UOM, 'ML']]));
+    expect(errors.size).toBe(0);
+  });
+
+  it('treats whitespace as empty', () => {
+    expect(pairErrorsFor(rows(0.5, 'ML'), new Map([[UOM, '   ']])).size).toBe(2);
+  });
+
+  it('scopes to the row — one orphaned row does not flag a complete one', () => {
+    const bindings = buildBindings(
+      [SIZE, UOM,
+       'label:line_1_unit_size|ptr:/line_items/1/unit_size',
+       'label:line_1_unit_size_uom|ptr:/line_items/1/unit_size_uom'],
+      { line_items: [{ unit_size: 0.5, unit_size_uom: null }, { unit_size: 1, unit_size_uom: 'L' }] },
+    );
+    const errors = pairErrorsFor(bindings, new Map());
+    expect(errors.size).toBe(2);
+    expect(errors.has('label:line_1_unit_size|ptr:/line_items/1/unit_size')).toBe(false);
+  });
+
+  it('is silent for an extraction with no unit-size pair at all', () => {
+    const bindings = buildBindings(['label:total|ptr:/total'], { total: 1 });
+    expect(pairErrorsFor(bindings, new Map()).size).toBe(0);
   });
 });

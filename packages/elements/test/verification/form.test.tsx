@@ -33,6 +33,8 @@ import type { VerificationFormProps } from '../../src/verification/form';
 import { buildBindings, indexBindingsByFieldPointer } from '../../src/verification/bindings';
 import type { FieldBinding } from '../../src/verification/bindings';
 import { classifyData, ROW_META_KEY } from '../../src/verification/classify';
+import { planTableCells } from '../../src/verification/row-cells';
+import { initialRowPlan, insertRowAfter } from '../../src/verification/row-plan';
 import { NOT_FOUND } from '../../src/verification/pointer';
 
 afterEach(cleanup);
@@ -149,23 +151,41 @@ describe('ConfidenceDot', () => {
     expect(container.firstChild).toBeNull();
   });
 
-  it('reasons reach AT through the accessible NAME, not only the hover title', () => {
+  it('reasons reach AT through the accessible NAME, not only the tooltip', () => {
     render(
       <ConfidenceDot
         confidence={{ level: 'high', reasons: ['low_ocr_quality', 'blurry_scan'] }}
       />,
     );
-    // The title tooltip is mouse-only; the aria-label carries the reasons too
-    // (formatted, comma-joined) so screen-reader users hear WHY.
+    // The tooltip is the SIGHTED channel; the aria-label carries the reasons
+    // too (formatted, comma-joined) so screen-reader users hear WHY.
     const dot = screen.getByRole('img', { name: 'High confidence: Low OCR Quality, Blurry Scan' });
-    expect(dot.getAttribute('title')).toBe('High confidence\nLow OCR Quality\nBlurry Scan');
+    expect(dot.getAttribute('title')).toBeNull(); // retired — see tip.tsx
   });
 
-  it('without reasons both name and title are the bare label — no trailing separator', () => {
+  it('gives the dot a structured tooltip: level heading over a reasons list', async () => {
+    render(
+      <ConfidenceDot
+        confidence={{ level: 'low', reasons: ['blurry_region', 'low_ocr_quality'] }}
+      />,
+    );
+    fireEvent.mouseEnter(screen.getByRole('img', { name: /low confidence/i }));
+
+    const tip = await screen.findByRole('tooltip');
+    expect(tip.querySelector('strong')?.textContent).toBe('Low confidence');
+    const items = [...tip.querySelectorAll('li')].map((li) => li.textContent);
+    expect(items).toEqual(['Blurry Region', 'Low OCR Quality']);
+  });
+
+  it('without reasons the tooltip is the bare label — no empty list', async () => {
     render(<ConfidenceDot confidence={{ level: 'low', reasons: [] }} />);
     const dot = screen.getByRole('img', { name: 'Low confidence' });
     expect(dot.getAttribute('aria-label')).toBe('Low confidence');
-    expect(dot.getAttribute('title')).toBe('Low confidence');
+
+    fireEvent.mouseEnter(dot);
+    const tip = await screen.findByRole('tooltip');
+    expect(tip.querySelector('strong')?.textContent).toBe('Low confidence');
+    expect(tip.querySelector('ul')).toBeNull();
   });
 });
 
@@ -183,7 +203,7 @@ describe('EyeButton', () => {
     render(<EyeButton coordinates={COORDS} onFlash={() => {}} />);
     const button = screen.getByRole('button', { name: 'Show on document' });
     expect(button.getAttribute('type')).toBe('button');
-    expect(button.getAttribute('title')).toBe('Show on document');
+    expect(button.getAttribute('title')).toBeNull(); // retired — see tip.tsx
     expect(button.querySelector('svg')).not.toBeNull();
   });
 
@@ -234,6 +254,19 @@ describe('FieldInput', () => {
     const badge = screen.getByText('edited');
     expect(badge.id).not.toBe('');
     expect(input.getAttribute('aria-describedby')).toBe(badge.id);
+  });
+
+  it('the edited badge tooltip carries the ORIGINAL value', async () => {
+    // Once the input holds the correction, the extracted value is otherwise
+    // gone from the screen — the badge is where it belongs.
+    render(<Harness binding={scalarBinding()} onEditSpy={vi.fn()} />);
+    const input = screen.getByRole('textbox', { name: 'Total Amount' });
+    fireEvent.change(input, { target: { value: '1600' } });
+
+    fireEvent.mouseEnter(screen.getByText('edited'));
+    const tip = await screen.findByRole('tooltip');
+    expect(tip.textContent).toContain('Was:');
+    expect(tip.textContent).toContain('1,500');
   });
 
   it('edit of empty string is still dirty — cleared is an assertion, not a revert', () => {
@@ -381,7 +414,14 @@ describe('VerificationForm: headers', () => {
     renderForm({ onEdit });
     const total = screen.getByRole('textbox', { name: 'Total' });
     fireEvent.change(total, { target: { value: '1600' } });
-    expect(onEdit).toHaveBeenCalledWith('label:Total|ptr:/total', '1600');
+    // A header's edit key IS its raw schema key — only row-mutable table cells
+    // key by row id. The binding rides along so the parent's revert detection
+    // never has to resolve a key back to a field (a cell key could not be).
+    expect(onEdit).toHaveBeenCalledWith(
+      'label:Total|ptr:/total',
+      '1600',
+      expect.objectContaining({ extracted: 1500 }),
+    );
   });
 });
 
@@ -416,7 +456,7 @@ describe('VerificationForm: tables', () => {
   it('renders header with row count + table-level dot, and one th per data column', () => {
     renderForm();
     const section = screen.getByRole('region', { name: 'Line Items' });
-    expect(within(section).getByText('Line Items (2 rows)')).not.toBeNull();
+    expect(within(section).getByText(/Line Items \(2 rows/)).not.toBeNull();
     const header = section.querySelector('.gemina-verification__section-header')!;
     expect(within(header as HTMLElement).getByRole('img', { name: 'Medium confidence' })).not.toBeNull();
     const ths = within(section).getAllByRole('columnheader');
@@ -533,7 +573,7 @@ describe('VerificationForm: readOnly + ordering + empty buckets', () => {
     expect(headers).toEqual([
       'Details',
       'Suppliers (2)',
-      'Line Items (2 rows)',
+      expect.stringMatching(/^Line Items \(2 rows/),
       'Additional Data',
       'Not detected',
     ]);
@@ -550,5 +590,388 @@ describe('VerificationForm: readOnly + ordering + empty buckets', () => {
     expect(container.querySelector('.gemina-verification__card')).toBeNull();
     expect(screen.queryByText('Additional Data')).toBeNull();
     expect(screen.queryByText('Not detected')).toBeNull();
+  });
+});
+
+// --- Typed rendering (Phase 6) -----------------------------------------------
+
+describe('FieldInput — typed controls', () => {
+  function typedBinding(field: FieldBinding['field'], extracted: unknown = 'USD'): FieldBinding {
+    return { ...scalarBinding({ extracted, serverValue: extracted }), field };
+  }
+
+  it('renders a closed roster as a select carrying every option', () => {
+    render(
+      <FieldInput
+        binding={typedBinding({ type: 'string', enum: ['UNIT', 'BOX'] }, 'BOX')}
+        edit={undefined}
+        onEdit={vi.fn()}
+        readOnly={false}
+        ariaLabel="Unit Of Measure"
+      />,
+    );
+    const select = screen.getByRole('combobox', { name: 'Unit Of Measure' }) as HTMLSelectElement;
+    expect(select.value).toBe('BOX');
+    expect([...select.options].map((o) => o.value)).toEqual(['', 'UNIT', 'BOX']);
+  });
+
+  it('keeps an off-roster extracted value as a pinned option rather than destroying it', () => {
+    // The model found CRATE; the roster does not list it. Opening the select
+    // must not silently rewrite the extraction.
+    render(
+      <FieldInput
+        binding={typedBinding({ type: 'string', enum: ['UNIT', 'BOX'] }, 'CRATE')}
+        edit={undefined}
+        onEdit={vi.fn()}
+        readOnly={false}
+        ariaLabel="Unit Of Measure"
+      />,
+    );
+    const select = screen.getByRole('combobox') as HTMLSelectElement;
+    expect(select.value).toBe('CRATE');
+    expect(screen.getByRole('option', { name: /CRATE/ })).toBeTruthy();
+  });
+
+  it('offers ISO 4217 codes as suggestions without forcing membership', () => {
+    render(
+      <FieldInput
+        binding={typedBinding({ type: 'string', format: 'iso4217' }, 'USD')}
+        edit={undefined}
+        onEdit={vi.fn()}
+        readOnly={false}
+        ariaLabel="Currency"
+      />,
+    );
+    // A datalist-backed input is announced as a COMBOBOX, not a textbox —
+    // attaching suggestions changes the control's role.
+    const input = screen.getByRole('combobox', { name: 'Currency' });
+    const listId = input.getAttribute('list')!;
+    expect(listId).toBeTruthy();
+    const datalist = document.getElementById(listId)!;
+    expect(datalist.tagName.toLowerCase()).toBe('datalist');
+    expect([...datalist.querySelectorAll('option')].map((o) => o.getAttribute('value')))
+      .toContain('ILS');
+  });
+
+  it('hints a decimal keyboard for numeric fields without constraining the value', () => {
+    render(
+      <FieldInput
+        binding={typedBinding({ type: 'number' }, 1500)}
+        edit={undefined}
+        onEdit={vi.fn()}
+        readOnly={false}
+        ariaLabel="Total Amount"
+      />,
+    );
+    const input = screen.getByRole('textbox', { name: 'Total Amount' });
+    // type stays text: the server accepts "1,500", and type=number would not.
+    expect(input.getAttribute('type')).toBe('text');
+    expect(input.getAttribute('inputMode') ?? input.getAttribute('inputmode')).toBe('decimal');
+  });
+
+  it('renders a date field with the native picker', () => {
+    const { container } = render(
+      <FieldInput
+        binding={typedBinding({ type: 'date' }, '2026-08-14')}
+        edit={undefined}
+        onEdit={vi.fn()}
+        readOnly={false}
+        ariaLabel="Issue Date"
+      />,
+    );
+    expect(container.querySelector('input[type="date"]')).not.toBeNull();
+  });
+
+  it('shows an inline error naming the fix, and marks the control invalid', () => {
+    render(
+      <FieldInput
+        binding={typedBinding({ type: 'string', format: 'iso4217' }, 'USD')}
+        edit="dollars"
+        onEdit={vi.fn()}
+        readOnly={false}
+        ariaLabel="Currency"
+      />,
+    );
+    const input = screen.getByRole('combobox', { name: 'Currency' });
+    expect(input.getAttribute('aria-invalid')).toBe('true');
+    const error = screen.getByRole('alert');
+    expect(error.textContent).toBe('Use a 3-letter ISO 4217 code, e.g. USD');
+    // Both descriptions survive — the edited badge AND the error.
+    const describedBy = input.getAttribute('aria-describedby')!.split(' ');
+    expect(describedBy).toContain(error.id);
+    expect(describedBy.length).toBe(2);
+  });
+
+  it('does not flag an untouched field, however odd the extracted value', () => {
+    // The model's output is not the reviewer's mistake, and blocking a
+    // submission they never touched would be indefensible.
+    render(
+      <FieldInput
+        binding={typedBinding({ type: 'number' }, 'not-a-number')}
+        edit={undefined}
+        onEdit={vi.fn()}
+        readOnly={false}
+        ariaLabel="Total Amount"
+      />,
+    );
+    expect(screen.queryByRole('alert')).toBeNull();
+    expect(screen.getByRole('textbox').getAttribute('aria-invalid')).toBeNull();
+  });
+
+  it('falls back to a plain text input with no descriptor', () => {
+    render(
+      <FieldInput
+        binding={typedBinding(undefined, 'anything')}
+        edit={undefined}
+        onEdit={vi.fn()}
+        readOnly={false}
+        ariaLabel="Total Amount"
+      />,
+    );
+    const input = screen.getByRole('textbox', { name: 'Total Amount' });
+    expect(input.getAttribute('type')).toBe('text');
+    expect(input.getAttribute('list')).toBeNull();
+    expect(screen.queryByRole('combobox')).toBeNull();
+  });
+});
+
+// --- Row editing (Phase 7) ---------------------------------------------------
+
+describe('VerificationForm: row-mutable tables', () => {
+  const TEMPLATE = 'label:line_{index}_{field}|ptr:/line_items/{index}/{field}';
+  // FOUR columns minimum: `isTableArray` requires >3 non-meta fields, so a
+  // narrower array classifies as entity CARDS and never reaches TableSection.
+  // Real line_items carry ~19 columns, so this is a fixture constraint rather
+  // than a product limit — but a row-mutable table of 3 columns or fewer would
+  // get no row controls, which is worth knowing.
+  const COLS = ['description', 'unit_of_measure', 'quantity', 'item_code'];
+  const MUTABLE = {
+    pointer: '/line_items',
+    keyTemplate: TEMPLATE,
+    columns: [
+      { key: 'description', label: 'description', type: 'string' as const },
+      { key: 'unit_of_measure', label: 'unit_of_measure', type: 'string' as const, enum: ['UNIT', 'BOX'] },
+      { key: 'quantity', label: 'quantity', type: 'number' as const },
+      { key: 'item_code', label: 'item_code', type: 'string' as const },
+    ],
+  };
+
+  function renderTable(descriptions: string[], extra: Partial<VerificationFormProps> = {}) {
+    const values = {
+      line_items: descriptions.map((description) => ({
+        description, unit_of_measure: 'UNIT', quantity: 1, item_code: 'X',
+      })),
+    };
+    const schema = descriptions.flatMap((_v, i) => COLS.map(
+      (c) => `label:line_${i}_${c}|ptr:/line_items/${i}/${c}`,
+    ));
+    const fields = descriptions.flatMap((_v, i) => MUTABLE.columns.map((column) => ({
+      key: `label:line_${i}_${column.key}|ptr:/line_items/${i}/${column.key}`,
+      label: column.key,
+      type: column.type,
+      enum: column.enum ?? null,
+    })));
+    const bindings = buildBindings(schema, values, fields);
+    const byRaw = new Map(bindings.map((b) => [b.key.raw, b]));
+    const plan = initialRowPlan(descriptions.length);
+    const planned = new Map([[MUTABLE.pointer, planTableCells(MUTABLE, plan, COLS, byRaw)]]);
+    return {
+      ...render(
+        <VerificationForm
+          {...formProps({
+            classified: classifyData(values),
+            bindingIndex: indexBindingsByFieldPointer(bindings),
+            rowMutableTables: [MUTABLE],
+            plannedTables: planned,
+            ...extra,
+          })}
+        />,
+      ),
+      plan,
+    };
+  }
+
+  it('offers per-row insert and remove controls, numbered for a screen reader', () => {
+    renderTable(['A', 'B']);
+    // Row-numbered: "Remove line" repeated N times is unusable with AT.
+    expect(screen.getByRole('button', { name: 'Remove line 1' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Remove line 2' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Insert line below line 1' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: /add line/i })).toBeTruthy();
+  });
+
+  it('reports the removal to the parent with the SERVER pointer and the position', () => {
+    const onRemoveRow = vi.fn();
+    renderTable(['A', 'B', 'C'], { onRemoveRow });
+    fireEvent.click(screen.getByRole('button', { name: 'Remove line 2' }));
+    expect(onRemoveRow).toHaveBeenCalledWith('/line_items', 1);
+  });
+
+  it('appends via Add line at the end of the table', () => {
+    const onAddRow = vi.fn();
+    renderTable(['A', 'B'], { onAddRow });
+    fireEvent.click(screen.getByRole('button', { name: /add line/i }));
+    expect(onAddRow).toHaveBeenCalledWith('/line_items', 1);
+  });
+
+  it('renders an added row with the SAME typed controls as an extracted one', () => {
+    const values = {
+      line_items: [{ description: 'A', unit_of_measure: 'UNIT', quantity: 1, item_code: 'X' }],
+    };
+    const bindings = buildBindings(
+      COLS.map((c) => `label:line_0_${c}|ptr:/line_items/0/${c}`),
+      values,
+    );
+    const plan = insertRowAfter(initialRowPlan(1), 0);
+    const planned = new Map([[MUTABLE.pointer, planTableCells(
+      MUTABLE, plan, COLS, new Map(bindings.map((b) => [b.key.raw, b])),
+    )]]);
+    render(<VerificationForm {...formProps({
+      classified: classifyData(values),
+      bindingIndex: indexBindingsByFieldPointer(bindings),
+      rowMutableTables: [MUTABLE],
+      plannedTables: planned,
+    })} />);
+
+    // Row 2 is the added one: its UoM cell is a select, exactly like row 1's,
+    // and its description is an empty fill-in rather than a missing binding.
+    const uom = screen.getByRole('combobox', { name: 'Line Items row 2 — Unit Of Measure' });
+    expect([...(uom as HTMLSelectElement).options].map((o) => o.value)).toContain('BOX');
+    const description = screen.getByRole('textbox', {
+      name: 'Line Items row 2 — Description',
+    }) as HTMLInputElement;
+    expect(description.value).toBe('');
+  });
+
+  it('offers no row controls when the server did not declare the table mutable', () => {
+    const values = {
+      line_items: [{ description: 'A', unit_of_measure: 'UNIT', quantity: 1, item_code: 'X' }],
+    };
+    const bindings = buildBindings(
+      COLS.map((c) => `label:line_0_${c}|ptr:/line_items/0/${c}`), values,
+    );
+    render(<VerificationForm {...formProps({
+      classified: classifyData(values),
+      bindingIndex: indexBindingsByFieldPointer(bindings),
+    })} />);
+    expect(screen.queryByRole('button', { name: /add line/i })).toBeNull();
+    expect(screen.queryByRole('button', { name: /remove line/i })).toBeNull();
+  });
+
+  it('offers no row controls in read-only mode', () => {
+    renderTable(['A'], { readOnly: true });
+    expect(screen.queryByRole('button', { name: /add line/i })).toBeNull();
+  });
+
+  it('promotes a ZERO-row mutable table, which the classifier calls a header', () => {
+    // The case the feature exists for: the model found no lines at all.
+    const values = { line_items: [] };
+    render(<VerificationForm {...formProps({
+      classified: classifyData(values),
+      bindingIndex: new Map(),
+      rowMutableTables: [MUTABLE],
+      plannedTables: new Map([[MUTABLE.pointer, planTableCells(MUTABLE, [], COLS, new Map())]]),
+    })} />);
+
+    expect(screen.getByRole('columnheader', { name: 'Description' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: /add line/i })).toBeTruthy();
+    // ...and it does NOT also render as an empty header field.
+    expect(screen.queryByRole('textbox', { name: 'Line Items' })).toBeNull();
+  });
+});
+
+describe('VerificationForm: low-confidence rows', () => {
+  const COLS = ['description', 'unit_of_measure', 'quantity', 'item_code'];
+  function renderRows(levels: Array<string | null>) {
+    const values = {
+      line_items: levels.map((level, i) => ({
+        description: `Row ${i}`, unit_of_measure: 'UNIT', quantity: 1, item_code: 'X',
+        ...(level ? { confidence: level } : {}),
+      })),
+    };
+    const bindings = buildBindings([], values);
+    return render(<VerificationForm {...formProps({
+      classified: classifyData(values),
+      bindingIndex: indexBindingsByFieldPointer(bindings),
+      unmatched: [],
+    })} />);
+  }
+
+  it('marks a row whose confidence is not high', () => {
+    const { container } = renderRows(['low', 'high']);
+    const rows = container.querySelectorAll('tbody tr');
+    expect(rows[0]!.classList.contains('gemina-verification__row--low')).toBe(true);
+    expect(rows[1]!.className).not.toMatch(/--(low|medium)/);
+  });
+
+  it('marks medium as well as low — the scale is closed, so it is total', () => {
+    const { container } = renderRows(['medium']);
+    expect(container.querySelector('tbody tr')!.classList
+      .contains('gemina-verification__row--medium')).toBe(true);
+  });
+
+  it('leaves an unmeasured row unmarked — no confidence is not low confidence', () => {
+    const { container } = renderRows([null]);
+    expect(container.querySelector('tbody tr')!.className).not.toMatch(/--(low|medium)/);
+  });
+
+  it('counts the rows needing review in the section header', () => {
+    renderRows(['low', 'medium', 'high']);
+    expect(screen.getByText(/3 rows · 2 need review/)).toBeTruthy();
+  });
+
+  it('says nothing about review when every row is confident', () => {
+    renderRows(['high', 'high']);
+    expect(screen.queryByText(/need review/)).toBeNull();
+  });
+});
+
+describe('VerificationForm: field descriptions', () => {
+  it('shows the model\'s field description as a tooltip on the label', async () => {
+    const values = { currency: { value: 'USD' } };
+    const bindings = buildBindings(
+      ['label:currency|ptr:/currency/value'], values,
+      [{ key: 'label:currency|ptr:/currency/value', label: 'currency', type: 'string',
+         description: 'ISO 4217 code of the invoice currency' }],
+    );
+    render(<VerificationForm {...formProps({
+      classified: classifyData(values),
+      bindingIndex: indexBindingsByFieldPointer(bindings),
+      unmatched: [],
+    })} />);
+
+    fireEvent.mouseEnter(screen.getByText('Currency'));
+    const tip = await screen.findByRole('tooltip');
+    expect(tip.textContent).toBe('ISO 4217 code of the invoice currency');
+  });
+
+  it('leaves a label with no description as plain text — no empty tooltip', () => {
+    const values = { currency: { value: 'USD' } };
+    const bindings = buildBindings(['label:currency|ptr:/currency/value'], values);
+    render(<VerificationForm {...formProps({
+      classified: classifyData(values),
+      bindingIndex: indexBindingsByFieldPointer(bindings),
+      unmatched: [],
+    })} />);
+
+    const label = screen.getByText('Currency');
+    expect(label.className).not.toMatch(/label-described/);
+    fireEvent.mouseEnter(label);
+    expect(screen.queryByRole('tooltip')).toBeNull();
+  });
+
+  it('makes a described label keyboard-reachable, so the tooltip is not mouse-only', () => {
+    const values = { currency: { value: 'USD' } };
+    const bindings = buildBindings(
+      ['label:currency|ptr:/currency/value'], values,
+      [{ key: 'label:currency|ptr:/currency/value', label: 'currency', type: 'string',
+         description: 'ISO 4217 code' }],
+    );
+    render(<VerificationForm {...formProps({
+      classified: classifyData(values),
+      bindingIndex: indexBindingsByFieldPointer(bindings),
+      unmatched: [],
+    })} />);
+    expect(screen.getByText('Currency').getAttribute('tabIndex')).toBe('0');
   });
 });

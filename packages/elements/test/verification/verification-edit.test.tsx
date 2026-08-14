@@ -141,7 +141,7 @@ describe('GeminaVerification — progress footer', () => {
     expect(progress.textContent).toBe('2 confirmed · 0 corrected');
     expect(progress.getAttribute('aria-live')).toBe('polite');
 
-    const submit = screen.getByRole('button', { name: 'Submit feedback' });
+    const submit = screen.getByRole('button', { name: 'Submit' });
     expect(submit.classList.contains('gemina-verification__submit')).toBe(true);
     expect(submit.closest('.gemina-verification__footer')).not.toBeNull();
     expect((submit as HTMLButtonElement).disabled).toBe(false);
@@ -203,7 +203,7 @@ describe('GeminaVerification — progress footer', () => {
 
     await screen.findByText('Already verified — showing the original extraction.');
     // Submit stays (disabled) for discoverability…
-    const submit = screen.getByRole('button', { name: 'Submit feedback' });
+    const submit = screen.getByRole('button', { name: 'Submit' });
     expect((submit as HTMLButtonElement).disabled).toBe(true);
     // …but the progress line is gone: "0 corrected" about the ORIGINAL
     // payload would be noise on an already-verified extraction (Task 17).
