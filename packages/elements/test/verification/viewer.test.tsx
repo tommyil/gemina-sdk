@@ -211,11 +211,11 @@ describe('VerificationViewer — rendering', () => {
     ];
     for (const name of names) {
       const btn = screen.getByRole('button', { name });
-      expect(btn.getAttribute('title'), name).toBe(name);
+      expect(btn.getAttribute('title'), name).toBeNull(); // retired — see tip.tsx
       expect(btn.getAttribute('type')).toBe('button');
     }
     const magnifier = screen.getByRole('switch', { name: 'Magnifier' });
-    expect(magnifier.getAttribute('title')).toBe('Magnifier');
+    expect(magnifier.getAttribute('title')).toBeNull(); // retired — see tip.tsx
   });
 
   it('leaves the img free of inline geometry styling (the stylesheet owns it)', () => {

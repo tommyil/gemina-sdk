@@ -149,23 +149,41 @@ describe('ConfidenceDot', () => {
     expect(container.firstChild).toBeNull();
   });
 
-  it('reasons reach AT through the accessible NAME, not only the hover title', () => {
+  it('reasons reach AT through the accessible NAME, not only the tooltip', () => {
     render(
       <ConfidenceDot
         confidence={{ level: 'high', reasons: ['low_ocr_quality', 'blurry_scan'] }}
       />,
     );
-    // The title tooltip is mouse-only; the aria-label carries the reasons too
-    // (formatted, comma-joined) so screen-reader users hear WHY.
+    // The tooltip is the SIGHTED channel; the aria-label carries the reasons
+    // too (formatted, comma-joined) so screen-reader users hear WHY.
     const dot = screen.getByRole('img', { name: 'High confidence: Low OCR Quality, Blurry Scan' });
-    expect(dot.getAttribute('title')).toBe('High confidence\nLow OCR Quality\nBlurry Scan');
+    expect(dot.getAttribute('title')).toBeNull(); // retired — see tip.tsx
   });
 
-  it('without reasons both name and title are the bare label — no trailing separator', () => {
+  it('gives the dot a structured tooltip: level heading over a reasons list', async () => {
+    render(
+      <ConfidenceDot
+        confidence={{ level: 'low', reasons: ['blurry_region', 'low_ocr_quality'] }}
+      />,
+    );
+    fireEvent.mouseEnter(screen.getByRole('img', { name: /low confidence/i }));
+
+    const tip = await screen.findByRole('tooltip');
+    expect(tip.querySelector('strong')?.textContent).toBe('Low confidence');
+    const items = [...tip.querySelectorAll('li')].map((li) => li.textContent);
+    expect(items).toEqual(['Blurry Region', 'Low OCR Quality']);
+  });
+
+  it('without reasons the tooltip is the bare label — no empty list', async () => {
     render(<ConfidenceDot confidence={{ level: 'low', reasons: [] }} />);
     const dot = screen.getByRole('img', { name: 'Low confidence' });
     expect(dot.getAttribute('aria-label')).toBe('Low confidence');
-    expect(dot.getAttribute('title')).toBe('Low confidence');
+
+    fireEvent.mouseEnter(dot);
+    const tip = await screen.findByRole('tooltip');
+    expect(tip.querySelector('strong')?.textContent).toBe('Low confidence');
+    expect(tip.querySelector('ul')).toBeNull();
   });
 });
 
@@ -183,7 +201,7 @@ describe('EyeButton', () => {
     render(<EyeButton coordinates={COORDS} onFlash={() => {}} />);
     const button = screen.getByRole('button', { name: 'Show on document' });
     expect(button.getAttribute('type')).toBe('button');
-    expect(button.getAttribute('title')).toBe('Show on document');
+    expect(button.getAttribute('title')).toBeNull(); // retired — see tip.tsx
     expect(button.querySelector('svg')).not.toBeNull();
   });
 
@@ -234,6 +252,19 @@ describe('FieldInput', () => {
     const badge = screen.getByText('edited');
     expect(badge.id).not.toBe('');
     expect(input.getAttribute('aria-describedby')).toBe(badge.id);
+  });
+
+  it('the edited badge tooltip carries the ORIGINAL value', async () => {
+    // Once the input holds the correction, the extracted value is otherwise
+    // gone from the screen — the badge is where it belongs.
+    render(<Harness binding={scalarBinding()} onEditSpy={vi.fn()} />);
+    const input = screen.getByRole('textbox', { name: 'Total Amount' });
+    fireEvent.change(input, { target: { value: '1600' } });
+
+    fireEvent.mouseEnter(screen.getByText('edited'));
+    const tip = await screen.findByRole('tooltip');
+    expect(tip.textContent).toContain('Was:');
+    expect(tip.textContent).toContain('1,500');
   });
 
   it('edit of empty string is still dirty — cleared is an assertion, not a revert', () => {

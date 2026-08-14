@@ -30,6 +30,7 @@ import {
   zoomAtPoint,
 } from './viewer-math';
 import type { Size, Transform } from './viewer-math';
+import { Tip } from './tip';
 
 /** Axis-aligned detection region in relative image coordinates (0–1). */
 export interface RelativeRect {
@@ -182,24 +183,27 @@ function ToolbarButton({
   children,
 }: ToolbarButtonProps): React.JSX.Element {
   const active = (pressed ?? checked) === true;
+  // Icon-only controls: the label is the ONLY thing naming them, so it needs a
+  // sighted channel as well as the accessible name.
   return (
-    <button
-      type="button"
-      className={
-        active
-          ? 'gemina-verification__toolbar-btn gemina-verification__toolbar-btn--active'
-          : 'gemina-verification__toolbar-btn'
-      }
-      title={label}
-      aria-label={label}
-      role={checked === undefined ? undefined : 'switch'}
-      aria-checked={checked}
-      aria-pressed={pressed}
-      disabled={disabled}
-      onClick={onClick}
-    >
-      {children}
-    </button>
+    <Tip content={label}>
+      <button
+        type="button"
+        className={
+          active
+            ? 'gemina-verification__toolbar-btn gemina-verification__toolbar-btn--active'
+            : 'gemina-verification__toolbar-btn'
+        }
+        aria-label={label}
+        role={checked === undefined ? undefined : 'switch'}
+        aria-checked={checked}
+        aria-pressed={pressed}
+        disabled={disabled}
+        onClick={onClick}
+      >
+        {children}
+      </button>
+    </Tip>
   );
 }
 

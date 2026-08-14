@@ -37,6 +37,7 @@ import { toInputString } from './bindings';
 import type { ClassifiedCell, ClassifiedData, ClassifiedField } from './classify';
 import { ROW_META_KEY, formatLabel, formatValue } from './classify';
 import { NOT_FOUND } from './pointer';
+import { Tip } from './tip';
 import { IconEye } from './viewer';
 
 /** Colored dot + native tooltip. Absent (or blank-level) confidence renders nothing. */
@@ -69,18 +70,32 @@ export function ConfidenceDot(props: {
   }
 
   const reasons = confidence.reasons.map(formatLabel);
-  const title = [label, ...reasons].join('\n');
-  // The title tooltip is hover-only; the reasons must also reach AT (and the
-  // keyboard), so the accessible NAME carries them: "Low confidence: Blurry
-  // Region, Low OCR Quality". One string, no extra DOM.
+  // The reasons must reach AT (and the keyboard) regardless of the tooltip, so
+  // the accessible NAME carries them: "Low confidence: Blurry Region, Low OCR
+  // Quality". One string, no extra DOM. The tip is the SIGHTED channel for the
+  // same facts — hence `aria-describedby` is all Tip adds, and the name is
+  // left alone so nothing is announced twice.
   const ariaLabel = reasons.length > 0 ? `${label}: ${reasons.join(', ')}` : label;
+  // A heading over a list — the shape `title=` could never express, and the
+  // reason this component exists. Matches the console's FieldValue treatment.
+  const tip = (
+    <>
+      <strong className="gemina-verification__tip-title">{label}</strong>
+      {reasons.length > 0 ? (
+        <ul className="gemina-verification__tip-list">
+          {reasons.map((reason) => <li key={reason}>{reason}</li>)}
+        </ul>
+      ) : null}
+    </>
+  );
   return (
-    <span
-      className={`gemina-verification__dot gemina-verification__dot--${variant}`}
-      role="img"
-      aria-label={ariaLabel}
-      title={title}
-    />
+    <Tip content={tip}>
+      <span
+        className={`gemina-verification__dot gemina-verification__dot--${variant}`}
+        role="img"
+        aria-label={ariaLabel}
+      />
+    </Tip>
   );
 }
 
@@ -94,19 +109,20 @@ export function EyeButton(props: {
     return null;
   }
   return (
-    <button
-      type="button"
-      className="gemina-verification__eye"
-      title="Show on document"
-      aria-label="Show on document"
-      onClick={(event) => {
-        // Rows use click-to-flash (Task 13); the field eye must not double-fire it.
-        event.stopPropagation();
-        onFlash();
-      }}
-    >
-      <IconEye />
-    </button>
+    <Tip content="Show on document">
+      <button
+        type="button"
+        className="gemina-verification__eye"
+        aria-label="Show on document"
+        onClick={(event) => {
+          // Rows use click-to-flash (Task 13); the field eye must not double-fire it.
+          event.stopPropagation();
+          onFlash();
+        }}
+      >
+        <IconEye />
+      </button>
+    </Tip>
   );
 }
 
@@ -164,9 +180,28 @@ export function FieldInput(props: {
         autoComplete="off"
       />
       {dirty ? (
-        <span className="gemina-verification__edited" id={editedBadgeId}>
-          edited
-        </span>
+        // The badge is where the ORIGINAL belongs, now that the input holds
+        // the edit — otherwise the extracted value is simply gone from the
+        // screen the moment someone corrects it.
+        //
+        // Known limit: the badge is a non-focusable span, so this channel is
+        // hover-only. AT is not worse off than before (nothing carried the
+        // original previously), and the input's aria-describedby still names
+        // the field as edited. Giving it a keyboard path needs a focusable
+        // affordance, which belongs with the Phase 8 row work, not here.
+        <Tip
+          content={
+            <>
+              <span className="gemina-verification__tip-label">Was: </span>
+              {formatValue(binding.extracted === NOT_FOUND ? null : binding.extracted,
+                binding.key.label)}
+            </>
+          }
+        >
+          <span className="gemina-verification__edited" id={editedBadgeId}>
+            edited
+          </span>
+        </Tip>
       ) : null}
     </>
   );
