@@ -30,6 +30,7 @@ import type { ValidationFieldDescriptor } from './field-types';
 import {
   buildBindings,
   composeSubmission,
+  unitSizePairErrors,
   indexBindingsByFieldPointer,
   toInputString,
 } from './bindings';
@@ -588,19 +589,29 @@ export function GeminaVerification(props: GeminaVerificationProps): React.JSX.El
    * Validation is one-shot and irreversible, so the gate is a hard disable
    * rather than a warning.
    */
+  /**
+   * The one cross-field rule the server enforces, surfaced before submission
+   * rather than discovered after it. See `unitSizePairErrors`.
+   */
+  const pairErrors = useMemo(() => unitSizePairErrors(bindings, edits), [bindings, edits]);
+
   const invalidCount = useMemo(() => {
+    // Row-level errors count even with no edits at all: the extraction itself
+    // can arrive with one half of the pair filled.
+    const rowLevel = pairErrors.size;
     if (edits.size === 0) {
-      return 0;
+      return rowLevel;
     }
     const byKey = new Map(bindings.map((binding) => [binding.key.raw, binding]));
     let count = 0;
     for (const [rawKey, value] of edits) {
-      if (validateInput(value, byKey.get(rawKey)?.field) !== null) {
+      // A cell already flagged by the row rule must not be counted twice.
+      if (!pairErrors.has(rawKey) && validateInput(value, byKey.get(rawKey)?.field) !== null) {
         count += 1;
       }
     }
-    return count;
-  }, [edits, bindings]);
+    return count + rowLevel;
+  }, [edits, bindings, pairErrors]);
 
   /**
    * The PUT. Reuses the `submission` memo — the SAME pure composeSubmission
@@ -817,6 +828,7 @@ export function GeminaVerification(props: GeminaVerificationProps): React.JSX.El
             onEdit={handleEdit}
             readOnly={alreadyValidated}
             onFlash={handleFlash}
+            pairErrors={pairErrors}
           />
         </div>
         {reviewPhase.name === 'submit-error' && (

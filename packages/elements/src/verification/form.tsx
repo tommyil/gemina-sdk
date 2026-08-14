@@ -137,8 +137,14 @@ export function FieldInput(props: {
   readOnly: boolean;
   /** formatLabel(label) — the visible label lives in the surrounding layout. */
   ariaLabel: string;
+  /**
+   * A row-level error decided outside this field (the unit-size pair rule).
+   * Wins over per-field validation and applies even when untouched: the field
+   * is invalid because of its SIBLING, so dirtiness here is irrelevant.
+   */
+  pairError?: string;
 }): React.JSX.Element {
-  const { binding, edit, onEdit, readOnly, ariaLabel } = props;
+  const { binding, edit, onEdit, readOnly, ariaLabel, pairError } = props;
   const editedBadgeId = React.useId();
   const errorId = React.useId();
   const currencyListId = React.useId();
@@ -164,7 +170,7 @@ export function FieldInput(props: {
   // off-roster is the model's output, not their mistake: it is preserved (see
   // the pinned option below) and must not block a submission they never
   // touched. Task 6.4's gate reads the same rule.
-  const error = dirty ? validateInput(value, field) : null;
+  const error = pairError ?? (dirty ? validateInput(value, field) : null);
   const className = [
     'gemina-verification__input',
     dirty ? 'gemina-verification__input--dirty' : '',
@@ -279,6 +285,9 @@ interface FlashRect {
  * comparator short-circuits on `prevEdits === nextEdits`, so an in-place
  * mutation renders no update at all. */
 interface SectionShared {
+  /** Raw key -> row-level error. Empty for every extraction without the pair. */
+  pairErrors: ReadonlyMap<string, string>;
+
   bindingIndex: Map<string, FieldBinding>;
   edits: ReadonlyMap<string, string>;
   onEdit: (rawKey: string, value: string) => void;
@@ -291,7 +300,17 @@ interface SectionShared {
  * The SectionShared stability contract applies (see above), and `classified`
  * must be the memoized product of one `classifyData` call — a fresh object
  * per render defeats both the row memo and the fallback-section memo. */
-export interface VerificationFormProps extends SectionShared {
+/** One shared empty instance: `shared` is compared by reference downstream, so
+ *  "no row errors" must always be the SAME object. */
+const NO_PAIR_ERRORS: ReadonlyMap<string, string> = new Map();
+
+export interface VerificationFormProps extends Omit<SectionShared, 'pairErrors'> {
+  /**
+   * Optional on the public surface: the row-level pair rule is an internal
+   * detail of the full component, and a host (or a test) rendering the form
+   * directly should not have to know it exists.
+   */
+  pairErrors?: ReadonlyMap<string, string>;
   classified: ClassifiedData;
   /** Bindings whose pointer matched NO rendered field — the "model missed the
    *  whole field" case; rendered as an extra "Not detected" section of empty inputs. */
@@ -323,6 +342,7 @@ function FieldPair(props: {
         {binding !== undefined ? (
           <FieldInput
             binding={binding}
+            pairError={shared.pairErrors.get(binding.key.raw)}
             edit={shared.edits.get(binding.key.raw)}
             onEdit={shared.onEdit}
             readOnly={shared.readOnly}
@@ -381,6 +401,7 @@ function HeaderSection(props: {
                       {binding !== undefined ? (
                         <FieldInput
                           binding={binding}
+                          pairError={shared.pairErrors.get(binding.key.raw)}
                           edit={shared.edits.get(binding.key.raw)}
                           onEdit={shared.onEdit}
                           readOnly={shared.readOnly}
@@ -512,6 +533,7 @@ function TableRowView(props: TableRowViewProps): React.JSX.Element {
               {binding !== undefined ? (
                 <FieldInput
                   binding={binding}
+                  pairError={shared.pairErrors.get(binding.key.raw)}
                   edit={edits.get(binding.key.raw)}
                   onEdit={onEdit}
                   readOnly={readOnly}
@@ -675,6 +697,7 @@ function UnmatchedSection(props: {
             <dd className="gemina-verification__dd">
               <FieldInput
                 binding={binding}
+                pairError={shared.pairErrors.get(binding.key.raw)}
                 edit={shared.edits.get(binding.key.raw)}
                 onEdit={shared.onEdit}
                 readOnly={shared.readOnly}
@@ -691,8 +714,11 @@ function UnmatchedSection(props: {
 /** The whole form pane: every classified bucket in console order, then the
  * unmatched "Not detected" section. Empty buckets render nothing. */
 export function VerificationForm(props: VerificationFormProps): React.JSX.Element {
-  const { classified, unmatched, bindingIndex, edits, onEdit, readOnly, onFlash } = props;
-  const shared: SectionShared = { bindingIndex, edits, onEdit, readOnly, onFlash };
+  const { classified, unmatched, bindingIndex, edits, onEdit, readOnly, onFlash, pairErrors } = props;
+  const shared: SectionShared = {
+    bindingIndex, edits, onEdit, readOnly, onFlash,
+    pairErrors: pairErrors ?? NO_PAIR_ERRORS,
+  };
   return (
     // A real, labeled <form> (role "form" landmark): AT users can jump
     // straight to the editable fields. Submission is owned by the root's

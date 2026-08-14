@@ -268,3 +268,70 @@ export function composeSubmission(
   }
   return { data, byLabel, confirmed, corrected };
 }
+
+/** The one cross-field rule the server enforces. Deliberately not a rules engine. */
+const UNIT_SIZE = 'unit_size';
+const UNIT_SIZE_UOM = 'unit_size_uom';
+export const UNIT_PAIR_MESSAGE = 'Enter both value and unit';
+
+/** `/line_items/3/unit_size` -> `{ row: '/line_items/3', field: 'unit_size' }`. */
+function splitPointer(pointer: string): { row: string; field: string } | null {
+  const cut = pointer.lastIndexOf('/');
+  if (cut <= 0) {
+    return null;
+  }
+  return { row: pointer.slice(0, cut), field: pointer.slice(cut + 1) };
+}
+
+/**
+ * Rows where exactly one half of the unit-size pair is filled in.
+ *
+ * The server treats `unit_size` and `unit_size_uom` as both-or-nothing:
+ * `_unit_size_pair_rule` (invoice_line_item.py:50-56) nulls BOTH whenever
+ * either is missing, on every parse INCLUDING the scorer's. So a reviewer who
+ * fills one and not the other has both silently zeroed before scoring, and
+ * `onComplete` would hand the host a value the backend had already discarded.
+ * Flagging it is the only way the reviewer ever learns.
+ *
+ * Returns raw key -> message, for BOTH cells of an orphaned pair: the fix is
+ * available at either one, so both are marked.
+ *
+ * Deliberately hard-coded to this pair rather than generalised. Exactly one
+ * such rule exists in the models; a cross-field rules DSL would be speculative
+ * flexibility with no second caller.
+ */
+export function unitSizePairErrors(
+  bindings: FieldBinding[],
+  edits: ReadonlyMap<string, string>,
+): Map<string, string> {
+  const rows = new Map<string, { size?: FieldBinding; uom?: FieldBinding }>();
+  for (const binding of bindings) {
+    const split = splitPointer(binding.key.pointer);
+    if (!split || (split.field !== UNIT_SIZE && split.field !== UNIT_SIZE_UOM)) {
+      continue;
+    }
+    const row = rows.get(split.row) ?? {};
+    if (split.field === UNIT_SIZE) {
+      row.size = binding;
+    } else {
+      row.uom = binding;
+    }
+    rows.set(split.row, row);
+  }
+
+  const errors = new Map<string, string>();
+  for (const { size, uom } of rows.values()) {
+    // A row missing one half of the pair entirely from its schema cannot be
+    // half-filled, so there is nothing to enforce.
+    if (!size || !uom) {
+      continue;
+    }
+    const filled = (binding: FieldBinding) =>
+      (edits.get(binding.key.raw) ?? toInputString(binding.extracted)).trim() !== '';
+    if (filled(size) !== filled(uom)) {
+      errors.set(size.key.raw, UNIT_PAIR_MESSAGE);
+      errors.set(uom.key.raw, UNIT_PAIR_MESSAGE);
+    }
+  }
+  return errors;
+}
