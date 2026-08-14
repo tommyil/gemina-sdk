@@ -31,11 +31,14 @@ import {
   buildBindings,
   composeSubmission,
   countRowsAt,
-  unitSizePairErrors,
   indexBindingsByFieldPointer,
   toInputString,
 } from './bindings';
 import type { FieldBinding } from './bindings';
+import {
+  collectCellViews, displayColumns, matchesTablePointer, planTableCells, unitSizePairErrors,
+} from './row-cells';
+import type { PlannedRow } from './row-cells';
 import { initialRowPlan, insertRowAfter, removeRow } from './row-plan';
 import type { RowPlanEntry } from './row-plan';
 import { classifyData, ROW_META_KEY } from './classify';
@@ -140,6 +143,7 @@ const NO_EDITS: ReadonlyMap<string, string> = new Map();
 
 /** Same reference-stability contract as NO_EDITS, for the row plans. */
 const NO_ROW_PLANS: ReadonlyMap<string, RowPlanEntry[]> = new Map();
+const NO_PLANNED_TABLES: ReadonlyMap<string, PlannedRow[]> = new Map();
 
 /**
  * The identity plan for every table the server declared row-mutable.
@@ -418,6 +422,14 @@ export function GeminaVerification(props: GeminaVerificationProps): React.JSX.El
     [loaded],
   );
   const bindingIndex = useMemo(() => indexBindingsByFieldPointer(bindings), [bindings]);
+  // By RAW key — how a planned table cell finds the extracted value behind it.
+  const bindingsByRawKey = useMemo(() => {
+    const map = new Map<string, FieldBinding>();
+    for (const binding of bindings) {
+      map.set(binding.key.raw, binding);
+    }
+    return map;
+  }, [bindings]);
   // Bindings whose fieldPointer matches no classified leaf — the "model
   // missed the whole field" case, rendered as the form's Not-detected section.
   const unmatched = useMemo(() => {
@@ -645,10 +657,41 @@ export function GeminaVerification(props: GeminaVerificationProps): React.JSX.El
    * rather than a warning.
    */
   /**
+   * Every row-mutable table's rows, resolved to cells. Computed once and shared
+   * with the form, the pair rule and the submit gate — deriving it per consumer
+   * is how they would come to disagree about which row a cell belongs to.
+   */
+  const plannedTables = useMemo(() => {
+    const tables = loaded?.rowMutableTables ?? [];
+    if (tables.length === 0) {
+      return NO_PLANNED_TABLES;
+    }
+    const out = new Map<string, PlannedRow[]>();
+    for (const table of tables) {
+      const plan = rowPlans.get(table.pointer);
+      if (plan === undefined) {
+        continue;
+      }
+      const classifiedTable = classified.tables.find(
+        (candidate) => matchesTablePointer(table.pointer, candidate.pointer),
+      );
+      const columns = displayColumns(table, classifiedTable?.columns ?? []);
+      out.set(table.pointer, planTableCells(table, plan, columns, bindingsByRawKey));
+    }
+    return out;
+  }, [loaded, rowPlans, classified, bindingsByRawKey]);
+
+  /** Every editable cell, planned or not — the pair rule and the gate share it. */
+  const cellViews = useMemo(
+    () => collectCellViews(bindings, plannedTables),
+    [bindings, plannedTables],
+  );
+
+  /**
    * The one cross-field rule the server enforces, surfaced before submission
    * rather than discovered after it. See `unitSizePairErrors`.
    */
-  const pairErrors = useMemo(() => unitSizePairErrors(bindings, edits), [bindings, edits]);
+  const pairErrors = useMemo(() => unitSizePairErrors(cellViews, edits), [cellViews, edits]);
 
   const invalidCount = useMemo(() => {
     // Row-level errors count even with no edits at all: the extraction itself
@@ -657,16 +700,16 @@ export function GeminaVerification(props: GeminaVerificationProps): React.JSX.El
     if (edits.size === 0) {
       return rowLevel;
     }
-    const byKey = new Map(bindings.map((binding) => [binding.key.raw, binding]));
+    const byEditKey = new Map(cellViews.map((view) => [view.editKey, view.binding]));
     let count = 0;
-    for (const [rawKey, value] of edits) {
+    for (const [editKey, value] of edits) {
       // A cell already flagged by the row rule must not be counted twice.
-      if (!pairErrors.has(rawKey) && validateInput(value, byKey.get(rawKey)?.field) !== null) {
+      if (!pairErrors.has(editKey) && validateInput(value, byEditKey.get(editKey)?.field) !== null) {
         count += 1;
       }
     }
     return count + rowLevel;
-  }, [edits, bindings, pairErrors]);
+  }, [edits, cellViews, pairErrors]);
 
   /**
    * The PUT. Reuses the `submission` memo — the SAME pure composeSubmission
@@ -884,6 +927,10 @@ export function GeminaVerification(props: GeminaVerificationProps): React.JSX.El
             readOnly={alreadyValidated}
             onFlash={handleFlash}
             pairErrors={pairErrors}
+            rowMutableTables={loaded?.rowMutableTables}
+            plannedTables={plannedTables}
+            onAddRow={handleAddRow}
+            onRemoveRow={handleRemoveRow}
           />
         </div>
         {reviewPhase.name === 'submit-error' && (

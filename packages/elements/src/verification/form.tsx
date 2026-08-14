@@ -36,7 +36,13 @@ import type { FieldBinding } from './bindings';
 import { toInputString } from './bindings';
 import type { ClassifiedCell, ClassifiedData, ClassifiedField } from './classify';
 import { ROW_META_KEY, formatLabel, formatValue } from './classify';
-import { ISO_4217_CODES, validateInput } from './field-types';
+import { ISO_4217_CODES, cellSchemaKey, validateInput } from './field-types';
+import type { RowMutableTable, ValidationFieldDescriptor } from './field-types';
+import { displayColumns, matchesTablePointer } from './row-cells';
+import type { PlannedCell, PlannedRow } from './row-cells';
+import { cellEditKey } from './row-plan';
+import type { RowPlanEntry } from './row-plan';
+import { parseSchemaKey } from './pointer';
 import { NOT_FOUND } from './pointer';
 import { Tip } from './tip';
 import { IconEye } from './viewer';
@@ -294,8 +300,18 @@ interface FlashRect {
  * comparator short-circuits on `prevEdits === nextEdits`, so an in-place
  * mutation renders no update at all. */
 interface SectionShared {
-  /** Raw key -> row-level error. Empty for every extraction without the pair. */
+  /** Edit key -> row-level error. Empty for every extraction without the pair. */
   pairErrors: ReadonlyMap<string, string>;
+  /** Server-declared row-mutable tables. Empty disables every row control. */
+  rowMutableTables: readonly RowMutableTable[];
+  /**
+   * Table pointer -> its rows, already resolved to cells. Computed ONCE by the
+   * parent: computing it here as well would produce a second object per render
+   * and defeat the row memo, which compares it by reference.
+   */
+  plannedTables: ReadonlyMap<string, PlannedRow[]>;
+  onAddRow: (tablePointer: string, afterPosition: number) => void;
+  onRemoveRow: (tablePointer: string, position: number) => void;
 
   bindingIndex: Map<string, FieldBinding>;
   edits: ReadonlyMap<string, string>;
@@ -314,14 +330,23 @@ interface SectionShared {
 /** One shared empty instance: `shared` is compared by reference downstream, so
  *  "no row errors" must always be the SAME object. */
 const NO_PAIR_ERRORS: ReadonlyMap<string, string> = new Map();
+const NO_TABLES: readonly RowMutableTable[] = [];
+const NO_PLANNED: ReadonlyMap<string, PlannedRow[]> = new Map();
+const NOOP_ROW = () => {};
 
-export interface VerificationFormProps extends Omit<SectionShared, 'pairErrors'> {
+export interface VerificationFormProps
+  extends Omit<SectionShared, 'pairErrors' | 'rowMutableTables' | 'plannedTables' | 'onAddRow' | 'onRemoveRow'> {
   /**
-   * Optional on the public surface: the row-level pair rule is an internal
-   * detail of the full component, and a host (or a test) rendering the form
-   * directly should not have to know it exists.
+   * All optional on the public surface. The pair rule and the row plans are
+   * internal details of the full component, and a host — or a test — rendering
+   * the form directly should not have to know they exist. Omitting them yields
+   * exactly the pre-row-editing form: no controls, raw-key edits.
    */
   pairErrors?: ReadonlyMap<string, string>;
+  rowMutableTables?: readonly RowMutableTable[];
+  plannedTables?: ReadonlyMap<string, PlannedRow[]>;
+  onAddRow?: (tablePointer: string, afterPosition: number) => void;
+  onRemoveRow?: (tablePointer: string, position: number) => void;
   classified: ClassifiedData;
   /** Bindings whose pointer matched NO rendered field — the "model missed the
    *  whole field" case; rendered as an extra "Not detected" section of empty inputs. */
@@ -484,7 +509,9 @@ function EntitySection(props: {
 }
 
 interface TableRowViewProps {
-  row: Record<string, ClassifiedCell>;
+  /** The classified row behind this render — undefined for a row the reviewer added. */
+  row: Record<string, ClassifiedCell> | undefined;
+  /** Position in the SUBMITTED table: what the reviewer sees, and what labels count. */
   rowIndex: number;
   columns: string[];
   /** formatLabel(tableKey), precomputed once per table. */
@@ -492,15 +519,19 @@ interface TableRowViewProps {
   hasCoords: boolean;
   hasRowConfidence: boolean;
   shared: SectionShared;
+  /** Resolved cells + row identity. Present ONLY for a row-mutable table. */
+  planned?: PlannedRow;
+  /** The server's pointer for this table — the key the row handlers take. */
+  tablePointer?: string;
 }
 
 function TableRowView(props: TableRowViewProps): React.JSX.Element {
-  const { row, rowIndex, columns, tableLabel, hasCoords, hasRowConfidence, shared } = props;
+  const { row, rowIndex, columns, tableLabel, hasCoords, hasRowConfidence, shared, planned, tablePointer } = props;
   const { bindingIndex, edits, onEdit, readOnly, onFlash } = shared;
 
   const rects = React.useMemo(() => {
     const collected: FlashRect[] = [];
-    for (const [key, cell] of Object.entries(row)) {
+    for (const [key, cell] of Object.entries(row ?? {})) {
       if (key !== ROW_META_KEY && cell.coordinates) {
         collected.push(cell.coordinates);
       }
@@ -520,7 +551,19 @@ function TableRowView(props: TableRowViewProps): React.JSX.Element {
     [rects, onFlash],
   );
 
+  /** Cells by column: from the plan when there is one, else today's lookup. */
+  const cellFor = (column: string) => {
+    const classified = row?.[column];
+    const fromPlan = planned?.cells.find((cell: PlannedCell) => cell.column === column);
+    if (fromPlan) {
+      return { classified, binding: fromPlan.binding, editKey: fromPlan.editKey };
+    }
+    const binding = classified === undefined ? undefined : bindingIndex.get(classified.pointer);
+    return { classified, binding, editKey: binding?.key.raw };
+  };
+
   const firstRect = rects.length > 0 ? rects[0]! : null;
+  const showControls = planned !== undefined && tablePointer !== undefined && !readOnly;
   return (
     <tr onClick={handleRowClick}>
       {hasCoords ? (
@@ -532,40 +575,66 @@ function TableRowView(props: TableRowViewProps): React.JSX.Element {
       ) : null}
       {hasRowConfidence ? (
         <td>
-          <ConfidenceDot confidence={row[ROW_META_KEY]?.confidence ?? null} />
+          <ConfidenceDot confidence={row?.[ROW_META_KEY]?.confidence ?? null} />
         </td>
       ) : null}
       {columns.map((column) => {
-        const cell = row[column];
-        const binding = cell === undefined ? undefined : bindingIndex.get(cell.pointer);
+        const { classified, binding, editKey } = cellFor(column);
         return (
           <td key={column}>
             <div className="gemina-verification__cell">
               {binding !== undefined ? (
                 <FieldInput
                   binding={binding}
-                  pairError={shared.pairErrors.get(binding.key.raw)}
-                  edit={edits.get(binding.key.raw)}
+                  editKey={editKey}
+                  pairError={editKey === undefined ? undefined : shared.pairErrors.get(editKey)}
+                  edit={editKey === undefined ? undefined : edits.get(editKey)}
                   onEdit={onEdit}
                   readOnly={readOnly}
                   ariaLabel={`${tableLabel} row ${rowIndex + 1} — ${formatLabel(column)}`}
                 />
               ) : (
-                <span>{cell === undefined ? '-' : formatValue(cell.value, column)}</span>
+                <span>{classified === undefined ? '-' : formatValue(classified.value, column)}</span>
               )}
-              <ConfidenceDot confidence={cell?.confidence ?? null} />
+              <ConfidenceDot confidence={classified?.confidence ?? null} />
             </div>
           </td>
         );
       })}
+      {showControls ? (
+        <td className="gemina-verification__row-actions">
+          {/* Row-numbered labels: "Remove line" repeated N times is unusable
+              with a screen reader, and the number is what the reviewer sees. */}
+          <Tip content="Insert a line below">
+            <button
+              type="button"
+              className="gemina-verification__row-btn"
+              aria-label={`Insert line below line ${rowIndex + 1}`}
+              onClick={() => shared.onAddRow(tablePointer!, rowIndex)}
+            >
+              +
+            </button>
+          </Tip>
+          <Tip content="Remove this line">
+            <button
+              type="button"
+              className="gemina-verification__row-btn"
+              aria-label={`Remove line ${rowIndex + 1}`}
+              onClick={() => shared.onRemoveRow(tablePointer!, rowIndex)}
+            >
+              ×
+            </button>
+          </Tip>
+        </td>
+      ) : null}
     </tr>
   );
 }
 
 /** Bail out unless THIS row's data or its slice of the edits changed. The
- * comparator inspects only edits for bindings on this row's cells, so one
- * keystroke re-renders one row. Callbacks are compared by reference: the
- * parent must pass referentially stable `onEdit`/`onFlash` (and a stable
+ * comparator inspects only edits for this row's cells, so one keystroke
+ * re-renders one row. Callbacks are compared by reference: the parent must
+ * pass referentially stable `onEdit`/`onFlash` (and a stable
  * `classified`/`bindingIndex`) or the memoization degrades to plain renders. */
 function areRowPropsEqual(prev: TableRowViewProps, next: TableRowViewProps): boolean {
   if (
@@ -575,23 +644,34 @@ function areRowPropsEqual(prev: TableRowViewProps, next: TableRowViewProps): boo
     || prev.tableLabel !== next.tableLabel
     || prev.hasCoords !== next.hasCoords
     || prev.hasRowConfidence !== next.hasRowConfidence
+    || prev.planned !== next.planned
+    || prev.tablePointer !== next.tablePointer
     || prev.shared.bindingIndex !== next.shared.bindingIndex
     || prev.shared.onEdit !== next.shared.onEdit
     || prev.shared.onFlash !== next.shared.onFlash
     || prev.shared.readOnly !== next.shared.readOnly
   ) {
+    // NOT compared by reference: `pairErrors` is derived from `edits`, so a new
+    // Map arrives on EVERY keystroke and a blanket check would re-render every
+    // row in the table. Its per-cell values are checked below instead.
     return false;
   }
   if (prev.shared.edits === next.shared.edits) {
     return true;
   }
+  // Compare by EDIT key, which under a row plan is the cell key rather than
+  // the raw schema key — comparing raw keys would leave a row stale after an
+  // edit to a row that moved.
   for (const column of next.columns) {
-    const cell = next.row[column];
-    const binding = cell === undefined ? undefined : next.shared.bindingIndex.get(cell.pointer);
-    if (
-      binding !== undefined
-      && prev.shared.edits.get(binding.key.raw) !== next.shared.edits.get(binding.key.raw)
-    ) {
+    const planned = next.planned?.cells.find((cell: PlannedCell) => cell.column === column);
+    const classified = next.row?.[column];
+    const editKey = planned?.editKey
+      ?? (classified === undefined ? undefined : next.shared.bindingIndex.get(classified.pointer)?.key.raw);
+    if (editKey === undefined) {
+      continue;
+    }
+    if (prev.shared.edits.get(editKey) !== next.shared.edits.get(editKey)
+      || prev.shared.pairErrors.get(editKey) !== next.shared.pairErrors.get(editKey)) {
       return false;
     }
   }
@@ -607,6 +687,20 @@ function TableSection(props: {
 }): React.JSX.Element {
   const { table, shared } = props;
   const label = formatLabel(table.key);
+
+  // Row editing is offered ONLY where the server declared it. Any wide array
+  // of objects looks like a table to the classifier — custom_template's do —
+  // and controls on one the scorer cannot align would mis-score permanently.
+  const mutable = React.useMemo(
+    () => shared.rowMutableTables.find((entry) => matchesTablePointer(entry.pointer, table.pointer)),
+    [shared.rowMutableTables, table.pointer],
+  );
+  const columns = React.useMemo(
+    () => (mutable ? displayColumns(mutable, table.columns) : table.columns),
+    [mutable, table.columns],
+  );
+  const planned = mutable ? shared.plannedTables.get(mutable.pointer) : undefined;
+
   // Full-row scans — memoized so keystroke re-renders don't re-walk every cell.
   const hasCoords = React.useMemo(
     () =>
@@ -619,11 +713,13 @@ function TableSection(props: {
     () => table.rows.some((row) => Boolean(row[ROW_META_KEY]?.confidence?.level)),
     [table],
   );
+  const rowCount = planned ? planned.length : table.rows.length;
+  const showControls = planned !== undefined && mutable !== undefined && !shared.readOnly;
   return (
     <section className="gemina-verification__section" aria-label={label}>
       <div className="gemina-verification__section-header">
         <span>
-          {label} ({table.rows.length} rows)
+          {label} ({rowCount} rows)
         </span>
         <ConfidenceDot confidence={table.overallConfidence} />
       </div>
@@ -633,27 +729,57 @@ function TableSection(props: {
             <tr>
               {hasCoords ? <th aria-label="Show row on document" /> : null}
               {hasRowConfidence ? <th aria-label="Row confidence" /> : null}
-              {table.columns.map((column) => (
+              {columns.map((column) => (
                 <th key={column}>{formatLabel(column)}</th>
               ))}
+              {showControls ? <th aria-label="Row actions" /> : null}
             </tr>
           </thead>
           <tbody>
-            {table.rows.map((row, rowIndex) => (
-              <TableRow
-                key={rowIndex}
-                row={row}
-                rowIndex={rowIndex}
-                columns={table.columns}
-                tableLabel={label}
-                hasCoords={hasCoords}
-                hasRowConfidence={hasRowConfidence}
-                shared={shared}
-              />
-            ))}
+            {planned
+              ? planned.map((plannedRow, position) => (
+                <TableRow
+                  // Keyed by ROW ID, not position: a position key would make
+                  // React reuse a deleted row's DOM (and its focus) for its
+                  // successor.
+                  key={plannedRow.entry.id}
+                  row={plannedRow.entry.source === null ? undefined : table.rows[plannedRow.entry.source]}
+                  rowIndex={position}
+                  columns={columns}
+                  tableLabel={label}
+                  hasCoords={hasCoords}
+                  hasRowConfidence={hasRowConfidence}
+                  shared={shared}
+                  planned={plannedRow}
+                  tablePointer={mutable!.pointer}
+                />
+              ))
+              : table.rows.map((row, rowIndex) => (
+                <TableRow
+                  key={rowIndex}
+                  row={row}
+                  rowIndex={rowIndex}
+                  columns={columns}
+                  tableLabel={label}
+                  hasCoords={hasCoords}
+                  hasRowConfidence={hasRowConfidence}
+                  shared={shared}
+                />
+              ))}
           </tbody>
         </table>
       </div>
+      {showControls ? (
+        <div className="gemina-verification__table-footer">
+          <button
+            type="button"
+            className="gemina-verification__add-row"
+            onClick={() => shared.onAddRow(mutable!.pointer, rowCount - 1)}
+          >
+            Add line
+          </button>
+        </div>
+      ) : null}
     </section>
   );
 }
@@ -725,10 +851,17 @@ function UnmatchedSection(props: {
 /** The whole form pane: every classified bucket in console order, then the
  * unmatched "Not detected" section. Empty buckets render nothing. */
 export function VerificationForm(props: VerificationFormProps): React.JSX.Element {
-  const { classified, unmatched, bindingIndex, edits, onEdit, readOnly, onFlash, pairErrors } = props;
+  const {
+    classified, unmatched, bindingIndex, edits, onEdit, readOnly, onFlash,
+    pairErrors, rowMutableTables, plannedTables, onAddRow, onRemoveRow,
+  } = props;
   const shared: SectionShared = {
     bindingIndex, edits, onEdit, readOnly, onFlash,
     pairErrors: pairErrors ?? NO_PAIR_ERRORS,
+    rowMutableTables: rowMutableTables ?? NO_TABLES,
+    plannedTables: plannedTables ?? NO_PLANNED,
+    onAddRow: onAddRow ?? NOOP_ROW,
+    onRemoveRow: onRemoveRow ?? NOOP_ROW,
   };
   return (
     // A real, labeled <form> (role "form" landmark): AT users can jump

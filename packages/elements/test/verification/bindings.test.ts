@@ -1,9 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import {
-  UNIT_PAIR_MESSAGE, buildBindings, composeSubmission, indexBindingsByFieldPointer,
-  toInputString, unitSizePairErrors,
+  buildBindings, composeSubmission, indexBindingsByFieldPointer, toInputString,
 } from '../../src/verification/bindings';
+import {
+  UNIT_PAIR_MESSAGE, collectCellViews, unitSizePairErrors,
+} from '../../src/verification/row-cells';
 import { NOT_FOUND } from '../../src/verification/pointer';
+import type { FieldType } from '../../src/verification/field-types';
 
 const values = {
   supplier_name: { value: 'Acme Ltd', confidence: 'high' },
@@ -241,7 +244,7 @@ describe('buildBindings — typed descriptors', () => {
  */
 describe('composeSubmission — typed values', () => {
   const NUM_KEY = 'label:quantity|ptr:/line_items/0/quantity';
-  const typed = (type: string, value: unknown) => buildBindings(
+  const typed = (type: FieldType, value: unknown) => buildBindings(
     [NUM_KEY],
     { line_items: [{ quantity: value }] },
     [{ key: NUM_KEY, label: 'quantity', type }],
@@ -309,6 +312,10 @@ describe('composeSubmission — typed values', () => {
  * backend had already discarded. Flagging it is the only way they find out.
  */
 describe('unitSizePairErrors', () => {
+  /** The rule reads CELL VIEWS now, so an added row's cells work the same way. */
+  const pairErrorsFor = (bindings: ReturnType<typeof buildBindings>, edits: Map<string, string>) =>
+    unitSizePairErrors(collectCellViews(bindings, new Map()), edits);
+
   const SIZE = 'label:line_0_unit_size|ptr:/line_items/0/unit_size';
   const UOM = 'label:line_0_unit_size_uom|ptr:/line_items/0/unit_size_uom';
   const rows = (unitSize: unknown, uom: unknown) => buildBindings(
@@ -317,35 +324,35 @@ describe('unitSizePairErrors', () => {
   );
 
   it('flags BOTH cells when only the size is filled', () => {
-    const errors = unitSizePairErrors(rows(0.5, null), new Map());
+    const errors = pairErrorsFor(rows(0.5, null), new Map());
     expect(errors.get(SIZE)).toBe(UNIT_PAIR_MESSAGE);
     expect(errors.get(UOM)).toBe(UNIT_PAIR_MESSAGE);
   });
 
   it('flags BOTH cells when only the unit is filled', () => {
-    const errors = unitSizePairErrors(rows(null, 'ML'), new Map());
+    const errors = pairErrorsFor(rows(null, 'ML'), new Map());
     expect(errors.size).toBe(2);
   });
 
   it('is silent when both are filled, and when neither is', () => {
-    expect(unitSizePairErrors(rows(0.5, 'ML'), new Map()).size).toBe(0);
-    expect(unitSizePairErrors(rows(null, null), new Map()).size).toBe(0);
+    expect(pairErrorsFor(rows(0.5, 'ML'), new Map()).size).toBe(0);
+    expect(pairErrorsFor(rows(null, null), new Map()).size).toBe(0);
   });
 
   it('reads the EDIT, not just the extraction', () => {
     // Orphaning the pair by typing is the common case — the extraction itself
     // usually arrives consistent because the server already nulled it.
-    const errors = unitSizePairErrors(rows(null, null), new Map([[SIZE, '0.5']]));
+    const errors = pairErrorsFor(rows(null, null), new Map([[SIZE, '0.5']]));
     expect(errors.size).toBe(2);
   });
 
   it('clears once the sibling is supplied', () => {
-    const errors = unitSizePairErrors(rows(0.5, null), new Map([[UOM, 'ML']]));
+    const errors = pairErrorsFor(rows(0.5, null), new Map([[UOM, 'ML']]));
     expect(errors.size).toBe(0);
   });
 
   it('treats whitespace as empty', () => {
-    expect(unitSizePairErrors(rows(0.5, 'ML'), new Map([[UOM, '   ']])).size).toBe(2);
+    expect(pairErrorsFor(rows(0.5, 'ML'), new Map([[UOM, '   ']])).size).toBe(2);
   });
 
   it('scopes to the row — one orphaned row does not flag a complete one', () => {
@@ -355,13 +362,13 @@ describe('unitSizePairErrors', () => {
        'label:line_1_unit_size_uom|ptr:/line_items/1/unit_size_uom'],
       { line_items: [{ unit_size: 0.5, unit_size_uom: null }, { unit_size: 1, unit_size_uom: 'L' }] },
     );
-    const errors = unitSizePairErrors(bindings, new Map());
+    const errors = pairErrorsFor(bindings, new Map());
     expect(errors.size).toBe(2);
     expect(errors.has('label:line_1_unit_size|ptr:/line_items/1/unit_size')).toBe(false);
   });
 
   it('is silent for an extraction with no unit-size pair at all', () => {
     const bindings = buildBindings(['label:total|ptr:/total'], { total: 1 });
-    expect(unitSizePairErrors(bindings, new Map()).size).toBe(0);
+    expect(pairErrorsFor(bindings, new Map()).size).toBe(0);
   });
 });
