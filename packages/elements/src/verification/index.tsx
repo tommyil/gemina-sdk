@@ -25,7 +25,7 @@ import type * as React from 'react';
 import { GeminaClient } from '@gemina/sdk';
 import type { ExtractionPrimaryViewOutDTO } from '@gemina/sdk';
 import { httpStatus, readErrorEnvelope } from '../internal/response-like';
-import { readDescriptors } from './field-types';
+import { readDescriptors, validateInput } from './field-types';
 import type { ValidationFieldDescriptor } from './field-types';
 import {
   buildBindings,
@@ -576,6 +576,33 @@ export function GeminaVerification(props: GeminaVerificationProps): React.JSX.El
   }, [load]);
 
   /**
+   * How many edited fields the reviewer must fix before this can be submitted.
+   *
+   * Derived from `edits` x descriptors, NOT from every binding: an extracted
+   * value that fails validation is the model's output, not the reviewer's
+   * mistake, and blocking a submission on a field they never touched would be
+   * indefensible. FieldInput applies the identical rule when deciding whether
+   * to show its inline error, so the count and the red borders can never
+   * disagree.
+   *
+   * Validation is one-shot and irreversible, so the gate is a hard disable
+   * rather than a warning.
+   */
+  const invalidCount = useMemo(() => {
+    if (edits.size === 0) {
+      return 0;
+    }
+    const byKey = new Map(bindings.map((binding) => [binding.key.raw, binding]));
+    let count = 0;
+    for (const [rawKey, value] of edits) {
+      if (validateInput(value, byKey.get(rawKey)?.field) !== null) {
+        count += 1;
+      }
+    }
+    return count;
+  }, [edits, bindings]);
+
+  /**
    * The PUT. Reuses the `submission` memo — the SAME pure composeSubmission
    * result the progress line displays — so what the reviewer was just shown
    * ("N confirmed · M corrected") is by construction what goes on the wire.
@@ -814,16 +841,27 @@ export function GeminaVerification(props: GeminaVerificationProps): React.JSX.El
               Hidden when read-only — the already-verified landing would
               otherwise show "0 corrected" noise about the ORIGINAL payload —
               while the disabled Submit stays for discoverability. */}
+          {/* One job per element: while anything is invalid the footer states
+              the blocker, and the progress count steps aside rather than
+              competing with it for the same corner of the screen. */}
           {!alreadyValidated && (
-            <div className="gemina-verification__progress" aria-live="polite">
-              {`${submission.confirmed} confirmed · ${submission.corrected} corrected`}
-            </div>
+            invalidCount > 0 ? (
+              <div className="gemina-verification__attention" aria-live="polite">
+                {invalidCount === 1
+                  ? '1 field needs attention'
+                  : `${invalidCount} fields need attention`}
+              </div>
+            ) : (
+              <div className="gemina-verification__progress" aria-live="polite">
+                {`${submission.confirmed} confirmed · ${submission.corrected} corrected`}
+              </div>
+            )
           )}
           <button
             type="button"
             ref={submitButtonRef}
             className="gemina-verification__submit"
-            disabled={alreadyValidated || reviewPhase.name !== 'review'}
+            disabled={alreadyValidated || reviewPhase.name !== 'review' || invalidCount > 0}
             onClick={handleSubmitClick}
           >
             Submit

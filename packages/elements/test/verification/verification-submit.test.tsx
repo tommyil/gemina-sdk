@@ -73,6 +73,7 @@ function flushMicrotasks(): Promise<void> {
 
 const SUPPLIER_KEY = 'label:supplier_name|ptr:/supplier_name/value';
 const TOTAL_KEY = 'label:total_amount|ptr:/total_amount/value';
+const CURRENCY_KEY = 'label:currency|ptr:/currency/value';
 
 const CONFIRM_COPY =
   "Submit these values? This is final — they can be submitted once and can't be changed.";
@@ -530,5 +531,84 @@ describe('GeminaVerification — copy', () => {
     const dialog = screen.getByRole('dialog');
     expect(dialog.textContent).toMatch(/final/i);
     expect(dialog.textContent).not.toMatch(/feedback/i);
+  });
+});
+
+/**
+ * Validation is one-shot and irreversible, so an invalid value is a hard
+ * blocker rather than a warning: there is no second submission to fix it in.
+ */
+
+/**
+ * A review loaded WITH typed descriptors — currency as an ISO 4217 field and
+ * a numeric total, so the blocking-validation gate has something to bite on.
+ */
+async function startTypedReview(valueOverrides: Record<string, unknown> = {}) {
+  getDocumentExtraction.mockResolvedValueOnce(
+    extraction({
+      meta: {
+        processingStatus: 'success',
+        validated: false,
+        purgedAt: null,
+        validationFeedback: {
+          validationSchema: [CURRENCY_KEY, TOTAL_KEY],
+          validationFields: [
+            { key: CURRENCY_KEY, label: 'currency', type: 'string', format: 'iso4217' },
+            { key: TOTAL_KEY, label: 'total_amount', type: 'number' },
+          ],
+        },
+      },
+      values: { currency: { value: 'USD' }, totalAmount: { value: 1500 }, ...valueOverrides },
+    }),
+  );
+  const utils = renderVerification();
+  await screen.findByLabelText('Currency');
+  return utils;
+}
+
+describe('GeminaVerification — blocking validation', () => {
+
+  it('blocks submission while a field is invalid and says how many need attention', async () => {
+    await startTypedReview();
+    fireEvent.change(screen.getByRole('combobox', { name: 'Currency' }), {
+      target: { value: 'dollars' },
+    });
+
+    expect(submitButton().disabled).toBe(true);
+    expect(screen.getByText('1 field needs attention')).toBeTruthy();
+    // One job per element: the progress count steps aside.
+    expect(screen.queryByText(/confirmed ·/)).toBeNull();
+  });
+
+  it('re-enables submission once the last invalid field is fixed', async () => {
+    await startTypedReview();
+    const currency = screen.getByRole('combobox', { name: 'Currency' });
+
+    fireEvent.change(currency, { target: { value: 'dollars' } });
+    expect(submitButton().disabled).toBe(true);
+
+    fireEvent.change(currency, { target: { value: 'EUR' } });
+    expect(submitButton().disabled).toBe(false);
+    expect(screen.queryByText(/needs attention/)).toBeNull();
+    expect(screen.getByText(/confirmed ·/)).toBeTruthy();
+  });
+
+  it('pluralises the count', async () => {
+    await startTypedReview();
+    fireEvent.change(screen.getByRole('combobox', { name: 'Currency' }), {
+      target: { value: 'dollars' },
+    });
+    fireEvent.change(screen.getByRole('textbox', { name: 'Total Amount' }), {
+      target: { value: 'twelve' },
+    });
+    expect(screen.getByText('2 fields need attention')).toBeTruthy();
+  });
+
+  it('an untouched extraction with an odd value still submits', async () => {
+    // The gate reads EDITS. A value the reviewer never touched is the model's
+    // output and must not trap them in a form they cannot submit.
+    await startTypedReview({ currency: { value: 'dollars' } });
+    expect(submitButton().disabled).toBe(false);
+    expect(screen.queryByText(/needs attention/)).toBeNull();
   });
 });

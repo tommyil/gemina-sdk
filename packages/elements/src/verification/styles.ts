@@ -637,6 +637,13 @@ const VERIFICATION_CSS = `
   line-height: 1.35;
 }
 
+/* Replaces __progress while anything is invalid — same slot, so the footer
+   never grows a second status line competing for the same attention. */
+.gemina-verification__attention {
+  color: var(--gemina-verification-error);
+  font-size: 13px;
+}
+
 /* --- Tooltip -------------------------------------------------------------
    Renders in a portal on document.body, inside a div carrying the root's
    class list — so these rules and every --gemina-verification-* custom
