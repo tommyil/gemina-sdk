@@ -1,4 +1,5 @@
 import { isValueObject } from './classify';
+import type { ValidationFieldDescriptor } from './field-types';
 import { NOT_FOUND, parseSchemaKey } from './pointer';
 import type { NotFound, SchemaKey } from './pointer';
 
@@ -29,6 +30,15 @@ export interface FieldBinding {
    * and primitives.
    */
   editable: boolean;
+  /**
+   * The server's type metadata for this field, matched by exact key.
+   *
+   * `undefined` whenever the backend predates the typed contract OR the host
+   * is on an SDK generated before it — the converter drops what it does not
+   * know. Every consumer treats that as "the plain text input we always had",
+   * which is why nothing here is required.
+   */
+  field?: ValidationFieldDescriptor;
 }
 
 function unescapeSegment(raw: string): string {
@@ -116,8 +126,26 @@ function stripValueSuffix(pointer: string): string {
   return pointer.endsWith('/value') ? pointer.slice(0, -'/value'.length) : pointer;
 }
 
-/** Parse + resolve every schema key. Malformed entries are skipped (backend parity). */
-export function buildBindings(validationSchema: string[], values: unknown): FieldBinding[] {
+/**
+ * Parse + resolve every schema key. Malformed entries are skipped (backend
+ * parity).
+ *
+ * `fields` is the server's typed descriptors, indexed here by their opaque
+ * key. Matching is by key and ONLY by key: labels repeat across rows of a
+ * table (`total` appears once per line item), so a label match would type one
+ * row's cell from another row's descriptor.
+ */
+export function buildBindings(
+  validationSchema: string[],
+  values: unknown,
+  fields?: ValidationFieldDescriptor[],
+): FieldBinding[] {
+  const descriptors = new Map<string, ValidationFieldDescriptor>();
+  for (const descriptor of fields ?? []) {
+    if (typeof descriptor?.key === 'string') {
+      descriptors.set(descriptor.key, descriptor);
+    }
+  }
   const bindings: FieldBinding[] = [];
   for (const raw of validationSchema) {
     const key = parseSchemaKey(raw);
@@ -137,6 +165,7 @@ export function buildBindings(validationSchema: string[], values: unknown): Fiel
       extracted,
       fieldPointer: stripValueSuffix(resolvedPointer),
       editable,
+      field: descriptors.get(key.raw),
     });
   }
   return bindings;

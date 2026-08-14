@@ -173,3 +173,56 @@ describe('composeSubmission', () => {
     expect(Object.values(result.byLabel).every((v) => typeof v !== 'symbol')).toBe(true);
   });
 });
+
+/**
+ * The typed descriptors the backend publishes alongside the opaque key list
+ * (`meta.validationFeedback.validationFields`). They are what turns a row of
+ * text inputs into a typed form, so they must reach the binding that renders
+ * the field — and their ABSENCE must be a no-op, because the component ships
+ * ahead of the backend that emits them and against hosts pinned to older SDKs.
+ */
+describe('buildBindings — typed descriptors', () => {
+  it('attaches the typed descriptor to its binding by key', () => {
+    const bindings = buildBindings(
+      ['label:currency|ptr:/currency'],
+      { currency: 'USD' },
+      [{
+        key: 'label:currency|ptr:/currency',
+        label: 'currency',
+        type: 'string',
+        format: 'iso4217',
+        description: 'ISO 4217 code',
+      }],
+    );
+    expect(bindings[0]?.field?.format).toBe('iso4217');
+    expect(bindings[0]?.field?.description).toBe('ISO 4217 code');
+  });
+
+  it('leaves field undefined when the backend has not shipped validationFields', () => {
+    // The deploy-gate guard: a pre-1.5.0 backend sends no descriptors, and the
+    // component must degrade to untyped inputs rather than break.
+    const bindings = buildBindings(['label:currency|ptr:/currency'], { currency: 'USD' });
+    expect(bindings[0]?.field).toBeUndefined();
+  });
+
+  it('matches descriptors by exact key, never by label', () => {
+    // Two tables can carry the same label; the opaque key is the only identity.
+    const bindings = buildBindings(
+      ['label:total|ptr:/line_items/0/total', 'label:total|ptr:/line_items/1/total'],
+      { line_items: [{ total: 1 }, { total: 2 }] },
+      [{ key: 'label:total|ptr:/line_items/1/total', label: 'total', type: 'number' }],
+    );
+    expect(bindings[0]?.field).toBeUndefined();
+    expect(bindings[1]?.field?.type).toBe('number');
+  });
+
+  it('ignores a descriptor whose key matches no schema entry', () => {
+    const bindings = buildBindings(
+      ['label:currency|ptr:/currency'],
+      { currency: 'USD' },
+      [{ key: 'label:ghost|ptr:/ghost', label: 'ghost', type: 'string' }],
+    );
+    expect(bindings).toHaveLength(1);
+    expect(bindings[0]?.field).toBeUndefined();
+  });
+});

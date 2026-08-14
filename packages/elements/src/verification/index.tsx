@@ -25,6 +25,8 @@ import type * as React from 'react';
 import { GeminaClient } from '@gemina/sdk';
 import type { ExtractionPrimaryViewOutDTO } from '@gemina/sdk';
 import { httpStatus, readErrorEnvelope } from '../internal/response-like';
+import { readDescriptors } from './field-types';
+import type { ValidationFieldDescriptor } from './field-types';
 import {
   buildBindings,
   composeSubmission,
@@ -117,6 +119,8 @@ const DONE_TITLE_TEXT = 'Submitted';
 interface LoadedData {
   values: unknown;
   schema: string[];
+  /** Empty whenever the backend or the host's SDK predates the typed contract. */
+  fields: ValidationFieldDescriptor[];
 }
 
 /** The empty edits map — the initial state AND every load's reset value.
@@ -296,6 +300,7 @@ export function GeminaVerification(props: GeminaVerificationProps): React.JSX.El
       setLoaded({
         values: view.values,
         schema: Array.isArray(schema) ? schema : [],
+        fields: readDescriptors(view.meta.validationFeedback?.validationFields),
       });
       // Fresh extraction data → clean editing slate, batched with setLoaded so
       // new bindings never pair with old edits for even one commit. Covers the
@@ -372,7 +377,10 @@ export function GeminaVerification(props: GeminaVerificationProps): React.JSX.El
   // `classified`/`bindingIndex` are compared by reference in the row memo). ---
   // classifyData is total (null/garbage values → empty buckets) — no guard.
   const classified = useMemo(() => classifyData(loaded?.values), [loaded]);
-  const bindings = useMemo(() => buildBindings(loaded?.schema ?? [], loaded?.values), [loaded]);
+  const bindings = useMemo(
+    () => buildBindings(loaded?.schema ?? [], loaded?.values, loaded?.fields),
+    [loaded],
+  );
   const bindingIndex = useMemo(() => indexBindingsByFieldPointer(bindings), [bindings]);
   // Bindings whose fieldPointer matches no classified leaf — the "model
   // missed the whole field" case, rendered as the form's Not-detected section.
