@@ -111,20 +111,30 @@ export function planTableCells(
   });
 }
 
-/** The display columns for a table: the classifier's, or the server's when empty. */
+/**
+ * The display columns for a table: the server's declaration, plus anything the
+ * classifier saw that the server did not declare.
+ *
+ * The SERVER's list is canonical because it is derived from the model, so it is
+ * complete and present even for a zero-row table — the case a reviewer most
+ * needs, since the model found nothing at all.
+ *
+ * The classifier's list cannot be trusted alone: it samples column names from
+ * ROW 0 ONLY (`Object.keys(first)`), so a field absent from the first row but
+ * present in a later one would not appear here — and because a planned table
+ * suppresses every binding under its pointer, that value would be dropped from
+ * the submission entirely, silently, even with no row edits. Merging is what
+ * makes the suppression safe.
+ */
 export function displayColumns(
   table: RowMutableTable,
   classifiedColumns: readonly string[],
 ): string[] {
-  if (classifiedColumns.length > 0) {
-    return [...classifiedColumns];
-  }
-  // The zero-row case. The backend derives columns from the MODEL rather than
-  // from a sampled row precisely so this case has something to render — it is
-  // the case a reviewer most needs, since the model found nothing at all.
-  return table.columns
+  const declared = table.columns
     .map((column) => column.key)
     .filter((name): name is string => typeof name === 'string');
+  const seen = new Set(declared);
+  return [...declared, ...classifiedColumns.filter((name) => !seen.has(name))];
 }
 
 /**
@@ -274,4 +284,32 @@ export function unitSizePairErrors(
     }
   }
   return errors;
+}
+
+/**
+ * Drop added rows the reviewer never typed into.
+ *
+ * Clicking "Add line" and then changing your mind is ordinary. Every cell of
+ * such a row is already omitted from `data` — but its `null` source would
+ * remain in the alignment, asserting to the scorer that a row exists there.
+ * On a submission that happens exactly once, that is a phantom line item on
+ * the record with nothing in it.
+ *
+ * Only ADDED rows are pruned. An extracted row the reviewer emptied is a
+ * deliberate assertion that its content is wrong, and must survive.
+ */
+export function pruneEmptyAddedRows(
+  plannedTables: ReadonlyMap<string, PlannedRow[]>,
+  edits: ReadonlyMap<string, string>,
+): Map<string, PlannedRow[]> {
+  const out = new Map<string, PlannedRow[]>();
+  for (const [pointer, rows] of plannedTables) {
+    out.set(pointer, rows.filter((row) => {
+      if (row.entry.source !== null) {
+        return true;
+      }
+      return row.cells.some((cell) => (edits.get(cell.editKey) ?? '').trim() !== '');
+    }));
+  }
+  return out;
 }

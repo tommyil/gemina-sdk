@@ -22,6 +22,7 @@ import {
   initialRowPlan,
   insertRowAfter,
   isIdentityPlan,
+  nextAddedRowId,
   removeRow,
   rowSourcesOf,
 } from '../../src/verification/row-plan';
@@ -168,5 +169,31 @@ describe('isIdentityPlan', () => {
   it('is false when rows were removed from the end', () => {
     // sources [0, 1] over 3 extracted rows is NOT the identity: row 2 is gone.
     expect(isIdentityPlan(removeRow(initialRowPlan(3), 2), 3)).toBe(false);
+  });
+});
+
+describe('table scoping', () => {
+  it('gives two tables distinct row ids, so their edits cannot collide', () => {
+    // `rowMutableTables` is a LIST. Unscoped ids would give both tables `row-0`,
+    // and since every table shares one edits map, typing into one table's first
+    // row would silently rewrite the other's.
+    const a = initialRowPlan(2, '/line_items');
+    const b = initialRowPlan(2, '/charges');
+    expect(a[0]!.id).not.toBe(b[0]!.id);
+    expect(cellEditKey(a[0]!.id, 'description'))
+      .not.toBe(cellEditKey(b[0]!.id, 'description'));
+  });
+
+  it('scopes added rows too', () => {
+    const a = insertRowAfter(initialRowPlan(1, '/a'), 0, nextAddedRowId('/a'));
+    const b = insertRowAfter(initialRowPlan(1, '/b'), 0, nextAddedRowId('/b'));
+    expect(a[1]!.id).not.toBe(b[1]!.id);
+  });
+
+  it('accepts a caller-minted id, so the state updater can stay pure', () => {
+    // React invokes updaters twice under Strict Mode; minting inside one makes
+    // the id depend on how many times React chose to call it.
+    const plan = insertRowAfter(initialRowPlan(1, '/t'), 0, '/t#added-fixed');
+    expect(plan[1]!.id).toBe('/t#added-fixed');
   });
 });

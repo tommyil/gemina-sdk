@@ -31,14 +31,34 @@ export interface RowPlanEntry {
  */
 let addedRowCounter = 0;
 
-/** The identity mapping: every extracted row, in order, unmoved. */
-export function initialRowPlan(extractedCount: number): RowPlanEntry[] {
+/**
+ * The identity mapping: every extracted row, in order, unmoved.
+ *
+ * `scope` is the table's pointer, and it is NOT decoration. Edit keys are
+ * derived from row ids and every table shares one edits map, so unscoped ids
+ * would give two row-mutable tables the same `row-0` — and typing into one
+ * table's first row would silently rewrite the other's. `rowMutableTables` is
+ * a list, so nothing but this prevents that.
+ */
+export function initialRowPlan(extractedCount: number, scope = ''): RowPlanEntry[] {
   return Array.from({ length: Math.max(0, extractedCount) }, (_unused, index) => ({
     // Derived from the source index, so it is stable across re-renders without
     // any state to carry — an extracted row's identity never changes.
-    id: `row-${index}`,
+    id: `${scope}#row-${index}`,
     source: index,
   }));
+}
+
+/**
+ * Mint an id for a row about to be added.
+ *
+ * Called OUTSIDE the state updater on purpose: an updater must be pure, and
+ * React invokes it twice under Strict Mode, so incrementing a counter inside
+ * one makes ids depend on how many times React chose to call it.
+ */
+export function nextAddedRowId(scope = ''): string {
+  addedRowCounter += 1;
+  return `${scope}#added-${addedRowCounter}`;
 }
 
 /** Drop the row at `position`. Out-of-range is a no-op, not a throw. */
@@ -54,9 +74,8 @@ export function removeRow(plan: RowPlanEntry[], position: number): RowPlanEntry[
  *
  * `-1` prepends, which is also how the zero-row table gets its first line.
  */
-export function insertRowAfter(plan: RowPlanEntry[], position: number): RowPlanEntry[] {
-  addedRowCounter += 1;
-  const added: RowPlanEntry = { id: `added-${addedRowCounter}`, source: null };
+export function insertRowAfter(plan: RowPlanEntry[], position: number, id?: string): RowPlanEntry[] {
+  const added: RowPlanEntry = { id: id ?? nextAddedRowId(), source: null };
   const at = Math.min(Math.max(position + 1, 0), plan.length);
   return [...plan.slice(0, at), added, ...plan.slice(at)];
 }

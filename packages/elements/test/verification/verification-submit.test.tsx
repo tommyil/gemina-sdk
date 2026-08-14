@@ -673,13 +673,45 @@ describe('GeminaVerification — row alignment on the wire', () => {
     expect('label:line_1_description|ptr:/line_items/1/description' in body.data).toBe(false);
   });
 
-  it('sends a null source for a row the reviewer added', async () => {
+  it('sends a null source for a row the reviewer added AND filled in', async () => {
+    await startTableReview();
+    fireEvent.click(screen.getByRole('button', { name: /add line/i }));
+    fireEvent.change(
+      screen.getByRole('textbox', { name: 'Line Items row 3 — Description' }),
+      { target: { value: 'Widget C' } },
+    );
+    validateDocumentExtraction.mockResolvedValueOnce(VALIDATION_RESULT);
+    await submitAndConfirm();
+
+    const body = validateDocumentExtraction.mock.calls[0]![0].extractionValidationInDTO;
+    expect(body.rowSources).toEqual([{ table: '/line_items', sources: [0, 1, null] }]);
+    expect(body.data['label:line_2_description|ptr:/line_items/2/description']).toBe('Widget C');
+  });
+
+  it('leaves NO trace of an added row the reviewer never typed into', async () => {
+    // Clicking Add line and changing your mind is ordinary. Its cells are
+    // already omitted from `data`, but a lingering null source would assert a
+    // phantom line item on a record that is written exactly once.
     await startTableReview();
     fireEvent.click(screen.getByRole('button', { name: /add line/i }));
     validateDocumentExtraction.mockResolvedValueOnce(VALIDATION_RESULT);
     await submitAndConfirm();
 
     const body = validateDocumentExtraction.mock.calls[0]![0].extractionValidationInDTO;
-    expect(body.rowSources).toEqual([{ table: '/line_items', sources: [0, 1, null] }]);
+    expect('rowSources' in body).toBe(false);
+  });
+
+  it('keeps an EXTRACTED row the reviewer emptied — that is a deliberate assertion', async () => {
+    await startTableReview();
+    fireEvent.change(
+      screen.getByRole('textbox', { name: 'Line Items row 1 — Description' }),
+      { target: { value: '' } },
+    );
+    validateDocumentExtraction.mockResolvedValueOnce(VALIDATION_RESULT);
+    await submitAndConfirm();
+
+    const body = validateDocumentExtraction.mock.calls[0]![0].extractionValidationInDTO;
+    expect(body.data['label:line_0_description|ptr:/line_items/0/description']).toBeNull();
+    expect('rowSources' in body).toBe(false); // no row was added or removed
   });
 });

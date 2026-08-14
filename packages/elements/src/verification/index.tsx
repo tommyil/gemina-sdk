@@ -36,10 +36,13 @@ import {
 } from './bindings';
 import type { FieldBinding, RowSourcesEntry } from './bindings';
 import {
-  collectCellViews, displayColumns, matchesTablePointer, planTableCells, unitSizePairErrors,
+  collectCellViews, displayColumns, matchesTablePointer, planTableCells, pruneEmptyAddedRows,
+  unitSizePairErrors,
 } from './row-cells';
 import type { PlannedRow } from './row-cells';
-import { initialRowPlan, insertRowAfter, isIdentityPlan, removeRow, rowSourcesOf } from './row-plan';
+import {
+  initialRowPlan, insertRowAfter, isIdentityPlan, nextAddedRowId, removeRow, rowSourcesOf,
+} from './row-plan';
 import type { RowPlanEntry } from './row-plan';
 import { classifyData, ROW_META_KEY } from './classify';
 import { VerificationForm } from './form';
@@ -157,7 +160,7 @@ function seedRowPlans(tables: RowMutableTable[], values: unknown): ReadonlyMap<s
   }
   const plans = new Map<string, RowPlanEntry[]>();
   for (const table of tables) {
-    plans.set(table.pointer, initialRowPlan(countRowsAt(values, table.pointer)));
+    plans.set(table.pointer, initialRowPlan(countRowsAt(values, table.pointer), table.pointer));
   }
   return plans;
 }
@@ -584,6 +587,19 @@ export function GeminaVerification(props: GeminaVerificationProps): React.JSX.El
   );
 
   /**
+   * The same tables, minus added rows nobody typed into. Used for SUBMISSION
+   * only — the empty row stays on screen so the reviewer can still fill it in.
+   */
+  const submissionTables = useMemo(
+    () => pruneEmptyAddedRows(plannedTables, edits),
+    [plannedTables, edits],
+  );
+  const submissionCells = useMemo(
+    () => collectCellViews(bindings, submissionTables),
+    [bindings, submissionTables],
+  );
+
+  /**
    * The alignment for every table whose row set the reviewer actually changed.
    *
    * Identity plans are OMITTED, not sent as a no-op: the wire payload for an
@@ -593,18 +609,23 @@ export function GeminaVerification(props: GeminaVerificationProps): React.JSX.El
   const rowSources = useMemo(() => {
     const entries: RowSourcesEntry[] = [];
     for (const table of loaded?.rowMutableTables ?? []) {
-      const plan = rowPlans.get(table.pointer);
-      if (plan === undefined || isIdentityPlan(plan, countRowsAt(loaded?.values, table.pointer))) {
+      // From the PRUNED rows, so an abandoned "Add line" leaves no trace.
+      const rows = submissionTables.get(table.pointer);
+      if (rows === undefined) {
+        continue;
+      }
+      const plan = rows.map((row) => row.entry);
+      if (isIdentityPlan(plan, countRowsAt(loaded?.values, table.pointer))) {
         continue;
       }
       entries.push({ table: table.pointer, sources: rowSourcesOf(plan) });
     }
     return entries;
-  }, [loaded, rowPlans]);
+  }, [loaded, submissionTables]);
 
   const submission = useMemo(
-    () => composeSubmission(bindings, edits, { cells: cellViews, rowSources }),
-    [bindings, edits, cellViews, rowSources],
+    () => composeSubmission(bindings, edits, { cells: submissionCells, rowSources }),
+    [bindings, edits, submissionCells, rowSources],
   );
 
   // Flash wiring (form → viewer). STABLE callback — the table-row memo
@@ -669,13 +690,16 @@ export function GeminaVerification(props: GeminaVerificationProps): React.JSX.El
   /** Row controls. Both replace the whole map so the row memo sees a new
    *  reference exactly when a plan actually changed. */
   const handleAddRow = useCallback((tablePointer: string, afterPosition: number) => {
+    // Minted HERE, not inside the updater: an updater must be pure, and React
+    // invokes it twice under Strict Mode.
+    const id = nextAddedRowId(tablePointer);
     setRowPlans((prev) => {
       const plan = prev.get(tablePointer);
       if (plan === undefined) {
         return prev;
       }
       const next = new Map(prev);
-      next.set(tablePointer, insertRowAfter(plan, afterPosition));
+      next.set(tablePointer, insertRowAfter(plan, afterPosition, id));
       return next;
     });
   }, []);

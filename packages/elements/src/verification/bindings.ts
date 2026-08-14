@@ -271,6 +271,11 @@ export function composeSubmission(
 
   for (const cell of cells) {
     const { binding } = cell;
+    // The label follows the SUBMITTED key, not the source binding. After a
+    // deletion, source row 1 is submitted as row 0 — handing the host
+    // `line_1_description` for what the wire calls row 0 would have
+    // `onComplete` disagree with the payload it describes.
+    const label = parseSchemaKey(cell.submitKey)?.label ?? binding.key.label;
     const edit = edits.get(cell.editKey);
     if (edit !== undefined) {
       const trimmed = edit.trim();
@@ -286,7 +291,7 @@ export function composeSubmission(
       // never become 0 or an empty string.
       const value = trimmed === '' ? null : coerceInput(trimmed, binding.field);
       data[cell.submitKey] = value;
-      byLabel[binding.key.label] = value;
+      byLabel[label] = value;
       corrected += 1;
     } else {
       if (binding.serverValue === NOT_FOUND) {
@@ -296,7 +301,7 @@ export function composeSubmission(
       // source's extracted value — under its SUBMITTED key, so the payload
       // mirrors the approved table rather than the extracted one.
       data[cell.submitKey] = binding.serverValue;
-      byLabel[binding.key.label] = binding.serverValue;
+      byLabel[label] = binding.serverValue;
       confirmed += 1;
     }
   }
