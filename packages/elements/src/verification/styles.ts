@@ -274,6 +274,10 @@ const VERIFICATION_CSS = `
 }
 .gemina-verification__dd {
   display: flex;
+  /* Wrap so a field error takes its OWN line (it sets flex-basis:100%).
+     Without this it competes with the input for width, and at 390px the
+     message wrapped to one word per line while the input shrank to ~55px. */
+  flex-wrap: wrap;
   align-items: center;
   gap: 6px;
   margin: 0; /* resets the UA's margin-inline-start on <dd> */
@@ -348,6 +352,7 @@ const VERIFICATION_CSS = `
    and list items — the fragment has no container of its own. */
 .gemina-verification__cell {
   display: flex;
+  flex-wrap: wrap; /* same reason as __dd: the field error needs its own line */
   align-items: center;
   gap: 6px;
   min-width: 0;
