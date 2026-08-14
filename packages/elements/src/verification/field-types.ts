@@ -133,6 +133,63 @@ export function validateInput(
 }
 
 /**
+ * A table the server declares row-mutable — the reviewer may add and delete
+ * its rows, and the client may send a `rowSources` alignment for it.
+ *
+ * SERVER-DECLARED, never inferred. Any wide array of objects looks like a
+ * table to the classifier — `custom_template`'s do — and offering row controls
+ * on one the scorer cannot align would mis-score permanently, on a submission
+ * that only happens once.
+ */
+export interface RowMutableTable {
+  /** JSON pointer to the array, e.g. `/line_items`. */
+  pointer: string;
+  /** `label:line_{index}_{field}|ptr:/line_items/{index}/{field}`. */
+  keyTemplate: string;
+  /**
+   * Every column of a row, derived by the backend from the MODEL rather than
+   * from a sampled row — so they exist even when the extraction found nothing,
+   * which is exactly when a reviewer most needs to type a line in.
+   */
+  columns: ValidationFieldDescriptor[];
+}
+
+/** Normalise the SDK's `rowMutableTables`, including each column's `_enum`. */
+export function readRowMutableTables(raw: unknown): RowMutableTable[] {
+  if (!Array.isArray(raw)) {
+    return [];
+  }
+  const out: RowMutableTable[] = [];
+  for (const item of raw) {
+    if (item === null || typeof item !== 'object') {
+      continue;
+    }
+    const source = item as Record<string, unknown>;
+    if (typeof source.pointer !== 'string' || typeof source.keyTemplate !== 'string') {
+      continue;
+    }
+    out.push({
+      pointer: source.pointer,
+      keyTemplate: source.keyTemplate,
+      // Columns are descriptors keyed by `name` rather than `key`, so they get
+      // the same treatment with the name standing in as the identity.
+      columns: readDescriptors(
+        (Array.isArray(source.columns) ? source.columns : []).map((column) => {
+          const record = (column ?? {}) as Record<string, unknown>;
+          return { ...record, key: record.name };
+        }),
+      ),
+    });
+  }
+  return out;
+}
+
+/** The cell key a table's rows mint, with `{index}`/`{field}` filled in. */
+export function cellSchemaKey(template: string, index: number, field: string): string {
+  return template.replace(/\{index\}/g, String(index)).replace(/\{field\}/g, field);
+}
+
+/**
  * Turn a reviewer's typed string into the value that goes on the wire.
  *
  * Typed rendering without typed parsing leaves the approval payload as

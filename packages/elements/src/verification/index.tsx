@@ -25,16 +25,19 @@ import type * as React from 'react';
 import { GeminaClient } from '@gemina/sdk';
 import type { ExtractionPrimaryViewOutDTO } from '@gemina/sdk';
 import { httpStatus, readErrorEnvelope } from '../internal/response-like';
-import { readDescriptors, validateInput } from './field-types';
-import type { ValidationFieldDescriptor } from './field-types';
+import { readDescriptors, readRowMutableTables, validateInput } from './field-types';
+import type { RowMutableTable, ValidationFieldDescriptor } from './field-types';
 import {
   buildBindings,
   composeSubmission,
+  countRowsAt,
   unitSizePairErrors,
   indexBindingsByFieldPointer,
   toInputString,
 } from './bindings';
 import type { FieldBinding } from './bindings';
+import { initialRowPlan, insertRowAfter, removeRow } from './row-plan';
+import type { RowPlanEntry } from './row-plan';
 import { classifyData, ROW_META_KEY } from './classify';
 import { VerificationForm } from './form';
 import { ensureVerificationStylesInjected } from './styles';
@@ -122,12 +125,38 @@ interface LoadedData {
   schema: string[];
   /** Empty whenever the backend or the host's SDK predates the typed contract. */
   fields: ValidationFieldDescriptor[];
+  /**
+   * Tables the SERVER declares row-mutable. Empty means no row controls
+   * anywhere — the correct behaviour against a pre-1.5.0 backend, and the
+   * reason a `custom_template` table never grows an Add line button.
+   */
+  rowMutableTables: RowMutableTable[];
 }
 
 /** The empty edits map — the initial state AND every load's reset value.
  * One shared instance (SectionShared contract: `edits` is compared by
  * reference, so "no edits" must always be the same object). */
 const NO_EDITS: ReadonlyMap<string, string> = new Map();
+
+/** Same reference-stability contract as NO_EDITS, for the row plans. */
+const NO_ROW_PLANS: ReadonlyMap<string, RowPlanEntry[]> = new Map();
+
+/**
+ * The identity plan for every table the server declared row-mutable.
+ *
+ * Returns the shared empty map when there are none, so a pre-1.5.0 backend
+ * keeps the exact reference-equality behaviour the row memo depends on.
+ */
+function seedRowPlans(tables: RowMutableTable[], values: unknown): ReadonlyMap<string, RowPlanEntry[]> {
+  if (tables.length === 0) {
+    return NO_ROW_PLANS;
+  }
+  const plans = new Map<string, RowPlanEntry[]>();
+  for (const table of tables) {
+    plans.set(table.pointer, initialRowPlan(countRowsAt(values, table.pointer)));
+  }
+  return plans;
+}
 
 /**
  * Unavailable reasons that are FAILURES (a thrown fetch: 401/404/network/5xx)
@@ -172,6 +201,10 @@ export function GeminaVerification(props: GeminaVerificationProps): React.JSX.El
   // In every load path read-only ⇔ already-validated, so ONE flag serves both.
   const [alreadyValidated, setAlreadyValidated] = useState(false);
   const [loaded, setLoaded] = useState<LoadedData | null>(null);
+  // One plan per row-mutable table, keyed by its pointer. Reset with the
+  // edits on every load: a plan outliving its extraction would map rows to
+  // sources that no longer exist.
+  const [rowPlans, setRowPlans] = useState<ReadonlyMap<string, RowPlanEntry[]>>(NO_ROW_PLANS);
   // Dirty fields only: raw schema key → current input string, VERBATIM (no
   // trim/normalize — that is the composer's job at submit). Replaced
   // immutably on every change; delete-on-revert keeps composeSubmission's
@@ -302,12 +335,14 @@ export function GeminaVerification(props: GeminaVerificationProps): React.JSX.El
         values: view.values,
         schema: Array.isArray(schema) ? schema : [],
         fields: readDescriptors(view.meta.validationFeedback?.validationFields),
+        rowMutableTables: readRowMutableTables(view.meta.validationFeedback?.rowMutableTables),
       });
       // Fresh extraction data → clean editing slate, batched with setLoaded so
       // new bindings never pair with old edits for even one commit. Covers the
       // extractionId change, Retry, AND the Task-17 409-refetch (all of which
       // route through load()).
       setEdits(NO_EDITS);
+      setRowPlans(seedRowPlans(readRowMutableTables(view.meta.validationFeedback?.rowMutableTables), view.values));
       const url = view.document.imageUrl;
       setImageUrl(typeof url === 'string' && url.length > 0 ? url : null);
       setAlreadyValidated(validated);
@@ -565,6 +600,36 @@ export function GeminaVerification(props: GeminaVerificationProps): React.JSX.El
   const handleRetry = useCallback(() => {
     void load();
   }, [load]);
+
+  /** Row controls. Both replace the whole map so the row memo sees a new
+   *  reference exactly when a plan actually changed. */
+  const handleAddRow = useCallback((tablePointer: string, afterPosition: number) => {
+    setRowPlans((prev) => {
+      const plan = prev.get(tablePointer);
+      if (plan === undefined) {
+        return prev;
+      }
+      const next = new Map(prev);
+      next.set(tablePointer, insertRowAfter(plan, afterPosition));
+      return next;
+    });
+  }, []);
+
+  const handleRemoveRow = useCallback((tablePointer: string, position: number) => {
+    setRowPlans((prev) => {
+      const plan = prev.get(tablePointer);
+      if (plan === undefined) {
+        return prev;
+      }
+      const nextPlan = removeRow(plan, position);
+      if (nextPlan === plan) {
+        return prev;
+      }
+      const next = new Map(prev);
+      next.set(tablePointer, nextPlan);
+      return next;
+    });
+  }, []);
 
   /**
    * How many edited fields the reviewer must fix before this can be submitted.

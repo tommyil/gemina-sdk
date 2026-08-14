@@ -335,3 +335,20 @@ export function unitSizePairErrors(
   }
   return errors;
 }
+
+/**
+ * How many rows the extraction actually found at a table pointer.
+ *
+ * Reuses the SAME casing-aware walk the bindings use, because the server's
+ * pointers are snake_case while the payload is camelCase — counting with a
+ * naive lookup would report 0 for every table in production and quietly
+ * disable every row control.
+ *
+ * 0 for a pointer that resolves to anything but an array, which covers both
+ * "no such table" and the zero-row case identically — and both want the same
+ * empty plan.
+ */
+export function countRowsAt(values: unknown, pointer: string): number {
+  const { node } = resolveCasingAware(values, pointer);
+  return Array.isArray(node) ? node.length : 0;
+}
