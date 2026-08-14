@@ -456,7 +456,7 @@ describe('VerificationForm: tables', () => {
   it('renders header with row count + table-level dot, and one th per data column', () => {
     renderForm();
     const section = screen.getByRole('region', { name: 'Line Items' });
-    expect(within(section).getByText('Line Items (2 rows)')).not.toBeNull();
+    expect(within(section).getByText(/Line Items \(2 rows/)).not.toBeNull();
     const header = section.querySelector('.gemina-verification__section-header')!;
     expect(within(header as HTMLElement).getByRole('img', { name: 'Medium confidence' })).not.toBeNull();
     const ths = within(section).getAllByRole('columnheader');
@@ -573,7 +573,7 @@ describe('VerificationForm: readOnly + ordering + empty buckets', () => {
     expect(headers).toEqual([
       'Details',
       'Suppliers (2)',
-      'Line Items (2 rows)',
+      expect.stringMatching(/^Line Items \(2 rows/),
       'Additional Data',
       'Not detected',
     ]);
@@ -877,5 +877,51 @@ describe('VerificationForm: row-mutable tables', () => {
     expect(screen.getByRole('button', { name: /add line/i })).toBeTruthy();
     // ...and it does NOT also render as an empty header field.
     expect(screen.queryByRole('textbox', { name: 'Line Items' })).toBeNull();
+  });
+});
+
+describe('VerificationForm: low-confidence rows', () => {
+  const COLS = ['description', 'unit_of_measure', 'quantity', 'item_code'];
+  function renderRows(levels: Array<string | null>) {
+    const values = {
+      line_items: levels.map((level, i) => ({
+        description: `Row ${i}`, unit_of_measure: 'UNIT', quantity: 1, item_code: 'X',
+        ...(level ? { confidence: level } : {}),
+      })),
+    };
+    const bindings = buildBindings([], values);
+    return render(<VerificationForm {...formProps({
+      classified: classifyData(values),
+      bindingIndex: indexBindingsByFieldPointer(bindings),
+      unmatched: [],
+    })} />);
+  }
+
+  it('marks a row whose confidence is not high', () => {
+    const { container } = renderRows(['low', 'high']);
+    const rows = container.querySelectorAll('tbody tr');
+    expect(rows[0]!.classList.contains('gemina-verification__row--low')).toBe(true);
+    expect(rows[1]!.className).not.toMatch(/--(low|medium)/);
+  });
+
+  it('marks medium as well as low — the scale is closed, so it is total', () => {
+    const { container } = renderRows(['medium']);
+    expect(container.querySelector('tbody tr')!.classList
+      .contains('gemina-verification__row--medium')).toBe(true);
+  });
+
+  it('leaves an unmeasured row unmarked — no confidence is not low confidence', () => {
+    const { container } = renderRows([null]);
+    expect(container.querySelector('tbody tr')!.className).not.toMatch(/--(low|medium)/);
+  });
+
+  it('counts the rows needing review in the section header', () => {
+    renderRows(['low', 'medium', 'high']);
+    expect(screen.getByText(/3 rows · 2 need review/)).toBeTruthy();
+  });
+
+  it('says nothing about review when every row is confident', () => {
+    renderRows(['high', 'high']);
+    expect(screen.queryByText(/need review/)).toBeNull();
   });
 });

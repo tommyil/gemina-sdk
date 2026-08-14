@@ -609,6 +609,20 @@ const VERIFICATION_CSS = `
   }
 }
 
+/* Rows worth a second look. Uses the EXISTING confidence tokens — no new
+   colours — as a start-edge rule, which is the one edge a reviewer scans down
+   a long table. Logical property, so it lands on the right side under RTL. */
+.gemina-verification__row--low > td:first-child,
+.gemina-verification__row--medium > td:first-child {
+  border-inline-start: 3px solid transparent;
+}
+.gemina-verification__row--low > td:first-child {
+  border-inline-start-color: var(--gemina-verification-confidence-low);
+}
+.gemina-verification__row--medium > td:first-child {
+  border-inline-start-color: var(--gemina-verification-confidence-medium);
+}
+
 /* --- Row editing ----------------------------------------------------------
    Quiet by design: adding and removing lines is a correction, not the primary
    action, so the controls stay muted until hovered and the accent is left to

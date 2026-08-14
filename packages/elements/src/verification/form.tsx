@@ -564,8 +564,16 @@ function TableRowView(props: TableRowViewProps): React.JSX.Element {
 
   const firstRect = rects.length > 0 ? rects[0]! : null;
   const showControls = planned !== undefined && tablePointer !== undefined && !readOnly;
+  // A REDUNDANT channel: the confidence dot and its tooltip already carry the
+  // meaning, so this marker does not have to pass contrast on its own — it is
+  // there so a reviewer can find the rows worth checking by scanning the edge
+  // of a 150-line table instead of reading every dot.
+  const rowLevel = (row?.[ROW_META_KEY]?.confidence?.level ?? '').toLowerCase();
+  const rowClass = rowLevel === 'low' || rowLevel === 'medium'
+    ? `gemina-verification__row--${rowLevel}`
+    : undefined;
   return (
-    <tr onClick={handleRowClick}>
+    <tr onClick={handleRowClick} className={rowClass}>
       {hasCoords ? (
         <td>
           {/* EyeButton's coordinates prop is only the render gate here — the
@@ -769,12 +777,21 @@ function TableSection(props: {
     [table],
   );
   const rowCount = planned ? planned.length : table.rows.length;
+  // `ConfidenceModel` is a closed high|medium|low, so the scale is total: a row
+  // with no confidence at all is not "needing review", it is unmeasured.
+  const needsReview = React.useMemo(
+    () => table.rows.filter((row) => {
+      const level = (row[ROW_META_KEY]?.confidence?.level ?? '').toLowerCase();
+      return level === 'low' || level === 'medium';
+    }).length,
+    [table.rows],
+  );
   const showControls = planned !== undefined && mutable !== undefined && !shared.readOnly;
   return (
     <section className="gemina-verification__section" aria-label={label}>
       <div className="gemina-verification__section-header">
         <span>
-          {label} ({rowCount} rows)
+          {label} ({rowCount} rows{needsReview > 0 ? ` · ${needsReview} need review` : ''})
         </span>
         <ConfidenceDot confidence={table.overallConfidence} />
       </div>
