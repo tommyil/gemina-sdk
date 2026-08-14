@@ -37,6 +37,102 @@ export interface ValidationFieldDescriptor {
 }
 
 /**
+ * Active ISO 4217 codes, for the currency field's `<datalist>`.
+ *
+ * SUGGESTIONS ONLY — `validateInput` deliberately does not require membership.
+ * A reviewer looking at a real invoice is the authority on what currency it is
+ * in, and blocking submission because a legitimate code is missing from a list
+ * baked into a client release is a worse failure than accepting an odd one.
+ * The server does not check membership either; it compares values.
+ */
+export const ISO_4217_CODES: readonly string[] = [
+  'AED', 'ARS', 'AUD', 'BGN', 'BRL', 'CAD', 'CHF', 'CLP', 'CNY', 'COP', 'CZK',
+  'DKK', 'EGP', 'EUR', 'GBP', 'HKD', 'HRK', 'HUF', 'IDR', 'ILS', 'INR', 'ISK',
+  'JPY', 'KRW', 'MAD', 'MXN', 'MYR', 'NGN', 'NOK', 'NZD', 'PEN', 'PHP', 'PLN',
+  'RON', 'RSD', 'RUB', 'SAR', 'SEK', 'SGD', 'THB', 'TRY', 'TWD', 'UAH', 'USD',
+  'VND', 'ZAR',
+];
+
+const ISO_4217_SHAPE = /^[A-Za-z]{3}$/;
+const DATE_SHAPE = /^\d{4}-\d{2}-\d{2}$/;
+/** Digits with optional sign/decimal, allowing the separators the server strips. */
+const NUMERIC_SHAPE = /^[+-]?[\d,_]*\.?\d+$/;
+
+/** The server's own leniency (`utils._strip_numeric`) — match it, don't exceed it. */
+function toNumber(value: string): number | null {
+  if (!NUMERIC_SHAPE.test(value)) {
+    return null;
+  }
+  const parsed = Number(value.replace(/[,_]/g, ''));
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+/**
+ * Why a value cannot be submitted, or `null` if it can.
+ *
+ * The message is the FIX, not the complaint: "Enter a whole number", not
+ * "Invalid integer". A reviewer correcting an invoice should never have to
+ * infer what the form wants from a restatement of what it rejected.
+ *
+ * Two rules are load-bearing rather than cosmetic:
+ *
+ * - An EMPTY value is always valid. `composeSubmission` reads a cleared input
+ *   as "the user asserts this field is absent", which is a legitimate and
+ *   common correction. Validating emptiness would make the field unclearable.
+ * - NO DESCRIPTOR means valid. Untyped is not the same as invalid, and the
+ *   component must stay usable against a backend or an SDK that predates the
+ *   typed contract.
+ */
+export function validateInput(
+  value: string,
+  field: ValidationFieldDescriptor | undefined,
+): string | null {
+  const trimmed = value.trim();
+  if (trimmed === '' || !field) {
+    return null;
+  }
+
+  // A published roster wins over the annotation's type: the server emits enum
+  // and type together, and the roster is the narrower statement.
+  if (field.enum && field.enum.length > 0) {
+    return field.enum.includes(trimmed)
+      ? null
+      : `Choose one of: ${field.enum.join(', ')}`;
+  }
+
+  if (field.format === 'iso4217') {
+    return ISO_4217_SHAPE.test(trimmed) ? null : 'Use a 3-letter ISO 4217 code, e.g. USD';
+  }
+
+  switch (field.type) {
+    case 'number':
+      return toNumber(trimmed) === null ? 'Enter a number' : null;
+    case 'integer': {
+      const parsed = toNumber(trimmed);
+      if (parsed === null || !Number.isInteger(parsed)) {
+        return 'Enter a whole number';
+      }
+      return null;
+    }
+    case 'date': {
+      if (!DATE_SHAPE.test(trimmed)) {
+        return 'Enter a date as YYYY-MM-DD';
+      }
+      // Shape alone accepts 2026-02-30. Round-trip through Date and require
+      // the parts to survive, which rejects overflowed days and months.
+      const [year, month, day] = trimmed.split('-').map(Number);
+      const date = new Date(Date.UTC(year!, month! - 1, day!));
+      const survives = date.getUTCFullYear() === year
+        && date.getUTCMonth() === month! - 1
+        && date.getUTCDate() === day;
+      return survives ? null : 'Enter a date as YYYY-MM-DD';
+    }
+    default:
+      return null;
+  }
+}
+
+/**
  * Normalise the SDK's descriptors into the shape the rest of this module uses.
  *
  * Exists for one word: `enum` is reserved, so the generator emits the property

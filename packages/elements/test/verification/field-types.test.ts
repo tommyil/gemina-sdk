@@ -7,7 +7,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { readDescriptors } from '../../src/verification/field-types';
+import { readDescriptors, validateInput } from '../../src/verification/field-types';
 
 describe('readDescriptors', () => {
   it('reads the SDK spelling `_enum` — the generator renames the reserved word', () => {
@@ -71,5 +71,69 @@ describe('readDescriptors', () => {
   it('is total on a non-array', () => {
     expect(readDescriptors('nonsense')).toEqual([]);
     expect(readDescriptors({ key: 'k' })).toEqual([]);
+  });
+});
+
+describe('validateInput', () => {
+  it('accepts a valid ISO 4217 code', () => {
+    expect(validateInput('USD', { type: 'string', format: 'iso4217' })).toBeNull();
+  });
+
+  it('accepts a lowercase code — case is a display concern, not a validity one', () => {
+    expect(validateInput('ils', { type: 'string', format: 'iso4217' })).toBeNull();
+  });
+
+  it('names the fix when a currency is malformed', () => {
+    expect(validateInput('dollars', { type: 'string', format: 'iso4217' }))
+      .toBe('Use a 3-letter ISO 4217 code, e.g. USD');
+  });
+
+  it('rejects a non-number in a number field', () => {
+    expect(validateInput('twelve', { type: 'number' })).toBe('Enter a number');
+  });
+
+  it('accepts negatives, decimals and thousands separators in a number field', () => {
+    // The server strips commas and underscores before comparing
+    // (`utils._strip_numeric`), so rejecting them here would block a value the
+    // backend would have accepted.
+    for (const value of ['-12.5', '1,500', '0']) {
+      expect(validateInput(value, { type: 'number' }), value).toBeNull();
+    }
+  });
+
+  it('rejects a decimal in an integer field', () => {
+    expect(validateInput('1.5', { type: 'integer' })).toBe('Enter a whole number');
+    expect(validateInput('12', { type: 'integer' })).toBeNull();
+  });
+
+  it('rejects an off-roster enum value', () => {
+    expect(validateInput('CRATE', { type: 'string', enum: ['UNIT', 'BOX'] }))
+      .toBe('Choose one of: UNIT, BOX');
+  });
+
+  it('accepts a roster member', () => {
+    expect(validateInput('BOX', { type: 'string', enum: ['UNIT', 'BOX'] })).toBeNull();
+  });
+
+  it('treats an empty value as valid — clearing asserts the field is absent', () => {
+    // composeSubmission already reads a cleared input as "the user asserts this
+    // field is absent/wrong". Validation must not break that.
+    expect(validateInput('', { type: 'number' })).toBeNull();
+    expect(validateInput('   ', { type: 'number' })).toBeNull();
+    expect(validateInput('', { type: 'string', enum: ['UNIT'] })).toBeNull();
+  });
+
+  it('accepts anything when there is no descriptor — untyped is not invalid', () => {
+    expect(validateInput('whatever', undefined)).toBeNull();
+    expect(validateInput('whatever', {})).toBeNull();
+  });
+
+  it('rejects a malformed date', () => {
+    expect(validateInput('not-a-date', { type: 'date' })).toBe('Enter a date as YYYY-MM-DD');
+    expect(validateInput('2026-08-14', { type: 'date' })).toBeNull();
+  });
+
+  it('rejects a calendar-impossible date that matches the shape', () => {
+    expect(validateInput('2026-02-30', { type: 'date' })).toBe('Enter a date as YYYY-MM-DD');
   });
 });
