@@ -75,7 +75,7 @@ const SUPPLIER_KEY = 'label:supplier_name|ptr:/supplier_name/value';
 const TOTAL_KEY = 'label:total_amount|ptr:/total_amount/value';
 
 const CONFIRM_COPY =
-  'Submit verification? This is final — feedback can be submitted only once and cannot be changed.';
+  "Submit these values? This is final — they can be submitted once and can't be changed.";
 
 /** A realistic ComparisonSummaryModel — threaded to onComplete VERBATIM. */
 const SUMMARY = {
@@ -102,7 +102,7 @@ async function startEditedReview(
 }
 
 function submitButton(): HTMLButtonElement {
-  return screen.getByRole('button', { name: 'Submit feedback' }) as HTMLButtonElement;
+  return screen.getByRole('button', { name: 'Submit' }) as HTMLButtonElement;
 }
 
 function confirmButton(): HTMLButtonElement {
@@ -187,7 +187,7 @@ describe('GeminaVerification — confirm dialog', () => {
 
     resolvePut(VALIDATION_RESULT);
     await flushMicrotasks();
-    expect(screen.getByText('Feedback submitted')).toBeTruthy();
+    expect(screen.getByText('Submitted')).toBeTruthy();
   });
 
   it('Tab wraps between Cancel and Confirm while the dialog is open (focus trap)', async () => {
@@ -306,7 +306,7 @@ describe('GeminaVerification — submit success', () => {
     // Done: checkmark state + recap (1 untouched-resolved, 1 corrected).
     const state = container.querySelector('.gemina-verification__state');
     expect(state).toBeTruthy();
-    expect(screen.getByText('Feedback submitted')).toBeTruthy();
+    expect(screen.getByText('Submitted')).toBeTruthy();
     expect(screen.getByText('1 confirmed · 1 corrected')).toBeTruthy();
     // Announced politely, and focus lands on the state container (tabIndex
     // -1) — the dialog under the keyboard user just unmounted.
@@ -382,7 +382,7 @@ describe('GeminaVerification — submit failures (edits NEVER cleared)', () => {
     await flushMicrotasks();
 
     expect(validateDocumentExtraction).toHaveBeenCalledTimes(2);
-    expect(screen.getByText('Feedback submitted')).toBeTruthy();
+    expect(screen.getByText('Submitted')).toBeTruthy();
   });
 
   it('falls back to the generic submit-error copy when the server sends no description', async () => {
@@ -409,7 +409,7 @@ describe('GeminaVerification — submit failures (edits NEVER cleared)', () => {
     // retry minted #2.
     expect(fetchToken).toHaveBeenCalledTimes(2);
     expect(validateDocumentExtraction).toHaveBeenCalledTimes(2);
-    expect(screen.getByText('Feedback submitted')).toBeTruthy();
+    expect(screen.getByText('Submitted')).toBeTruthy();
     expect(onError).not.toHaveBeenCalled();
   });
 
@@ -496,5 +496,39 @@ describe('GeminaVerification — unmount mid-submit', () => {
     } finally {
       errorSpy.mockRestore();
     }
+  });
+});
+
+/**
+ * The component is a workflow step — extract, then check and correct, then
+ * submit — not a feedback widget. "Feedback" told the reviewer their edits were
+ * an optional opinion collected for someone else's benefit, when they are in
+ * fact the values that get recorded. The word is retired from every
+ * user-visible string; it survives only in code comments and in the API
+ * surface (`meta.validationFeedback`, the `onError` reason names), which are
+ * contract, not copy.
+ */
+describe('GeminaVerification — copy', () => {
+  it('labels the primary action "Submit" and says "feedback" nowhere on screen', async () => {
+    await startEditedReview();
+    expect(screen.getByRole('button', { name: 'Submit' })).toBeTruthy();
+    expect(screen.queryByText(/feedback/i)).toBeNull();
+  });
+
+  it('names the completed state with the same verb as the action', async () => {
+    // An action keeps its name through the whole flow: Submit -> Submitted.
+    await startEditedReview();
+    validateDocumentExtraction.mockResolvedValueOnce(VALIDATION_RESULT);
+    await submitAndConfirm();
+    expect(screen.getByText('Submitted')).toBeTruthy();
+    expect(screen.queryByText(/feedback/i)).toBeNull();
+  });
+
+  it('the confirm dialog warns it is one-shot without the word "feedback"', async () => {
+    await startEditedReview();
+    fireEvent.click(submitButton());
+    const dialog = screen.getByRole('dialog');
+    expect(dialog.textContent).toMatch(/final/i);
+    expect(dialog.textContent).not.toMatch(/feedback/i);
   });
 });

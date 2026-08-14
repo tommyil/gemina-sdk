@@ -100,11 +100,17 @@ const VERIFICATION_UNAVAILABLE_TEXT = "Verification isn't available for this ext
 // Deliberately does NOT imply the shown data is the corrected data — the
 // primary view returns the ORIGINAL extraction, not the validated values.
 const ALREADY_VALIDATED_TEXT = 'Already verified — showing the original extraction.';
+// "Feedback" is retired from every user-visible string: it framed the
+// reviewer's corrections as an optional opinion collected for someone else,
+// when they are the values that get recorded. The word survives only in code
+// comments and in the API surface (`meta.validationFeedback`, the `onError`
+// reason names), which are contract rather than copy.
 const CONFIRM_TEXT =
-  'Submit verification? This is final — feedback can be submitted only once and cannot be changed.';
+  "Submit these values? This is final — they can be submitted once and can't be changed.";
 const SUBMITTING_TEXT = 'Submitting…';
 const SUBMIT_FAILED_TEXT = 'Submission failed — your corrections are still here.';
-const DONE_TITLE_TEXT = 'Feedback submitted';
+// Same verb as the action that produced it: Submit -> Submitted.
+const DONE_TITLE_TEXT = 'Submitted';
 
 /** What a successful load pins for the review phase (values + schema together,
  * so the derived memos see one consistent snapshot). */
@@ -812,7 +818,7 @@ export function GeminaVerification(props: GeminaVerificationProps): React.JSX.El
             disabled={alreadyValidated || reviewPhase.name !== 'review'}
             onClick={handleSubmitClick}
           >
-            Submit feedback
+            Submit
           </button>
         </div>
         {overlayUp && (
