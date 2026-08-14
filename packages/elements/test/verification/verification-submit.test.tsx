@@ -612,3 +612,74 @@ describe('GeminaVerification — blocking validation', () => {
     expect(screen.queryByText(/needs attention/)).toBeNull();
   });
 });
+
+/**
+ * `rowSources` on the wire. Without this the whole of Phase 7 is inert: the
+ * client can plan all it likes, but a body without `rowSources` is scored by a
+ * backend that has no idea rows moved.
+ */
+describe('GeminaVerification — row alignment on the wire', () => {
+  const COLS = ['description', 'unit_of_measure', 'quantity', 'item_code'];
+  const ROWS = [
+    { description: 'A', unit_of_measure: 'UNIT', quantity: 1, item_code: 'X' },
+    { description: 'B', unit_of_measure: 'BOX', quantity: 2, item_code: 'Y' },
+  ];
+
+  async function startTableReview() {
+    getDocumentExtraction.mockResolvedValueOnce(
+      extraction({
+        meta: {
+          processingStatus: 'success',
+          validated: false,
+          purgedAt: null,
+          validationFeedback: {
+            validationSchema: ROWS.flatMap((_r, i) =>
+              COLS.map((c) => `label:line_${i}_${c}|ptr:/line_items/${i}/${c}`)),
+            rowMutableTables: [{
+              pointer: '/line_items',
+              keyTemplate: 'label:line_{index}_{field}|ptr:/line_items/{index}/{field}',
+              columns: COLS.map((name) => ({ name, type: 'string' })),
+            }],
+          },
+        },
+        values: { line_items: ROWS },
+      }),
+    );
+    const utils = renderVerification();
+    await screen.findByRole('button', { name: 'Remove line 1' });
+    return utils;
+  }
+
+  it('omits rowSources entirely when no row was added or removed', async () => {
+    await startTableReview();
+    validateDocumentExtraction.mockResolvedValueOnce(VALIDATION_RESULT);
+    await submitAndConfirm();
+
+    const body = validateDocumentExtraction.mock.calls[0]![0].extractionValidationInDTO;
+    // Byte-identical to the pre-row-editing request for the common path.
+    expect('rowSources' in body).toBe(false);
+  });
+
+  it('sends the alignment after a row is removed, and re-indexes the payload', async () => {
+    await startTableReview();
+    fireEvent.click(screen.getByRole('button', { name: 'Remove line 1' }));
+    validateDocumentExtraction.mockResolvedValueOnce(VALIDATION_RESULT);
+    await submitAndConfirm();
+
+    const body = validateDocumentExtraction.mock.calls[0]![0].extractionValidationInDTO;
+    expect(body.rowSources).toEqual([{ table: '/line_items', sources: [1] }]);
+    // Row B moved up into position 0 — the payload mirrors the approved table.
+    expect(body.data['label:line_0_description|ptr:/line_items/0/description']).toBe('B');
+    expect('label:line_1_description|ptr:/line_items/1/description' in body.data).toBe(false);
+  });
+
+  it('sends a null source for a row the reviewer added', async () => {
+    await startTableReview();
+    fireEvent.click(screen.getByRole('button', { name: /add line/i }));
+    validateDocumentExtraction.mockResolvedValueOnce(VALIDATION_RESULT);
+    await submitAndConfirm();
+
+    const body = validateDocumentExtraction.mock.calls[0]![0].extractionValidationInDTO;
+    expect(body.rowSources).toEqual([{ table: '/line_items', sources: [0, 1, null] }]);
+  });
+});
