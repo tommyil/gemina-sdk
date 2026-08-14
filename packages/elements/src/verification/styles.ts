@@ -609,6 +609,19 @@ const VERIFICATION_CSS = `
   }
 }
 
+/* A label that carries a description. Dotted underline is the long-standing
+   convention for "there is more here", and tabIndex makes it reachable, so the
+   tooltip is not mouse-only. */
+.gemina-verification__label-described {
+  text-decoration: underline dotted;
+  text-underline-offset: 3px;
+  cursor: help;
+}
+.gemina-verification__label-described:focus-visible {
+  outline: 2px solid var(--gemina-verification-accent);
+  outline-offset: 2px;
+}
+
 /* Rows worth a second look. Uses the EXISTING confidence tokens — no new
    colours — as a start-edge rule, which is the one edge a reviewer scans down
    a long table. Logical property, so it lands on the right side under RTL. */

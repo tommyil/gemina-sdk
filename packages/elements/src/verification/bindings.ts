@@ -2,7 +2,7 @@ import { isValueObject } from './classify';
 import { coerceInput } from './field-types';
 import type { CellView } from './row-cells';
 import type { ValidationFieldDescriptor } from './field-types';
-import { NOT_FOUND, parseSchemaKey } from './pointer';
+import { NOT_FOUND, parseSchemaKey, snakeToCamel } from './pointer';
 import type { NotFound, SchemaKey } from './pointer';
 
 /** One server-mandated submission slot, bound to whatever was extracted there. */
@@ -49,11 +49,6 @@ function unescapeSegment(raw: string): string {
 
 function escapeSegment(segment: string): string {
   return segment.replace(/~/g, '~0').replace(/\//g, '~1');
-}
-
-/** `vendor_name` → `vendorName`; plain lower single words are identical under both. */
-function snakeToCamel(segment: string): string {
-  return segment.replace(/_([a-zA-Z0-9])/g, (_, ch: string) => ch.toUpperCase());
 }
 
 /** Best-effort camelization of a whole pointer (used when resolution fails). */

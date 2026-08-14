@@ -25,7 +25,7 @@ import { toInputString } from './bindings';
 import type { FieldBinding } from './bindings';
 import { cellSchemaKey } from './field-types';
 import type { RowMutableTable, ValidationFieldDescriptor } from './field-types';
-import { NOT_FOUND, parseSchemaKey } from './pointer';
+import { NOT_FOUND, parseSchemaKey, snakeToCamel } from './pointer';
 import { cellEditKey } from './row-plan';
 import type { RowPlanEntry } from './row-plan';
 
@@ -127,10 +127,14 @@ export function displayColumns(
     .filter((name): name is string => typeof name === 'string');
 }
 
-/** `/line_items` and the payload's `/lineItems` are the same table. */
+/**
+ * `/line_items` and the payload's `/lineItems` are the same table.
+ *
+ * Uses the SHARED casing rule rather than a local copy: two copies that drift
+ * is precisely how a pointer silently stops resolving.
+ */
 export function matchesTablePointer(serverPointer: string, classifiedPointer: string): boolean {
-  const camel = serverPointer.replace(/_([a-zA-Z0-9])/g, (_unused, ch: string) => ch.toUpperCase());
-  return serverPointer === classifiedPointer || camel === classifiedPointer;
+  return serverPointer === classifiedPointer || snakeToCamel(serverPointer) === classifiedPointer;
 }
 
 /**

@@ -925,3 +925,53 @@ describe('VerificationForm: low-confidence rows', () => {
     expect(screen.queryByText(/need review/)).toBeNull();
   });
 });
+
+describe('VerificationForm: field descriptions', () => {
+  it('shows the model\'s field description as a tooltip on the label', async () => {
+    const values = { currency: { value: 'USD' } };
+    const bindings = buildBindings(
+      ['label:currency|ptr:/currency/value'], values,
+      [{ key: 'label:currency|ptr:/currency/value', label: 'currency', type: 'string',
+         description: 'ISO 4217 code of the invoice currency' }],
+    );
+    render(<VerificationForm {...formProps({
+      classified: classifyData(values),
+      bindingIndex: indexBindingsByFieldPointer(bindings),
+      unmatched: [],
+    })} />);
+
+    fireEvent.mouseEnter(screen.getByText('Currency'));
+    const tip = await screen.findByRole('tooltip');
+    expect(tip.textContent).toBe('ISO 4217 code of the invoice currency');
+  });
+
+  it('leaves a label with no description as plain text — no empty tooltip', () => {
+    const values = { currency: { value: 'USD' } };
+    const bindings = buildBindings(['label:currency|ptr:/currency/value'], values);
+    render(<VerificationForm {...formProps({
+      classified: classifyData(values),
+      bindingIndex: indexBindingsByFieldPointer(bindings),
+      unmatched: [],
+    })} />);
+
+    const label = screen.getByText('Currency');
+    expect(label.className).not.toMatch(/label-described/);
+    fireEvent.mouseEnter(label);
+    expect(screen.queryByRole('tooltip')).toBeNull();
+  });
+
+  it('makes a described label keyboard-reachable, so the tooltip is not mouse-only', () => {
+    const values = { currency: { value: 'USD' } };
+    const bindings = buildBindings(
+      ['label:currency|ptr:/currency/value'], values,
+      [{ key: 'label:currency|ptr:/currency/value', label: 'currency', type: 'string',
+         description: 'ISO 4217 code' }],
+    );
+    render(<VerificationForm {...formProps({
+      classified: classifyData(values),
+      bindingIndex: indexBindingsByFieldPointer(bindings),
+      unmatched: [],
+    })} />);
+    expect(screen.getByText('Currency').getAttribute('tabIndex')).toBe('0');
+  });
+});

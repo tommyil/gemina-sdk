@@ -359,6 +359,24 @@ function isInteractiveTarget(target: EventTarget | null): boolean {
   return target instanceof Element && target.closest('input, button, a, select, textarea') !== null;
 }
 
+/**
+ * A field label, with the model's description as a tooltip when there is one.
+ *
+ * Plain text when there is not: an empty tooltip trigger is worse than none,
+ * because it promises information it does not have.
+ */
+function FieldLabel(props: { label: string; description?: string | null }): React.JSX.Element {
+  const { label, description } = props;
+  if (!description) {
+    return <span>{label}</span>;
+  }
+  return (
+    <Tip content={description}>
+      <span className="gemina-verification__label-described" tabIndex={0}>{label}</span>
+    </Tip>
+  );
+}
+
 /** One label/value pair inside a description list (headers + entity cards). */
 function FieldPair(props: {
   label: string;
@@ -372,7 +390,11 @@ function FieldPair(props: {
     <>
       <dt className="gemina-verification__dt">
         <ConfidenceDot confidence={cell.confidence} />
-        <span>{label}</span>
+        {/* The model's own field description, which the backend publishes per
+            field. Without this it is carried all the way to the client and
+            then dropped — and it is the only place a reviewer can learn what
+            a field like "assignment number" is actually supposed to contain. */}
+        <FieldLabel label={label} description={binding?.field?.description} />
       </dt>
       <dd className="gemina-verification__dd">
         {binding !== undefined ? (
@@ -776,6 +798,18 @@ function TableSection(props: {
     () => table.rows.some((row) => Boolean(row[ROW_META_KEY]?.confidence?.level)),
     [table],
   );
+  // Column descriptions come from the server's declared columns, so they are
+  // present even for a zero-row table — the case where a reviewer typing a
+  // line in most needs to know what each column means.
+  const columnDescriptions = React.useMemo(() => {
+    const map = new Map<string, string>();
+    for (const column of mutable?.columns ?? []) {
+      if (typeof column.key === 'string' && column.description) {
+        map.set(column.key, column.description);
+      }
+    }
+    return map;
+  }, [mutable]);
   const rowCount = planned ? planned.length : table.rows.length;
   // `ConfidenceModel` is a closed high|medium|low, so the scale is total: a row
   // with no confidence at all is not "needing review", it is unmeasured.
@@ -802,7 +836,12 @@ function TableSection(props: {
               {hasCoords ? <th aria-label="Show row on document" /> : null}
               {hasRowConfidence ? <th aria-label="Row confidence" /> : null}
               {columns.map((column) => (
-                <th key={column}>{formatLabel(column)}</th>
+                <th key={column}>
+                  <FieldLabel
+                    label={formatLabel(column)}
+                    description={columnDescriptions.get(column)}
+                  />
+                </th>
               ))}
               {showControls ? <th aria-label="Row actions" /> : null}
             </tr>
