@@ -680,6 +680,61 @@ function areRowPropsEqual(prev: TableRowViewProps, next: TableRowViewProps): boo
 
 const TableRow = React.memo(TableRowView, areRowPropsEqual);
 
+
+/**
+ * Promote a row-mutable table the classifier could not see as one.
+ *
+ * An EMPTY array classifies as a header, not a table (classify.ts) — so an
+ * extraction that found no line items has no table, no columns and nowhere to
+ * put "Add line". That is the case this feature exists for: the model found
+ * nothing and the reviewer types it in.
+ *
+ * Done as a post-classification promotion driven by the SERVER's contract
+ * rather than by changing the classifier, whose heuristics are shared with the
+ * console and proven. The header the empty array produced is suppressed, or it
+ * would render twice — once as "Line Items: []" and once as the table.
+ */
+function withEmptyMutableTables(
+  classified: ClassifiedData,
+  tables: readonly RowMutableTable[],
+): { tables: ClassifiedData['tables']; suppressed: ReadonlySet<string> } {
+  if (tables.length === 0) {
+    return { tables: classified.tables, suppressed: EMPTY_SUPPRESSED };
+  }
+  const promoted = [...classified.tables];
+  const suppressed = new Set<string>();
+  for (const table of tables) {
+    if (classified.tables.some((candidate) => matchesTablePointer(table.pointer, candidate.pointer))) {
+      continue;
+    }
+    const header = classified.headers.find(
+      (candidate) => matchesTablePointer(table.pointer, candidate.pointer),
+    );
+    // The classifier normalises an empty array to `value: null`, so BOTH
+    // spellings mean "no rows". Nothing else is promoted: a pointer that
+    // resolved to real data is a contract mismatch, and inventing a table for
+    // it would put row controls over data the scorer cannot align. The
+    // server's own declaration is what makes this safe — the reviewer can only
+    // ever add rows to a table the scorer knows how to align.
+    const empty = header !== undefined
+      && (header.value === null || (Array.isArray(header.value) && header.value.length === 0));
+    if (!empty) {
+      continue;
+    }
+    suppressed.add(header!.pointer);
+    promoted.push({
+      key: header!.key,
+      pointer: header!.pointer,
+      columns: [],
+      rows: [],
+      overallConfidence: null,
+    });
+  }
+  return { tables: promoted, suppressed };
+}
+
+const EMPTY_SUPPRESSED: ReadonlySet<string> = new Set();
+
 /** Table bucket: the console DataTable's column model without antd. */
 function TableSection(props: {
   table: ClassifiedData['tables'][number];
@@ -855,6 +910,10 @@ export function VerificationForm(props: VerificationFormProps): React.JSX.Elemen
     classified, unmatched, bindingIndex, edits, onEdit, readOnly, onFlash,
     pairErrors, rowMutableTables, plannedTables, onAddRow, onRemoveRow,
   } = props;
+  const { tables: promotedTables, suppressed } = React.useMemo(
+    () => withEmptyMutableTables(classified, rowMutableTables ?? NO_TABLES),
+    [classified, rowMutableTables],
+  );
   const shared: SectionShared = {
     bindingIndex, edits, onEdit, readOnly, onFlash,
     pairErrors: pairErrors ?? NO_PAIR_ERRORS,
@@ -874,11 +933,15 @@ export function VerificationForm(props: VerificationFormProps): React.JSX.Elemen
       aria-label="Extraction fields"
       onSubmit={(event) => event.preventDefault()}
     >
-      <HeaderSection headers={classified.headers} simpleLists={classified.simpleLists} shared={shared} />
+      <HeaderSection
+        headers={classified.headers.filter((header) => !suppressed.has(header.pointer))}
+        simpleLists={classified.simpleLists}
+        shared={shared}
+      />
       {classified.entities.map((entity) => (
         <EntitySection key={entity.pointer} entity={entity} shared={shared} />
       ))}
-      {classified.tables.map((table) => (
+      {promotedTables.map((table) => (
         <TableSection key={table.pointer} table={table} shared={shared} />
       ))}
       <FallbackSection fallback={classified.fallback} />

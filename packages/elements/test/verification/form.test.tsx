@@ -33,6 +33,8 @@ import type { VerificationFormProps } from '../../src/verification/form';
 import { buildBindings, indexBindingsByFieldPointer } from '../../src/verification/bindings';
 import type { FieldBinding } from '../../src/verification/bindings';
 import { classifyData, ROW_META_KEY } from '../../src/verification/classify';
+import { planTableCells } from '../../src/verification/row-cells';
+import { initialRowPlan, insertRowAfter } from '../../src/verification/row-plan';
 import { NOT_FOUND } from '../../src/verification/pointer';
 
 afterEach(cleanup);
@@ -730,5 +732,150 @@ describe('FieldInput — typed controls', () => {
     expect(input.getAttribute('type')).toBe('text');
     expect(input.getAttribute('list')).toBeNull();
     expect(screen.queryByRole('combobox')).toBeNull();
+  });
+});
+
+// --- Row editing (Phase 7) ---------------------------------------------------
+
+describe('VerificationForm: row-mutable tables', () => {
+  const TEMPLATE = 'label:line_{index}_{field}|ptr:/line_items/{index}/{field}';
+  // FOUR columns minimum: `isTableArray` requires >3 non-meta fields, so a
+  // narrower array classifies as entity CARDS and never reaches TableSection.
+  // Real line_items carry ~19 columns, so this is a fixture constraint rather
+  // than a product limit — but a row-mutable table of 3 columns or fewer would
+  // get no row controls, which is worth knowing.
+  const COLS = ['description', 'unit_of_measure', 'quantity', 'item_code'];
+  const MUTABLE = {
+    pointer: '/line_items',
+    keyTemplate: TEMPLATE,
+    columns: [
+      { key: 'description', label: 'description', type: 'string' as const },
+      { key: 'unit_of_measure', label: 'unit_of_measure', type: 'string' as const, enum: ['UNIT', 'BOX'] },
+      { key: 'quantity', label: 'quantity', type: 'number' as const },
+      { key: 'item_code', label: 'item_code', type: 'string' as const },
+    ],
+  };
+
+  function renderTable(descriptions: string[], extra: Partial<VerificationFormProps> = {}) {
+    const values = {
+      line_items: descriptions.map((description) => ({
+        description, unit_of_measure: 'UNIT', quantity: 1, item_code: 'X',
+      })),
+    };
+    const schema = descriptions.flatMap((_v, i) => COLS.map(
+      (c) => `label:line_${i}_${c}|ptr:/line_items/${i}/${c}`,
+    ));
+    const fields = descriptions.flatMap((_v, i) => MUTABLE.columns.map((column) => ({
+      key: `label:line_${i}_${column.key}|ptr:/line_items/${i}/${column.key}`,
+      label: column.key,
+      type: column.type,
+      enum: column.enum ?? null,
+    })));
+    const bindings = buildBindings(schema, values, fields);
+    const byRaw = new Map(bindings.map((b) => [b.key.raw, b]));
+    const plan = initialRowPlan(descriptions.length);
+    const planned = new Map([[MUTABLE.pointer, planTableCells(MUTABLE, plan, COLS, byRaw)]]);
+    return {
+      ...render(
+        <VerificationForm
+          {...formProps({
+            classified: classifyData(values),
+            bindingIndex: indexBindingsByFieldPointer(bindings),
+            rowMutableTables: [MUTABLE],
+            plannedTables: planned,
+            ...extra,
+          })}
+        />,
+      ),
+      plan,
+    };
+  }
+
+  it('offers per-row insert and remove controls, numbered for a screen reader', () => {
+    renderTable(['A', 'B']);
+    // Row-numbered: "Remove line" repeated N times is unusable with AT.
+    expect(screen.getByRole('button', { name: 'Remove line 1' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Remove line 2' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Insert line below line 1' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: /add line/i })).toBeTruthy();
+  });
+
+  it('reports the removal to the parent with the SERVER pointer and the position', () => {
+    const onRemoveRow = vi.fn();
+    renderTable(['A', 'B', 'C'], { onRemoveRow });
+    fireEvent.click(screen.getByRole('button', { name: 'Remove line 2' }));
+    expect(onRemoveRow).toHaveBeenCalledWith('/line_items', 1);
+  });
+
+  it('appends via Add line at the end of the table', () => {
+    const onAddRow = vi.fn();
+    renderTable(['A', 'B'], { onAddRow });
+    fireEvent.click(screen.getByRole('button', { name: /add line/i }));
+    expect(onAddRow).toHaveBeenCalledWith('/line_items', 1);
+  });
+
+  it('renders an added row with the SAME typed controls as an extracted one', () => {
+    const values = {
+      line_items: [{ description: 'A', unit_of_measure: 'UNIT', quantity: 1, item_code: 'X' }],
+    };
+    const bindings = buildBindings(
+      COLS.map((c) => `label:line_0_${c}|ptr:/line_items/0/${c}`),
+      values,
+    );
+    const plan = insertRowAfter(initialRowPlan(1), 0);
+    const planned = new Map([[MUTABLE.pointer, planTableCells(
+      MUTABLE, plan, COLS, new Map(bindings.map((b) => [b.key.raw, b])),
+    )]]);
+    render(<VerificationForm {...formProps({
+      classified: classifyData(values),
+      bindingIndex: indexBindingsByFieldPointer(bindings),
+      rowMutableTables: [MUTABLE],
+      plannedTables: planned,
+    })} />);
+
+    // Row 2 is the added one: its UoM cell is a select, exactly like row 1's,
+    // and its description is an empty fill-in rather than a missing binding.
+    const uom = screen.getByRole('combobox', { name: 'Line Items row 2 — Unit Of Measure' });
+    expect([...(uom as HTMLSelectElement).options].map((o) => o.value)).toContain('BOX');
+    const description = screen.getByRole('textbox', {
+      name: 'Line Items row 2 — Description',
+    }) as HTMLInputElement;
+    expect(description.value).toBe('');
+  });
+
+  it('offers no row controls when the server did not declare the table mutable', () => {
+    const values = {
+      line_items: [{ description: 'A', unit_of_measure: 'UNIT', quantity: 1, item_code: 'X' }],
+    };
+    const bindings = buildBindings(
+      COLS.map((c) => `label:line_0_${c}|ptr:/line_items/0/${c}`), values,
+    );
+    render(<VerificationForm {...formProps({
+      classified: classifyData(values),
+      bindingIndex: indexBindingsByFieldPointer(bindings),
+    })} />);
+    expect(screen.queryByRole('button', { name: /add line/i })).toBeNull();
+    expect(screen.queryByRole('button', { name: /remove line/i })).toBeNull();
+  });
+
+  it('offers no row controls in read-only mode', () => {
+    renderTable(['A'], { readOnly: true });
+    expect(screen.queryByRole('button', { name: /add line/i })).toBeNull();
+  });
+
+  it('promotes a ZERO-row mutable table, which the classifier calls a header', () => {
+    // The case the feature exists for: the model found no lines at all.
+    const values = { line_items: [] };
+    render(<VerificationForm {...formProps({
+      classified: classifyData(values),
+      bindingIndex: new Map(),
+      rowMutableTables: [MUTABLE],
+      plannedTables: new Map([[MUTABLE.pointer, planTableCells(MUTABLE, [], COLS, new Map())]]),
+    })} />);
+
+    expect(screen.getByRole('columnheader', { name: 'Description' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: /add line/i })).toBeTruthy();
+    // ...and it does NOT also render as an empty header field.
+    expect(screen.queryByRole('textbox', { name: 'Line Items' })).toBeNull();
   });
 });
