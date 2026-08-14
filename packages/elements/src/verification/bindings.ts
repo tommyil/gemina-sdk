@@ -1,5 +1,6 @@
 import { isValueObject } from './classify';
 import { coerceInput } from './field-types';
+import type { CellView } from './row-cells';
 import type { ValidationFieldDescriptor } from './field-types';
 import { NOT_FOUND, parseSchemaKey } from './pointer';
 import type { NotFound, SchemaKey } from './pointer';
@@ -201,6 +202,12 @@ export function toInputString(extracted: unknown | NotFound): string {
   return String(extracted);
 }
 
+/** One table's alignment, exactly as `ExtractionValidationInDTO.rowSources`. */
+export interface RowSourcesEntry {
+  table: string;
+  sources: Array<number | null>;
+}
+
 export interface SubmissionResult {
   /** Body for `ExtractionValidationInDTO.data` — raw schema keys, ALL asserted fields. */
   data: Record<string, unknown>;
@@ -208,6 +215,12 @@ export interface SubmissionResult {
   byLabel: Record<string, unknown>;
   confirmed: number;
   corrected: number;
+  /**
+   * How the submitted tables align to the extracted ones. EMPTY when no row
+   * was added or removed, so an untouched submission's wire payload stays
+   * byte-identical to what it was before row editing existed.
+   */
+  rowSources: RowSourcesEntry[];
 }
 
 /**
@@ -237,16 +250,39 @@ export interface SubmissionResult {
 export function composeSubmission(
   bindings: FieldBinding[],
   edits: ReadonlyMap<string, string>,
+  options: {
+    /**
+     * The resolved cells, when the caller has them. Supplying these is what
+     * makes row editing work: they carry the SUBMITTED key for each cell and
+     * mark the ones belonging to rows the reviewer added. Omitted, every
+     * binding is submitted under its own raw key — exactly today's behaviour.
+     */
+    cells?: readonly CellView[];
+    rowSources?: RowSourcesEntry[];
+  } = {},
 ): SubmissionResult {
+  const cells: readonly CellView[] = options.cells ?? bindings.map((binding) => ({
+    editKey: binding.key.raw,
+    submitKey: binding.key.raw,
+    column: binding.key.label,
+    rowKey: binding.key.raw,
+    binding,
+    added: false,
+  }));
   const data: Record<string, unknown> = {};
   const byLabel: Record<string, unknown> = {};
   let confirmed = 0;
   let corrected = 0;
 
-  for (const binding of bindings) {
-    const edit = edits.get(binding.key.raw);
+  for (const cell of cells) {
+    const { binding } = cell;
+    const edit = edits.get(cell.editKey);
     if (edit !== undefined) {
       const trimmed = edit.trim();
+      // Nothing extracted and nothing typed: there is no assertion to make.
+      // For an ADDED row this is also what keeps an empty cell out of the
+      // payload — its aligned counterpart does not exist, so an omission
+      // cannot become an `extra`.
       if (trimmed === '' && binding.serverValue === NOT_FOUND) {
         continue;
       }
@@ -254,19 +290,22 @@ export function composeSubmission(
       // a number. A cleared input stays null — it asserts absence and must
       // never become 0 or an empty string.
       const value = trimmed === '' ? null : coerceInput(trimmed, binding.field);
-      data[binding.key.raw] = value;
+      data[cell.submitKey] = value;
       byLabel[binding.key.label] = value;
       corrected += 1;
     } else {
       if (binding.serverValue === NOT_FOUND) {
         continue;
       }
-      data[binding.key.raw] = binding.serverValue;
+      // Untouched cells of a row that still maps to a source submit that
+      // source's extracted value — under its SUBMITTED key, so the payload
+      // mirrors the approved table rather than the extracted one.
+      data[cell.submitKey] = binding.serverValue;
       byLabel[binding.key.label] = binding.serverValue;
       confirmed += 1;
     }
   }
-  return { data, byLabel, confirmed, corrected };
+  return { data, byLabel, confirmed, corrected, rowSources: options.rowSources ?? [] };
 }
 
 /**

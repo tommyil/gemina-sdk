@@ -609,6 +609,50 @@ const VERIFICATION_CSS = `
   }
 }
 
+/* --- Row editing ----------------------------------------------------------
+   Quiet by design: adding and removing lines is a correction, not the primary
+   action, so the controls stay muted until hovered and the accent is left to
+   Submit. */
+.gemina-verification__row-actions {
+  white-space: nowrap;
+  text-align: end; /* logical — RTL for free */
+}
+.gemina-verification__row-btn {
+  font: inherit;
+  line-height: 1;
+  padding: 2px 7px;
+  margin-inline-start: 4px;
+  border-radius: calc(var(--gemina-verification-radius) - 5px);
+  border: 1px solid var(--gemina-verification-border);
+  background: transparent;
+  color: var(--gemina-verification-muted);
+  cursor: pointer;
+  transition: border-color 120ms ease, color 120ms ease;
+}
+.gemina-verification__row-btn:hover {
+  border-color: var(--gemina-verification-accent);
+  color: var(--gemina-verification-fg);
+}
+.gemina-verification__table-footer {
+  display: flex;
+  padding: 8px 10px 0;
+}
+.gemina-verification__add-row {
+  font: inherit;
+  font-size: 12px;
+  padding: 4px 10px;
+  border-radius: calc(var(--gemina-verification-radius) - 4px);
+  border: 1px dashed var(--gemina-verification-border);
+  background: transparent;
+  color: var(--gemina-verification-muted);
+  cursor: pointer;
+}
+.gemina-verification__add-row:hover {
+  border-style: solid;
+  border-color: var(--gemina-verification-accent);
+  color: var(--gemina-verification-fg);
+}
+
 /* --- Typed controls -------------------------------------------------------
    A <select> for a closed roster must sit on the same baseline as the text
    inputs beside it in a table row, so it inherits the input's box entirely and

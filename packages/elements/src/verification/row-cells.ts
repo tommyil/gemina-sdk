@@ -147,9 +147,13 @@ export function matchesTablePointer(serverPointer: string, classifiedPointer: st
  */
 export interface CellView {
   editKey: string;
+  /** The raw schema key this cell goes on the wire under. */
+  submitKey: string;
   column: string;
   rowKey: string;
   binding: FieldBinding;
+  /** True when nothing was extracted here — a row the reviewer added. */
+  added: boolean;
 }
 
 /** `/line_items/3/unit_size` -> `{ row: '/line_items/3', field: 'unit_size' }`. */
@@ -161,44 +165,50 @@ function splitPointer(pointer: string): { row: string; field: string } | null {
 /**
  * Flatten bindings and planned tables into one list of cell views.
  *
- * Bindings already covered by a planned table are skipped — a planned cell
- * supersedes the raw-key one it was built from, and counting both would
- * double-count an invalid cell and break the pair rule's "exactly one filled"
- * test.
+ * A planned table OWNS every binding under its pointer — not merely the ones
+ * its surviving rows still reference. Skipping only the referenced ones leaves
+ * a DELETED row's bindings in the list, and since they carry their original
+ * raw key as their submit key they overwrite whichever row moved up into that
+ * position: the deletion silently does nothing, and the payload claims a row
+ * the reviewer removed. Ownership is by pointer prefix, so the whole table
+ * comes from the plan or none of it does.
  */
 export function collectCellViews(
   bindings: readonly FieldBinding[],
   plannedTables: ReadonlyMap<string, PlannedRow[]>,
 ): CellView[] {
   const views: CellView[] = [];
-  const superseded = new Set<string>();
+  const ownedPrefixes = [...plannedTables.keys()].map((pointer) => `${pointer}/`);
 
   for (const rows of plannedTables.values()) {
     for (const row of rows) {
       for (const cell of row.cells) {
         views.push({
           editKey: cell.editKey,
+          submitKey: cell.submitKey,
           column: cell.column,
           rowKey: row.entry.id,
           binding: cell.binding,
+          added: cell.added,
         });
-        if (!cell.added) {
-          superseded.add(cell.binding.key.raw);
-        }
       }
     }
   }
 
   for (const binding of bindings) {
-    if (superseded.has(binding.key.raw)) {
+    if (ownedPrefixes.some((prefix) => binding.key.pointer.startsWith(prefix))) {
       continue;
     }
     const split = splitPointer(binding.key.pointer);
     views.push({
+      // Outside a plan all three identities coincide, which is why none of
+      // this was needed before row editing.
       editKey: binding.key.raw,
+      submitKey: binding.key.raw,
       column: split?.field ?? binding.key.label,
       rowKey: split?.row ?? binding.key.raw,
       binding,
+      added: false,
     });
   }
   return views;

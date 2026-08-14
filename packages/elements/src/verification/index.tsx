@@ -34,12 +34,12 @@ import {
   indexBindingsByFieldPointer,
   toInputString,
 } from './bindings';
-import type { FieldBinding } from './bindings';
+import type { FieldBinding, RowSourcesEntry } from './bindings';
 import {
   collectCellViews, displayColumns, matchesTablePointer, planTableCells, unitSizePairErrors,
 } from './row-cells';
 import type { PlannedRow } from './row-cells';
-import { initialRowPlan, insertRowAfter, removeRow } from './row-plan';
+import { initialRowPlan, insertRowAfter, isIdentityPlan, removeRow, rowSourcesOf } from './row-plan';
 import type { RowPlanEntry } from './row-plan';
 import { classifyData, ROW_META_KEY } from './classify';
 import { VerificationForm } from './form';
@@ -552,7 +552,60 @@ export function GeminaVerification(props: GeminaVerificationProps): React.JSX.El
 
   // Progress counts — composeSubmission IS the source of truth (the same call
   // Task 17 submits), so the line can never disagree with what would be sent.
-  const submission = useMemo(() => composeSubmission(bindings, edits), [bindings, edits]);
+  /**
+   * Every row-mutable table's rows, resolved to cells. Computed once and shared
+   * with the form, the pair rule and the submit gate — deriving it per consumer
+   * is how they would come to disagree about which row a cell belongs to.
+   */
+  const plannedTables = useMemo(() => {
+    const tables = loaded?.rowMutableTables ?? [];
+    if (tables.length === 0) {
+      return NO_PLANNED_TABLES;
+    }
+    const out = new Map<string, PlannedRow[]>();
+    for (const table of tables) {
+      const plan = rowPlans.get(table.pointer);
+      if (plan === undefined) {
+        continue;
+      }
+      const classifiedTable = classified.tables.find(
+        (candidate) => matchesTablePointer(table.pointer, candidate.pointer),
+      );
+      const columns = displayColumns(table, classifiedTable?.columns ?? []);
+      out.set(table.pointer, planTableCells(table, plan, columns, bindingsByRawKey));
+    }
+    return out;
+  }, [loaded, rowPlans, classified, bindingsByRawKey]);
+
+  /** Every editable cell, planned or not — the pair rule and the gate share it. */
+  const cellViews = useMemo(
+    () => collectCellViews(bindings, plannedTables),
+    [bindings, plannedTables],
+  );
+
+  /**
+   * The alignment for every table whose row set the reviewer actually changed.
+   *
+   * Identity plans are OMITTED, not sent as a no-op: the wire payload for an
+   * untouched submission has to stay byte-identical to what it was before row
+   * editing existed, and a pre-2b backend silently ignores the key anyway.
+   */
+  const rowSources = useMemo(() => {
+    const entries: RowSourcesEntry[] = [];
+    for (const table of loaded?.rowMutableTables ?? []) {
+      const plan = rowPlans.get(table.pointer);
+      if (plan === undefined || isIdentityPlan(plan, countRowsAt(loaded?.values, table.pointer))) {
+        continue;
+      }
+      entries.push({ table: table.pointer, sources: rowSourcesOf(plan) });
+    }
+    return entries;
+  }, [loaded, rowPlans]);
+
+  const submission = useMemo(
+    () => composeSubmission(bindings, edits, { cells: cellViews, rowSources }),
+    [bindings, edits, cellViews, rowSources],
+  );
 
   // Flash wiring (form → viewer). STABLE callback — the table-row memo
   // compares onFlash by reference, so rows never re-render on unrelated
@@ -657,37 +710,6 @@ export function GeminaVerification(props: GeminaVerificationProps): React.JSX.El
    * rather than a warning.
    */
   /**
-   * Every row-mutable table's rows, resolved to cells. Computed once and shared
-   * with the form, the pair rule and the submit gate — deriving it per consumer
-   * is how they would come to disagree about which row a cell belongs to.
-   */
-  const plannedTables = useMemo(() => {
-    const tables = loaded?.rowMutableTables ?? [];
-    if (tables.length === 0) {
-      return NO_PLANNED_TABLES;
-    }
-    const out = new Map<string, PlannedRow[]>();
-    for (const table of tables) {
-      const plan = rowPlans.get(table.pointer);
-      if (plan === undefined) {
-        continue;
-      }
-      const classifiedTable = classified.tables.find(
-        (candidate) => matchesTablePointer(table.pointer, candidate.pointer),
-      );
-      const columns = displayColumns(table, classifiedTable?.columns ?? []);
-      out.set(table.pointer, planTableCells(table, plan, columns, bindingsByRawKey));
-    }
-    return out;
-  }, [loaded, rowPlans, classified, bindingsByRawKey]);
-
-  /** Every editable cell, planned or not — the pair rule and the gate share it. */
-  const cellViews = useMemo(
-    () => collectCellViews(bindings, plannedTables),
-    [bindings, plannedTables],
-  );
-
-  /**
    * The one cross-field rule the server enforces, surfaced before submission
    * rather than discovered after it. See `unitSizePairErrors`.
    */
@@ -737,7 +759,13 @@ export function GeminaVerification(props: GeminaVerificationProps): React.JSX.El
       const token = await tokenManager.getToken();
       return GeminaClient.withSessionToken(token, baseUrl).documents.validateDocumentExtraction({
         targetDocumentExtractionId: extractionId,
-        extractionValidationInDTO: { data: body.data },
+        // Conditional spread, matching the house pattern: without a row edit
+        // the request body is byte-identical to what it was before this
+        // feature, so nothing changes for the overwhelmingly common path.
+        extractionValidationInDTO: {
+          data: body.data,
+          ...(body.rowSources.length > 0 ? { rowSources: body.rowSources } : {}),
+        },
       });
     };
     try {
