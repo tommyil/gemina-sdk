@@ -609,6 +609,34 @@ const VERIFICATION_CSS = `
   }
 }
 
+/* --- Typed controls -------------------------------------------------------
+   A <select> for a closed roster must sit on the same baseline as the text
+   inputs beside it in a table row, so it inherits the input's box entirely and
+   only overrides what a select needs. */
+.gemina-verification__input:is(select) {
+  cursor: pointer;
+  /* A select's intrinsic width follows its longest option — the 24-member unit
+     roster would blow out the column. */
+  max-width: 100%;
+}
+/* The error border must beat --dirty and --missed: an invalid value is the
+   most urgent thing true about the field, and the reviewer cannot submit
+   until it is fixed. Placed after both for cascade order. */
+.gemina-verification__input--invalid,
+.gemina-verification__input--invalid:focus-visible {
+  border-color: var(--gemina-verification-error);
+}
+/* Sits under the control it describes. Basis 100% breaks it onto its own line
+   inside the flex row FieldInput renders into, so it never squeezes the
+   input. */
+.gemina-verification__field-error {
+  flex-basis: 100%;
+  margin-block-start: 4px;
+  color: var(--gemina-verification-error);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
 /* --- Tooltip -------------------------------------------------------------
    Renders in a portal on document.body, inside a div carrying the root's
    class list — so these rules and every --gemina-verification-* custom

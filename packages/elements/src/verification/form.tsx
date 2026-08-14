@@ -36,6 +36,7 @@ import type { FieldBinding } from './bindings';
 import { toInputString } from './bindings';
 import type { ClassifiedCell, ClassifiedData, ClassifiedField } from './classify';
 import { ROW_META_KEY, formatLabel, formatValue } from './classify';
+import { ISO_4217_CODES, validateInput } from './field-types';
 import { NOT_FOUND } from './pointer';
 import { Tip } from './tip';
 import { IconEye } from './viewer';
@@ -139,6 +140,8 @@ export function FieldInput(props: {
 }): React.JSX.Element {
   const { binding, edit, onEdit, readOnly, ariaLabel } = props;
   const editedBadgeId = React.useId();
+  const errorId = React.useId();
+  const currencyListId = React.useId();
 
   // Container serverValues (value-object wrappers, arrays, objects) can never
   // score correct from a string edit — the server's coerce_like only adopts
@@ -154,31 +157,84 @@ export function FieldInput(props: {
 
   const dirty = edit !== undefined;
   const missed = binding.serverValue === NOT_FOUND;
+  const field = binding.field;
+  const value = dirty ? edit : toInputString(binding.extracted);
+
+  // Only a value the reviewer TYPED can be invalid. An extracted value that is
+  // off-roster is the model's output, not their mistake: it is preserved (see
+  // the pinned option below) and must not block a submission they never
+  // touched. Task 6.4's gate reads the same rule.
+  const error = dirty ? validateInput(value, field) : null;
   const className = [
     'gemina-verification__input',
     dirty ? 'gemina-verification__input--dirty' : '',
     missed ? 'gemina-verification__input--missed' : '',
+    error ? 'gemina-verification__input--invalid' : '',
   ]
     .filter(Boolean)
     .join(' ');
 
+  // Space-separated, never overwritten: the edited badge and the error are
+  // both descriptions of the same control and a reviewer needs to hear both.
+  const describedBy = [dirty ? editedBadgeId : '', error ? errorId : '']
+    .filter(Boolean)
+    .join(' ');
+  const shared = {
+    className,
+    'aria-label': ariaLabel,
+    'aria-describedby': describedBy || undefined,
+    'aria-invalid': error ? (true as const) : undefined,
+    onChange: (event: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
+      onEdit(binding.key.raw, event.target.value),
+  };
+
+  // A closed roster is a choice, not a spelling test. The extracted value is
+  // PINNED as an option when it is off-roster, so opening the select can never
+  // silently destroy what the model found.
+  const roster = field?.enum && field.enum.length > 0 ? field.enum : null;
+  const offRoster = roster && value !== '' && !roster.includes(value) ? value : null;
+
+  const control = roster ? (
+    <select {...shared} value={value} dir="auto">
+      {/* Clearing stays possible: an empty submission asserts "not present". */}
+      <option value="">—</option>
+      {offRoster ? <option value={offRoster}>{offRoster} (as extracted)</option> : null}
+      {roster.map((option) => <option key={option} value={option}>{option}</option>)}
+    </select>
+  ) : (
+    <input
+      {...shared}
+      // `date` gets the native picker; everything else stays text so the
+      // server's own leniency (commas, underscores) is not fought by the
+      // browser's number parsing.
+      type={field?.type === 'date' ? 'date' : 'text'}
+      // Per-input bidi: a Latin value inside an RTL (Hebrew) document — or
+      // vice versa — must lay out by its own content, not the widget's dir.
+      dir="auto"
+      // RAW value only — a display-formatted "1,500" round-tripped into the
+      // submission would score as a correction (see toInputString).
+      value={value}
+      // A hint to the soft keyboard, NOT validation — validateInput is that.
+      inputMode={field?.type === 'number' || field?.type === 'integer' ? 'decimal' : undefined}
+      list={field?.format === 'iso4217' ? currencyListId : undefined}
+      placeholder={missed ? 'Not detected — fill in if present' : undefined}
+      autoComplete="off"
+    />
+  );
+
   return (
     <>
-      <input
-        type="text"
-        className={className}
-        // Per-input bidi: a Latin value inside an RTL (Hebrew) document — or
-        // vice versa — must lay out by its own content, not the widget's dir.
-        dir="auto"
-        // RAW value only — a display-formatted "1,500" round-tripped into the
-        // submission would score as a correction (see toInputString).
-        value={dirty ? edit : toInputString(binding.extracted)}
-        onChange={(event) => onEdit(binding.key.raw, event.target.value)}
-        placeholder={missed ? 'Not detected — fill in if present' : undefined}
-        aria-label={ariaLabel}
-        aria-describedby={dirty ? editedBadgeId : undefined}
-        autoComplete="off"
-      />
+      {control}
+      {field?.format === 'iso4217' ? (
+        <datalist id={currencyListId}>
+          {ISO_4217_CODES.map((code) => <option key={code} value={code} />)}
+        </datalist>
+      ) : null}
+      {error ? (
+        <span className="gemina-verification__field-error" id={errorId} role="alert">
+          {error}
+        </span>
+      ) : null}
       {dirty ? (
         // The badge is where the ORIGINAL belongs, now that the input holds
         // the edit — otherwise the extracted value is simply gone from the

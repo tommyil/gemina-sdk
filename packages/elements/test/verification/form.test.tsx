@@ -583,3 +583,145 @@ describe('VerificationForm: readOnly + ordering + empty buckets', () => {
     expect(screen.queryByText('Not detected')).toBeNull();
   });
 });
+
+// --- Typed rendering (Phase 6) -----------------------------------------------
+
+describe('FieldInput — typed controls', () => {
+  function typedBinding(field: FieldBinding['field'], extracted: unknown = 'USD'): FieldBinding {
+    return { ...scalarBinding({ extracted, serverValue: extracted }), field };
+  }
+
+  it('renders a closed roster as a select carrying every option', () => {
+    render(
+      <FieldInput
+        binding={typedBinding({ type: 'string', enum: ['UNIT', 'BOX'] }, 'BOX')}
+        edit={undefined}
+        onEdit={vi.fn()}
+        readOnly={false}
+        ariaLabel="Unit Of Measure"
+      />,
+    );
+    const select = screen.getByRole('combobox', { name: 'Unit Of Measure' }) as HTMLSelectElement;
+    expect(select.value).toBe('BOX');
+    expect([...select.options].map((o) => o.value)).toEqual(['', 'UNIT', 'BOX']);
+  });
+
+  it('keeps an off-roster extracted value as a pinned option rather than destroying it', () => {
+    // The model found CRATE; the roster does not list it. Opening the select
+    // must not silently rewrite the extraction.
+    render(
+      <FieldInput
+        binding={typedBinding({ type: 'string', enum: ['UNIT', 'BOX'] }, 'CRATE')}
+        edit={undefined}
+        onEdit={vi.fn()}
+        readOnly={false}
+        ariaLabel="Unit Of Measure"
+      />,
+    );
+    const select = screen.getByRole('combobox') as HTMLSelectElement;
+    expect(select.value).toBe('CRATE');
+    expect(screen.getByRole('option', { name: /CRATE/ })).toBeTruthy();
+  });
+
+  it('offers ISO 4217 codes as suggestions without forcing membership', () => {
+    render(
+      <FieldInput
+        binding={typedBinding({ type: 'string', format: 'iso4217' }, 'USD')}
+        edit={undefined}
+        onEdit={vi.fn()}
+        readOnly={false}
+        ariaLabel="Currency"
+      />,
+    );
+    // A datalist-backed input is announced as a COMBOBOX, not a textbox —
+    // attaching suggestions changes the control's role.
+    const input = screen.getByRole('combobox', { name: 'Currency' });
+    const listId = input.getAttribute('list')!;
+    expect(listId).toBeTruthy();
+    const datalist = document.getElementById(listId)!;
+    expect(datalist.tagName.toLowerCase()).toBe('datalist');
+    expect([...datalist.querySelectorAll('option')].map((o) => o.getAttribute('value')))
+      .toContain('ILS');
+  });
+
+  it('hints a decimal keyboard for numeric fields without constraining the value', () => {
+    render(
+      <FieldInput
+        binding={typedBinding({ type: 'number' }, 1500)}
+        edit={undefined}
+        onEdit={vi.fn()}
+        readOnly={false}
+        ariaLabel="Total Amount"
+      />,
+    );
+    const input = screen.getByRole('textbox', { name: 'Total Amount' });
+    // type stays text: the server accepts "1,500", and type=number would not.
+    expect(input.getAttribute('type')).toBe('text');
+    expect(input.getAttribute('inputMode') ?? input.getAttribute('inputmode')).toBe('decimal');
+  });
+
+  it('renders a date field with the native picker', () => {
+    const { container } = render(
+      <FieldInput
+        binding={typedBinding({ type: 'date' }, '2026-08-14')}
+        edit={undefined}
+        onEdit={vi.fn()}
+        readOnly={false}
+        ariaLabel="Issue Date"
+      />,
+    );
+    expect(container.querySelector('input[type="date"]')).not.toBeNull();
+  });
+
+  it('shows an inline error naming the fix, and marks the control invalid', () => {
+    render(
+      <FieldInput
+        binding={typedBinding({ type: 'string', format: 'iso4217' }, 'USD')}
+        edit="dollars"
+        onEdit={vi.fn()}
+        readOnly={false}
+        ariaLabel="Currency"
+      />,
+    );
+    const input = screen.getByRole('combobox', { name: 'Currency' });
+    expect(input.getAttribute('aria-invalid')).toBe('true');
+    const error = screen.getByRole('alert');
+    expect(error.textContent).toBe('Use a 3-letter ISO 4217 code, e.g. USD');
+    // Both descriptions survive — the edited badge AND the error.
+    const describedBy = input.getAttribute('aria-describedby')!.split(' ');
+    expect(describedBy).toContain(error.id);
+    expect(describedBy.length).toBe(2);
+  });
+
+  it('does not flag an untouched field, however odd the extracted value', () => {
+    // The model's output is not the reviewer's mistake, and blocking a
+    // submission they never touched would be indefensible.
+    render(
+      <FieldInput
+        binding={typedBinding({ type: 'number' }, 'not-a-number')}
+        edit={undefined}
+        onEdit={vi.fn()}
+        readOnly={false}
+        ariaLabel="Total Amount"
+      />,
+    );
+    expect(screen.queryByRole('alert')).toBeNull();
+    expect(screen.getByRole('textbox').getAttribute('aria-invalid')).toBeNull();
+  });
+
+  it('falls back to a plain text input with no descriptor', () => {
+    render(
+      <FieldInput
+        binding={typedBinding(undefined, 'anything')}
+        edit={undefined}
+        onEdit={vi.fn()}
+        readOnly={false}
+        ariaLabel="Total Amount"
+      />,
+    );
+    const input = screen.getByRole('textbox', { name: 'Total Amount' });
+    expect(input.getAttribute('type')).toBe('text');
+    expect(input.getAttribute('list')).toBeNull();
+    expect(screen.queryByRole('combobox')).toBeNull();
+  });
+});
