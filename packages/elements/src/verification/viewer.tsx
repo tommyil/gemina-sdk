@@ -227,6 +227,14 @@ const MIN_SIZE_RATIO = 0.008;
 // Console magnifier constants (ZoomableImageViewer ~59-60).
 const MAG_RADIUS = 150; // px — loupe radius (console: 140-160px)
 const MAG_ZOOM = 2.5; // magnification applied on top of the current scale
+// Must equal the loupe's ring width in styles.ts (`.gemina-verification__
+// magnifier { border: 2px }`). The inner img is absolutely positioned, so its
+// containing block is the loupe's PADDING box — inset by exactly this much —
+// while the centring maths is expressed against the border box. Without the
+// correction the loupe shows a point (2, 2) px off its own centre, everywhere,
+// including over the image. Pinned by a test that reads the width back out of
+// the stylesheet, so restyling the ring cannot silently reintroduce the skew.
+const MAG_BORDER = 2;
 
 /** Rect geometry in image pixel space — the overlays render INSIDE the
  * transform layer, so left/top/width/height are natural-size pixels and the
@@ -751,16 +759,27 @@ export function VerificationViewer(props: VerificationViewerProps): React.JSX.El
     const dy = mousePos.y - transform.ty;
     const cxRaw = (cosA * dx + sinA * dy) / transform.scale;
     const cyRaw = (-sinA * dx + cosA * dy) / transform.scale;
-    const clampedX = Math.max(0, Math.min(cxRaw, natural.w));
-    const clampedY = Math.max(0, Math.min(cyRaw, natural.h));
+    // Off-image, there is nothing under the pointer to magnify. This USED to
+    // clamp the sampled point into [0, natural], which meant the loupe showed
+    // the nearest edge of the document as confidently as if it were the spot
+    // being pointed at — measured at 340 image px of error one pixel outside
+    // the left edge, at fit scale. At fit the image is letterboxed, so that is
+    // a large share of the canvas. Inclusive bounds: container x=125 maps to
+    // image x=0, and a strict `<` would blink the loupe out along the whole
+    // left edge of the document.
+    const onImage = cxRaw >= 0 && cyRaw >= 0 && cxRaw <= natural.w && cyRaw <= natural.h;
     const zoomScale = transform.scale * MAG_ZOOM;
-    const px = clampedX * zoomScale;
-    const py = clampedY * zoomScale;
+    const px = cxRaw * zoomScale;
+    const py = cyRaw * zoomScale;
     const rotatedX = px * cosA - py * sinA;
     const rotatedY = px * sinA + py * cosA;
-    const translateX = MAG_RADIUS - rotatedX;
-    const translateY = MAG_RADIUS - rotatedY;
-    magnifier = (
+    // MAG_BORDER: the img is absolutely positioned, so it lands against the
+    // loupe's PADDING box while this centring is expressed against the border
+    // box. See the constant.
+    const translateX = MAG_RADIUS - MAG_BORDER - rotatedX;
+    const translateY = MAG_RADIUS - MAG_BORDER - rotatedY;
+    if (onImage) {
+      magnifier = (
       <div
         className="gemina-verification__magnifier"
         style={{
@@ -782,8 +801,9 @@ export function VerificationViewer(props: VerificationViewerProps): React.JSX.El
             transform: `translate(${translateX}px, ${translateY}px) rotate(${rotation}deg) scale(${zoomScale})`,
           }}
         />
-      </div>
-    );
+        </div>
+      );
+    }
   }
 
   return (
