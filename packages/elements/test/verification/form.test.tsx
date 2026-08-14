@@ -412,7 +412,14 @@ describe('VerificationForm: headers', () => {
     renderForm({ onEdit });
     const total = screen.getByRole('textbox', { name: 'Total' });
     fireEvent.change(total, { target: { value: '1600' } });
-    expect(onEdit).toHaveBeenCalledWith('label:Total|ptr:/total', '1600');
+    // A header's edit key IS its raw schema key — only row-mutable table cells
+    // key by row id. The binding rides along so the parent's revert detection
+    // never has to resolve a key back to a field (a cell key could not be).
+    expect(onEdit).toHaveBeenCalledWith(
+      'label:Total|ptr:/total',
+      '1600',
+      expect.objectContaining({ extracted: 1500 }),
+    );
   });
 });
 

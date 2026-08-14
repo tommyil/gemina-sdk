@@ -471,15 +471,6 @@ export function GeminaVerification(props: GeminaVerificationProps): React.JSX.El
   // so handleEdit stays permanently stable (SectionShared contract: the
   // table-row memo compares onEdit by reference; a per-load identity would
   // silently re-render every row once per load).
-  const bindingsByRawKey = useMemo(() => {
-    const map = new Map<string, FieldBinding>();
-    for (const binding of bindings) {
-      map.set(binding.key.raw, binding);
-    }
-    return map;
-  }, [bindings]);
-  const bindingsByRawKeyRef = useRef(bindingsByRawKey);
-  bindingsByRawKeyRef.current = bindingsByRawKey;
 
   // The edit tracker. The value is stored VERBATIM — never trimmed or
   // normalized (IME safety: the input must echo exactly what the user is
@@ -489,26 +480,25 @@ export function GeminaVerification(props: GeminaVerificationProps): React.JSX.El
   // Every change builds a NEW Map (SectionShared: the row-memo comparator
   // short-circuits on reference equality, so in-place mutation renders nothing);
   // no-op updates return `prev` unchanged to keep that same short-circuit.
-  const handleEdit = useCallback((rawKey: string, value: string) => {
-    const binding = bindingsByRawKeyRef.current.get(rawKey);
+  const handleEdit = useCallback((editKey: string, value: string, binding: FieldBinding) => {
     // Pristine = the input shows exactly what an untouched input would show:
     // toInputString of the binding's DISPLAY value (FieldInput's prefill) —
     // including '' for a never-extracted fill-in.
-    const pristine = binding !== undefined && value === toInputString(binding.extracted);
+    const pristine = value === toInputString(binding.extracted);
     setEdits((prev) => {
       if (pristine) {
-        if (!prev.has(rawKey)) {
+        if (!prev.has(editKey)) {
           return prev;
         }
         const next = new Map(prev);
-        next.delete(rawKey);
+        next.delete(editKey);
         return next;
       }
-      if (prev.get(rawKey) === value) {
+      if (prev.get(editKey) === value) {
         return prev;
       }
       const next = new Map(prev);
-      next.set(rawKey, value);
+      next.set(editKey, value);
       return next;
     });
   }, []);

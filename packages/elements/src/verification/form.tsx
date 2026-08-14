@@ -133,7 +133,9 @@ export function FieldInput(props: {
   /** Current value if dirty, else undefined (input falls back to initial). */
   edit: string | undefined;
   /** Parent deletes the edits entry when value returns to the initial string. */
-  onEdit: (rawKey: string, value: string) => void;
+  /** `binding` travels with the change so revert detection never has to
+   *  resolve an edit key back to a field — a cell key could not be. */
+  onEdit: (editKey: string, value: string, binding: FieldBinding) => void;
   readOnly: boolean;
   /** formatLabel(label) — the visible label lives in the surrounding layout. */
   ariaLabel: string;
@@ -143,8 +145,15 @@ export function FieldInput(props: {
    * is invalid because of its SIBLING, so dirtiness here is irrelevant.
    */
   pairError?: string;
+  /**
+   * The key this field's edit is stored under. Defaults to the raw schema key
+   * (headers, and tables with no row plan); a row-mutable table passes a
+   * `cellEditKey` so the edit follows the ROW rather than the position.
+   */
+  editKey?: string;
 }): React.JSX.Element {
   const { binding, edit, onEdit, readOnly, ariaLabel, pairError } = props;
+  const editKey = props.editKey ?? binding.key.raw;
   const editedBadgeId = React.useId();
   const errorId = React.useId();
   const currencyListId = React.useId();
@@ -191,7 +200,7 @@ export function FieldInput(props: {
     'aria-describedby': describedBy || undefined,
     'aria-invalid': error ? (true as const) : undefined,
     onChange: (event: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
-      onEdit(binding.key.raw, event.target.value),
+      onEdit(editKey, event.target.value, binding),
   };
 
   // A closed roster is a choice, not a spelling test. The extracted value is
@@ -290,7 +299,9 @@ interface SectionShared {
 
   bindingIndex: Map<string, FieldBinding>;
   edits: ReadonlyMap<string, string>;
-  onEdit: (rawKey: string, value: string) => void;
+  /** `binding` travels with the change so revert detection never has to
+   *  resolve an edit key back to a field — a cell key could not be. */
+  onEdit: (editKey: string, value: string, binding: FieldBinding) => void;
   readOnly: boolean;
   onFlash: (rects: FlashRect[]) => void;
 }
