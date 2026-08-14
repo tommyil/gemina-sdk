@@ -226,3 +226,74 @@ describe('buildBindings — typed descriptors', () => {
     expect(bindings[0]?.field).toBeUndefined();
   });
 });
+
+/**
+ * Typed RENDERING without typed PARSING leaves the approval payload as
+ * unusable as before: edits are strings all the way through.
+ *
+ * It matters on the wire because the server's `coerce_like` adopts the
+ * EXTRACTED value's type before comparing — and skips coercion entirely when
+ * the target is NOT_FOUND, which is exactly the never-extracted and added-row
+ * cases. And it matters in `onComplete`, which hands the host the client-side
+ * `byLabel` values, never the backend-normalised ones: a host receiving
+ * approved data would get "12" where it expects 12.
+ */
+describe('composeSubmission — typed values', () => {
+  const NUM_KEY = 'label:quantity|ptr:/line_items/0/quantity';
+  const typed = (type: string, value: unknown) => buildBindings(
+    [NUM_KEY],
+    { line_items: [{ quantity: value }] },
+    [{ key: NUM_KEY, label: 'quantity', type }],
+  );
+
+  it('submits a number field as a number, not a string', () => {
+    const { data, byLabel } = composeSubmission(typed('number', 1), new Map([[NUM_KEY, '12']]));
+    expect(data[NUM_KEY]).toBe(12);
+    expect(byLabel['quantity']).toBe(12);
+  });
+
+  it('submits an integer field as a number', () => {
+    const { data } = composeSubmission(typed('integer', 1), new Map([[NUM_KEY, '12']]));
+    expect(data[NUM_KEY]).toBe(12);
+  });
+
+  it('strips the separators the server would have stripped anyway', () => {
+    const { data } = composeSubmission(typed('number', 1), new Map([[NUM_KEY, '1,500']]));
+    expect(data[NUM_KEY]).toBe(1500);
+  });
+
+  it('submits a boolean field as a boolean', () => {
+    const { data } = composeSubmission(typed('boolean', false), new Map([[NUM_KEY, 'true']]));
+    expect(data[NUM_KEY]).toBe(true);
+    const off = composeSubmission(typed('boolean', true), new Map([[NUM_KEY, 'false']]));
+    expect(off.data[NUM_KEY]).toBe(false);
+  });
+
+  it('leaves untyped fields as strings — no descriptor, no coercion', () => {
+    const bindings = buildBindings([NUM_KEY], { line_items: [{ quantity: 1 }] });
+    const { data } = composeSubmission(bindings, new Map([[NUM_KEY, '12']]));
+    expect(data[NUM_KEY]).toBe('12');
+  });
+
+  it('leaves string and date fields as strings', () => {
+    const { data } = composeSubmission(typed('date', '2026-01-01'), new Map([[NUM_KEY, '2026-08-14']]));
+    expect(data[NUM_KEY]).toBe('2026-08-14');
+    const asString = composeSubmission(typed('string', 'a'), new Map([[NUM_KEY, '12']]));
+    expect(asString.data[NUM_KEY]).toBe('12');
+  });
+
+  it('still submits null for a cleared typed field', () => {
+    // Clearing asserts absence; it must not become 0 or NaN.
+    const { data } = composeSubmission(typed('number', 1), new Map([[NUM_KEY, '  ']]));
+    expect(data[NUM_KEY]).toBeNull();
+  });
+
+  it('never emits NaN — an unparseable value cannot reach the wire', () => {
+    // Task 6.4's gate blocks submission first, but if it were ever bypassed
+    // the raw string is safer than NaN, which JSON.stringify turns into null
+    // and would silently score as "absent".
+    const { data } = composeSubmission(typed('number', 1), new Map([[NUM_KEY, 'twelve']]));
+    expect(data[NUM_KEY]).toBe('twelve');
+    expect(Number.isNaN(data[NUM_KEY] as number)).toBe(false);
+  });
+});

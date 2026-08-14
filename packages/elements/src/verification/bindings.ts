@@ -1,4 +1,5 @@
 import { isValueObject } from './classify';
+import { coerceInput } from './field-types';
 import type { ValidationFieldDescriptor } from './field-types';
 import { NOT_FOUND, parseSchemaKey } from './pointer';
 import type { NotFound, SchemaKey } from './pointer';
@@ -249,7 +250,10 @@ export function composeSubmission(
       if (trimmed === '' && binding.serverValue === NOT_FOUND) {
         continue;
       }
-      const value = trimmed === '' ? null : trimmed;
+      // Typed by the field's own descriptor, so a number reaches the server as
+      // a number. A cleared input stays null — it asserts absence and must
+      // never become 0 or an empty string.
+      const value = trimmed === '' ? null : coerceInput(trimmed, binding.field);
       data[binding.key.raw] = value;
       byLabel[binding.key.label] = value;
       corrected += 1;

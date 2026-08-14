@@ -133,6 +133,51 @@ export function validateInput(
 }
 
 /**
+ * Turn a reviewer's typed string into the value that goes on the wire.
+ *
+ * Typed rendering without typed parsing leaves the approval payload as
+ * unusable as it was before, for two independent reasons:
+ *
+ * - ON THE WIRE, the server's `coerce_like` adopts the EXTRACTED value's type
+ *   before comparing — but skips coercion entirely when the target resolves
+ *   NOT_FOUND, which is exactly the never-extracted and added-row cases. There
+ *   a string `"12"` is compared against a number and scores incorrect.
+ * - IN `onComplete`, the host receives the client-side values, never the
+ *   backend-normalised ones. A host consuming approved data would get `"12"`
+ *   where it expects `12`.
+ *
+ * Anything that does not parse is returned UNCHANGED rather than as `NaN`.
+ * Task 6.4's gate means an unparseable value cannot reach here, but `NaN`
+ * would `JSON.stringify` to `null` and score as a deliberate assertion of
+ * absence — the one wrong answer worse than the raw string.
+ */
+export function coerceInput(
+  value: string,
+  field: ValidationFieldDescriptor | undefined,
+): unknown {
+  if (!field) {
+    return value;
+  }
+  switch (field.type) {
+    case 'number':
+    case 'integer': {
+      const parsed = toNumber(value);
+      return parsed === null ? value : parsed;
+    }
+    case 'boolean': {
+      const lowered = value.trim().toLowerCase();
+      if (lowered === 'true') return true;
+      if (lowered === 'false') return false;
+      return value;
+    }
+    // `date` stays a string: the wire format IS the ISO string, and a Date
+    // object would serialise with a time component the extraction never had.
+    default:
+      return value;
+  }
+}
+
+/**
  * Normalise the SDK's descriptors into the shape the rest of this module uses.
  *
  * Exists for one word: `enum` is reserved, so the generator emits the property
