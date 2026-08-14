@@ -608,6 +608,51 @@ const VERIFICATION_CSS = `
     transition: none;
   }
 }
+
+/* --- Tooltip -------------------------------------------------------------
+   Renders in a portal on document.body, inside a div carrying the root's
+   class list — so these rules and every --gemina-verification-* custom
+   property resolve exactly as they do in the component.
+
+   Quieter than __confirm-dialog on purpose: an annotation, not a decision.
+   Same border and shadow family, one step down in radius (the nested-element
+   convention used by __chip et al), surface rather than bg so it separates
+   from the panel it floats over, and a shorter shadow so it reads as sitting
+   just above the page rather than over a scrim. */
+.gemina-verification__tip {
+  position: fixed;
+  z-index: 2147483000; /* above the host's own modal — this is the topmost layer */
+  max-width: 260px;    /* ~60 characters: past that a tooltip should be body copy */
+  padding: 8px 10px;
+  background: var(--gemina-verification-surface);
+  color: var(--gemina-verification-fg);
+  border: 1px solid var(--gemina-verification-border);
+  border-radius: calc(var(--gemina-verification-radius) - 4px);
+  box-shadow: 0 6px 16px rgba(16, 20, 24, 0.18);
+  font-family: var(--gemina-verification-font);
+  font-size: 12px;
+  line-height: 1.45;
+  text-align: start;   /* logical — RTL for free */
+  pointer-events: none; /* never eat the hover that opened it */
+}
+/* Structured content: a level heading over a reasons list. The list is the
+   reason this exists at all — title= could only ever have been one line. */
+.gemina-verification__tip-title {
+  display: block;
+  font-weight: 600;
+  margin-block-end: 4px;
+}
+.gemina-verification__tip-list {
+  margin: 0;
+  padding-inline-start: 16px;
+}
+.gemina-verification__tip-list li + li {
+  margin-block-start: 2px;
+}
+/* A muted lead-in for single-fact tips ("Was:"), so the VALUE reads first. */
+.gemina-verification__tip-label {
+  color: var(--gemina-verification-muted);
+}
 `;
 
 const STYLE_ATTR = 'data-gemina-verification';
