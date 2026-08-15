@@ -72,6 +72,27 @@ const VERIFICATION_CSS = `
   .gemina-verification--auto { ${DARK_VARS} }
 }
 .gemina-verification--rtl { direction: rtl; }
+/* Content is not chrome: the document pane never mirrors (industry rule —
+   images/players/clocks keep their physical position under RTL), and dir="auto"
+   flips per DOCUMENT, so mirroring would make the image jump side per row.
+   Forcing the grid container LTR pins physical order (image inline-left, form
+   right, every language); the form pane alone restores RTL so Hebrew labels
+   and values keep their natural direction (per-input dir="auto" still handles
+   mixed-language values). The viewer subtree deliberately stays LTR: it is
+   pure geometry (scroll math, loupe projection, absolute positioning) and none
+   of that math may be direction-dependent.
+
+   That last point is not theoretical — it IS the magnifier bug. The loupe's
+   magnified inner layer is absolutely positioned with no inset (viewer.tsx
+   gives it only a transform), so its static position is wherever the inherited
+   direction puts the inline start. Under RTL that flips to the right edge and
+   the layer lands (layerWidth - loupeWidth) away — measured as a constant
+   -704px skew in BOTH chromium and firefox, at every pointer position, leaving
+   the user an empty circle rather than a shifted one. Pinning this subtree LTR
+   restores the skew to (0, 0), matching the LTR baseline exactly. Do not
+   "simplify" this by mirroring the panes again. */
+.gemina-verification--rtl .gemina-verification__panes { direction: ltr; }
+.gemina-verification--rtl .gemina-verification__form { direction: rtl; }
 
 /* --- Two-pane layout ------------------------------------------------------ */
 .gemina-verification__panes {

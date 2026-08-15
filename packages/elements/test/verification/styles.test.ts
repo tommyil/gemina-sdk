@@ -137,3 +137,20 @@ describe('verification styles', () => {
     expect(css).not.toContain('.gemina-verification__canvas:active');
   });
 });
+
+describe('rtl layout pinning', () => {
+  it('pins the pane grid LTR and restores RTL only on the form pane', async () => {
+    const { ensureVerificationStylesInjected } = await import('../../src/verification/styles');
+    ensureVerificationStylesInjected();
+
+    const cssText = document.head.querySelector('style[data-gemina-verification]')?.textContent ?? '';
+    // The grid container is forced LTR so the document pane never swaps sides.
+    expect(cssText).toMatch(
+      /\.gemina-verification--rtl \.gemina-verification__panes \{[^}]*direction: ltr;/,
+    );
+    // The form pane restores RTL for Hebrew-first labels/values.
+    expect(cssText).toMatch(
+      /\.gemina-verification--rtl \.gemina-verification__form \{[^}]*direction: rtl;/,
+    );
+  });
+});
