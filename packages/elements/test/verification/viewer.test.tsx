@@ -1240,6 +1240,34 @@ describe('VerificationViewer — magnifier loupe', () => {
     expect(loupeOf(container)).toBeNull();
   });
 
+  it('keeps the lens and sampled point under a stationary pointer while an ancestor scrolls', () => {
+    const { container, canvas } = mountSized();
+    let canvasTop = 50;
+    canvas.getBoundingClientRect = () => ({
+      left: 100,
+      top: canvasTop,
+      width: 500,
+      height: 500,
+      right: 600,
+      bottom: canvasTop + 500,
+      x: 100,
+      y: canvasTop,
+      toJSON: () => ({}),
+    }) as DOMRect;
+    fireEvent.click(screen.getByRole('switch', { name: 'Magnifier' }));
+    fireEvent.mouseMove(canvas, { clientX: 300, clientY: 350 });
+    expect(Number.parseFloat(loupeOf(container)!.style.top)).toBe(150);
+
+    // The modal scrolls 50px beneath a pointer that has not moved. Browsers do
+    // not reliably emit mousemove/mouseleave for this; the captured scroll
+    // listener must re-project the same client point into the moved canvas.
+    canvasTop = 100;
+    fireEvent.scroll(document);
+    const loupe = loupeOf(container)!;
+    expect(Number.parseFloat(loupe.style.top)).toBe(100);
+    expect(loupeTranslate(loupe).y).toBeCloseTo(-477, 6);
+  });
+
   it('mirrors the current rotation (rotation-aware loupe math)', () => {
     const { container, canvas } = mountSized();
     fireEvent.click(screen.getByRole('button', { name: 'Rotate 90 degrees' }));

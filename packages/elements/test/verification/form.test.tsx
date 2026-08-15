@@ -453,12 +453,16 @@ describe('VerificationForm: entities', () => {
 });
 
 describe('VerificationForm: tables', () => {
-  it('renders header with row count + table-level dot, and one th per data column', () => {
+  it('renders global confidence above the sections and one th per data column', () => {
     renderForm();
+    const form = screen.getByRole('form', { name: 'Extraction fields' });
+    const summary = form.querySelector('.gemina-verification__confidence-summary')!;
+    expect(within(summary as HTMLElement).getByText('Overall confidence')).not.toBeNull();
+    expect(within(summary as HTMLElement).getByRole('img', { name: 'Medium confidence' })).not.toBeNull();
     const section = screen.getByRole('region', { name: 'Line Items' });
     expect(within(section).getByText(/Line Items \(2 rows/)).not.toBeNull();
     const header = section.querySelector('.gemina-verification__section-header')!;
-    expect(within(header as HTMLElement).getByRole('img', { name: 'Medium confidence' })).not.toBeNull();
+    expect(within(header as HTMLElement).queryByText('Overall confidence')).toBeNull();
     const ths = within(section).getAllByRole('columnheader');
     // eye column + row-confidence column + 4 data columns
     expect(ths.length).toBe(6);

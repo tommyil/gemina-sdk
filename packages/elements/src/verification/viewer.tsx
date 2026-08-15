@@ -281,6 +281,11 @@ export function VerificationViewer(props: VerificationViewerProps): React.JSX.El
   // accepted cost; the loupe subtree is tiny.
   const [showMag, setShowMag] = useState(false);
   const [mousePos, setMousePos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  // Client coordinates are the stable source while an ancestor scrolls. A
+  // canvas-relative point goes stale as soon as the host modal moves beneath
+  // a stationary pointer, which made the loupe sample a visibly different
+  // spot from the one being hovered.
+  const lastMouseClientRef = useRef<{ x: number; y: number } | null>(null);
 
   const [isPanning, setIsPanning] = useState(false);
   const panStart = useRef<{ x: number; y: number; tx: number; ty: number } | null>(null);
@@ -582,16 +587,54 @@ export function VerificationViewer(props: VerificationViewerProps): React.JSX.El
   // point while the switch is on; the console does nothing about that either
   // (its loupe is a desktop pattern), and the parked loupe clears on the next
   // compat mouseleave. Pan is untouched: it lives on document-level listeners.
-  const handleCanvasMouseMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+  const syncMagnifierToClientPoint = useCallback((
+    clientX: number,
+    clientY: number,
+    assumeInside = false,
+  ) => {
     const rect = canvasRef.current?.getBoundingClientRect();
     if (!rect) return;
-    setShowMag(true);
-    setMousePos({ x: e.clientX - rect.left, y: e.clientY - rect.top });
+    const x = clientX - rect.left;
+    const y = clientY - rect.top;
+    // A mousemove dispatched by the canvas is authoritative even in DOMs
+    // without layout (and during a resize frame whose rect is momentarily
+    // zero). Scroll/resize resyncs use the real bounds so a stationary pointer
+    // that the canvas moved away from hides the lens.
+    const inside = assumeInside
+      || (x >= 0 && y >= 0 && x <= rect.width && y <= rect.height);
+    setShowMag(inside);
+    if (inside) {
+      setMousePos({ x, y });
+    }
   }, []);
 
+  const handleCanvasMouseMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    lastMouseClientRef.current = { x: e.clientX, y: e.clientY };
+    syncMagnifierToClientPoint(e.clientX, e.clientY, true);
+  }, [syncMagnifierToClientPoint]);
+
   const handleCanvasMouseLeave = useCallback(() => {
+    lastMouseClientRef.current = null;
     setShowMag(false);
   }, []);
+
+  // Scroll events do not reliably dispatch mousemove/mouseleave. Re-project
+  // the last client point whenever ANY scroll container moves (capture=true),
+  // and on viewport resize, so both the lens and its sampled point stay under
+  // the real pointer inside host-scrolled modals.
+  useEffect(() => {
+    if (!magnifierOn || !showMag) return;
+    const sync = () => {
+      const point = lastMouseClientRef.current;
+      if (point) syncMagnifierToClientPoint(point.x, point.y);
+    };
+    document.addEventListener('scroll', sync, true);
+    window.addEventListener('resize', sync);
+    return () => {
+      document.removeEventListener('scroll', sync, true);
+      window.removeEventListener('resize', sync);
+    };
+  }, [magnifierOn, showMag, syncMagnifierToClientPoint]);
 
   // Double-click toggle (console ~281-294): near fit -> 100% anchored at the
   // click point; otherwise back to centered fit.

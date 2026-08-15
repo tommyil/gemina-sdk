@@ -117,9 +117,15 @@ const VERIFICATION_CSS = `
   background: var(--gemina-verification-bg);
   border: 1px solid var(--gemina-verification-border);
   border-radius: var(--gemina-verification-radius);
-  overflow: hidden;
+  /* overflow hidden creates a scroll container and prevents the toolbar's sticky
+     positioning from following the host modal's scrollport. Clip keeps the
+     rounded frame without stealing sticky containment. */
+  overflow: clip;
 }
 .gemina-verification__toolbar {
+  position: sticky;
+  top: 0;
+  z-index: 5;
   display: flex;
   /* Narrow roots (~<330px) can't fit all 7 buttons on one line: wrap to a
      second row instead of clipping past the canvas edge. The gap shorthand
@@ -129,6 +135,7 @@ const VERIFICATION_CSS = `
   gap: 6px;
   flex: 0 0 auto;
   padding: 8px 10px;
+  background: var(--gemina-verification-bg);
   border-block-end: 1px solid var(--gemina-verification-border);
 }
 .gemina-verification__toolbar-btn {
@@ -239,6 +246,19 @@ const VERIFICATION_CSS = `
   min-width: 0;
   margin: 0;
 }
+.gemina-verification__confidence-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 9px 12px;
+  background: var(--gemina-verification-surface);
+  border: 1px solid var(--gemina-verification-border);
+  border-radius: var(--gemina-verification-radius);
+  color: var(--gemina-verification-muted);
+  font-size: 12px;
+  font-weight: 600;
+}
 .gemina-verification__section {
   background: var(--gemina-verification-bg);
   border: 1px solid var(--gemina-verification-border);
@@ -254,6 +274,16 @@ const VERIFICATION_CSS = `
   border-block-end: 1px solid var(--gemina-verification-border);
   font-size: 13px;
   font-weight: 600;
+}
+.gemina-verification__overall-confidence {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-inline-start: auto;
+  color: var(--gemina-verification-muted);
+  font-size: 11px;
+  font-weight: 500;
+  white-space: nowrap;
 }
 .gemina-verification__dl {
   display: grid;
@@ -296,6 +326,15 @@ const VERIFICATION_CSS = `
   border: 1px solid var(--gemina-verification-input-border);
   border-radius: calc(var(--gemina-verification-radius) - 4px);
   padding: 5px 8px;
+}
+/* FieldInput is a fragment. Let its control take the remaining row width
+   instead of forcing width:100%, so a coordinate eye can sit beside it rather
+   than wrapping onto a visually disconnected second line. */
+.gemina-verification__dd > .gemina-verification__input,
+.gemina-verification__cell > .gemina-verification__input {
+  flex: 1 1 8ch;
+  width: auto;
+  min-width: 0;
 }
 .gemina-verification__input--dirty { border-color: var(--gemina-verification-dirty); }
 .gemina-verification__input--missed {
@@ -667,7 +706,7 @@ const VERIFICATION_CSS = `
 }
 .gemina-verification__table-footer {
   display: flex;
-  padding: 8px 10px 0;
+  padding: 8px 10px;
 }
 .gemina-verification__add-row {
   font: inherit;

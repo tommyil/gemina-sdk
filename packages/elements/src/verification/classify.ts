@@ -250,6 +250,7 @@ export interface ClassifiedCell {
  * Classify all fields in a data object
  */
 export interface ClassifiedData {
+  overallConfidence: { level: string; reasons: string[] } | null;
   headers: ClassifiedField[];
   simpleLists: Array<{
     key: string;
@@ -276,6 +277,7 @@ export interface ClassifiedData {
 
 export function classifyData(data: unknown): ClassifiedData {
   const result: ClassifiedData = {
+    overallConfidence: null,
     headers: [],
     simpleLists: [],
     entities: [],
@@ -289,6 +291,7 @@ export function classifyData(data: unknown): ClassifiedData {
 
   // Handle wrapped data (some extractions wrap in { data: ... })
   let rootData = data as Record<string, unknown>;
+  result.overallConfidence = readOverallConfidence(rootData);
   let basePointer = '';
   if ('data' in rootData && typeof rootData.data === 'object' && rootData.data !== null && !Array.isArray(rootData.data)) {
     // Process top-level non-data fields first (like total_lines, overall_confidence)
@@ -297,6 +300,7 @@ export function classifyData(data: unknown): ClassifiedData {
       processField(key, value, result, rootData, '');
     }
     rootData = rootData.data as Record<string, unknown>;
+    result.overallConfidence ??= readOverallConfidence(rootData);
     // Inner fields live under the wrapper in the original payload — server
     // pointers resolve against the payload root, so keep the /data prefix.
     basePointer = '/data';
@@ -309,6 +313,20 @@ export function classifyData(data: unknown): ClassifiedData {
   return result;
 }
 
+function readOverallConfidence(
+  source: Record<string, unknown>,
+): { level: string; reasons: string[] } | null {
+  const rawLevel = source.overall_confidence ?? source.overallConfidence;
+  const value = extractValue(rawLevel);
+  if (typeof value !== 'string' || value.length === 0) return null;
+
+  const rawReasons = source.confidence_reasons ?? source.confidenceReasons;
+  const reasons = Array.isArray(rawReasons)
+    ? rawReasons.filter((reason): reason is string => typeof reason === 'string')
+    : [];
+  return { level: value, reasons };
+}
+
 function processField(
   key: string,
   value: unknown,
@@ -317,8 +335,12 @@ function processField(
   basePointer: string,
 ): void {
   // Skip metadata fields at root level
-  // overall_confidence and confidence_reasons are handled by table headers
-  if (['confidence', 'confidence_reasons', 'coordinates', 'overall_confidence'].includes(key)) {
+  // Overall confidence has a dedicated summary above the form. Accept both
+  // wire spellings because Pydantic aliases vary between processor payloads.
+  if ([
+    'confidence', 'confidence_reasons', 'confidenceReasons', 'coordinates',
+    'overall_confidence', 'overallConfidence',
+  ].includes(key)) {
     return;
   }
 
@@ -397,8 +419,8 @@ function processField(
       const metaFields = new Set(['confidence', 'confidence_reasons', 'coordinates']);
       const columns = Object.keys(first).filter(k => !metaFields.has(k));
 
-      // Look for table-level overall confidence from sibling fields
-      // Check patterns: {key}_confidence, or overall_confidence at root
+      // A table-specific confidence belongs in its section header. Global
+      // overall confidence is intentionally not copied into every table.
       let overallConfidence: { level: string; reasons: string[] } | null = null;
       if (parentObj) {
         // First check for specific key pattern (e.g., line_items_confidence)
@@ -408,13 +430,6 @@ function processField(
           overallConfidence = {
             level: parentObj[confidenceKey] as string,
             reasons: (parentObj[reasonsKey] as string[]) || [],
-          };
-        }
-        // Also check for overall_confidence at root level
-        else if (parentObj['overall_confidence']) {
-          overallConfidence = {
-            level: parentObj['overall_confidence'] as string,
-            reasons: (parentObj['confidence_reasons'] as string[]) || [],
           };
         }
       }

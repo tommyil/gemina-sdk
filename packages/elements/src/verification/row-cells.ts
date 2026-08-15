@@ -133,8 +133,18 @@ export function displayColumns(
   const declared = table.columns
     .map((column) => column.key)
     .filter((name): name is string => typeof name === 'string');
-  const seen = new Set(declared);
-  return [...declared, ...classifiedColumns.filter((name) => !seen.has(name))];
+  // The schema uses model field names (snake_case), while the response DTO
+  // serializes those same fields as camelCase. Exact comparison rendered the
+  // entire table twice: every declared column followed by its classified
+  // alias. Keep the server spelling as the canonical display/submission name,
+  // and use the client's one shared casing rule only for de-duplication.
+  // Declared names themselves are never collapsed, so a dynamic template that
+  // genuinely declares both spellings still keeps both columns.
+  const declaredAliases = new Set(declared.map(snakeToCamel));
+  return [
+    ...declared,
+    ...classifiedColumns.filter((name) => !declaredAliases.has(snakeToCamel(name))),
+  ];
 }
 
 /**

@@ -31,6 +31,8 @@ const CONTRACT_CLASS_NAMES = [
   '.gemina-verification__form',
   '.gemina-verification__section',
   '.gemina-verification__section-header',
+  '.gemina-verification__overall-confidence',
+  '.gemina-verification__confidence-summary',
   '.gemina-verification__dl',
   '.gemina-verification__dt',
   '.gemina-verification__dd',
@@ -108,6 +110,16 @@ describe('verification styles', () => {
     // plaintext the RTL paragraph direction reorders its leading number.
     // The done-state recap reuses __progress, so this one rule covers both.
     expect(css).toMatch(/\.gemina-verification__progress\s*\{[^}]*unicode-bidi:\s*plaintext/);
+  });
+
+  it('keeps viewer chrome sticky, field eyes inline, and table actions padded', async () => {
+    const { ensureVerificationStylesInjected } = await import('../../src/verification/styles');
+    ensureVerificationStylesInjected();
+    const css = document.head.querySelector('style[data-gemina-verification]')?.textContent ?? '';
+
+    expect(css).toMatch(/\.gemina-verification__toolbar\s*\{[^}]*position:\s*sticky/);
+    expect(css).toMatch(/\.gemina-verification__dd\s*>\s*\.gemina-verification__input,[\s\S]*?width:\s*auto/);
+    expect(css).toMatch(/\.gemina-verification__table-footer\s*\{[^}]*padding:\s*8px 10px;/);
   });
 
   it('owns the canvas img geometry and the data-cursor affordance states', async () => {

@@ -42,8 +42,7 @@ import { displayColumns, matchesTablePointer } from './row-cells';
 import type { PlannedCell, PlannedRow } from './row-cells';
 import { cellEditKey } from './row-plan';
 import type { RowPlanEntry } from './row-plan';
-import { parseSchemaKey } from './pointer';
-import { NOT_FOUND } from './pointer';
+import { NOT_FOUND, parseSchemaKey, snakeToCamel } from './pointer';
 import { Tip } from './tip';
 import { IconEye } from './viewer';
 
@@ -575,7 +574,16 @@ function TableRowView(props: TableRowViewProps): React.JSX.Element {
 
   /** Cells by column: from the plan when there is one, else today's lookup. */
   const cellFor = (column: string) => {
-    const classified = row?.[column];
+    // Server-declared table columns use model names (snake_case), but response
+    // DTOs expose the same keys in camelCase. Prefer an exact key (important
+    // for dynamic templates that genuinely use either spelling), then match
+    // through the one shared casing rule.
+    const direct = row?.[column];
+    const alias = direct === undefined ? row?.[snakeToCamel(column)] : undefined;
+    const fallbackKey = direct === undefined && alias === undefined && row !== undefined
+      ? Object.keys(row).find((key) => snakeToCamel(key) === snakeToCamel(column))
+      : undefined;
+    const classified = direct ?? alias ?? (fallbackKey === undefined ? undefined : row?.[fallbackKey]);
     const fromPlan = planned?.cells.find((cell: PlannedCell) => cell.column === column);
     if (fromPlan) {
       return { classified, binding: fromPlan.binding, editKey: fromPlan.editKey };
@@ -827,7 +835,12 @@ function TableSection(props: {
         <span>
           {label} ({rowCount} rows{needsReview > 0 ? ` · ${needsReview} need review` : ''})
         </span>
-        <ConfidenceDot confidence={table.overallConfidence} />
+        {table.overallConfidence ? (
+          <span className="gemina-verification__overall-confidence">
+            <span>Overall confidence</span>
+            <ConfidenceDot confidence={table.overallConfidence} />
+          </span>
+        ) : null}
       </div>
       <div className="gemina-verification__table-wrap">
         <table className="gemina-verification__table">
@@ -989,6 +1002,12 @@ export function VerificationForm(props: VerificationFormProps): React.JSX.Elemen
       aria-label="Extraction fields"
       onSubmit={(event) => event.preventDefault()}
     >
+      {classified.overallConfidence ? (
+        <div className="gemina-verification__confidence-summary">
+          <span>Overall confidence</span>
+          <ConfidenceDot confidence={classified.overallConfidence} />
+        </div>
+      ) : null}
       <HeaderSection
         headers={classified.headers.filter((header) => !suppressed.has(header.pointer))}
         simpleLists={classified.simpleLists}

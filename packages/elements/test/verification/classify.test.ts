@@ -128,6 +128,20 @@ describe('classifyData: { data: ... } wrapper (the trap)', () => {
     expect(lines!.pointer).toBe('/total_lines');
     // overall_confidence is a skipped meta field, never a header
     expect(result.headers.find((h) => h.key === 'overall_confidence')).toBeUndefined();
+    expect(result.overallConfidence).toEqual({ level: 'high', reasons: [] });
+  });
+
+  it('recognises camel-case overall confidence without rendering it as a field', () => {
+    const result = classifyData({
+      overallConfidence: 'medium',
+      confidenceReasons: ['ambiguous total'],
+      invoice_number: 'INV-42',
+    });
+    expect(result.overallConfidence).toEqual({
+      level: 'medium',
+      reasons: ['ambiguous total'],
+    });
+    expect(result.headers.find((h) => h.key === 'overallConfidence')).toBeUndefined();
   });
 });
 
@@ -175,16 +189,17 @@ describe('classifyData: tables', () => {
       reasons: ['partial occlusion'],
     });
   });
-  it('falls back to overall_confidence sibling when {key}_confidence is absent', () => {
+  it('keeps global overall confidence out of a table with no specific confidence', () => {
     const result = classifyData({
       line_items: [row('Widget', 2, 50, 100)],
       overall_confidence: 'high',
       confidence_reasons: ['good scan'],
     });
-    expect(result.tables[0]!.overallConfidence).toEqual({
+    expect(result.overallConfidence).toEqual({
       level: 'high',
       reasons: ['good scan'],
     });
+    expect(result.tables[0]!.overallConfidence).toBeNull();
   });
 });
 
@@ -252,7 +267,14 @@ describe('classifyData: nested objects and fallback', () => {
 });
 
 describe('classifyData: totality (garbage in, empty buckets or degraded fields out — never a throw)', () => {
-  const empty = { headers: [], simpleLists: [], entities: [], tables: [], fallback: [] };
+  const empty = {
+    overallConfidence: null,
+    headers: [],
+    simpleLists: [],
+    entities: [],
+    tables: [],
+    fallback: [],
+  };
   it('degenerate roots yield empty buckets', () => {
     expect(classifyData(null)).toEqual(empty);
     expect(classifyData(undefined)).toEqual(empty);

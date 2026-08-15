@@ -9,7 +9,7 @@
 
 import { describe, expect, it } from 'vitest';
 import { buildBindings, composeSubmission } from '../../src/verification/bindings';
-import { collectCellViews, planTableCells } from '../../src/verification/row-cells';
+import { collectCellViews, displayColumns, planTableCells } from '../../src/verification/row-cells';
 import {
   initialRowPlan, insertRowAfter, isIdentityPlan, removeRow, rowSourcesOf,
 } from '../../src/verification/row-plan';
@@ -22,6 +22,33 @@ const TABLE = {
   columns: [{ key: 'description', type: 'string' as const }],
 };
 const COLUMNS = ['description'];
+
+describe('displayColumns', () => {
+  it('does not duplicate response camelCase aliases of declared snake_case columns', () => {
+    const table = {
+      ...TABLE,
+      columns: [
+        { key: 'unit_size_uom', type: 'string' as const },
+        { key: 'unit_size', type: 'number' as const },
+      ],
+    };
+    expect(displayColumns(table, ['unitSizeUom', 'unitSize'])).toEqual([
+      'unit_size_uom',
+      'unit_size',
+    ]);
+  });
+
+  it('preserves two explicitly declared spellings for a dynamic template', () => {
+    const table = {
+      ...TABLE,
+      columns: [
+        { key: 'unit_size', type: 'number' as const },
+        { key: 'unitSize', type: 'number' as const },
+      ],
+    };
+    expect(displayColumns(table, ['unit_size', 'unitSize'])).toEqual(['unit_size', 'unitSize']);
+  });
+});
 
 function setup(descriptions: string[]) {
   const schema = descriptions.map((_v, i) => `label:line_${i}_description|ptr:/line_items/${i}/description`);
