@@ -266,6 +266,15 @@ const VERIFICATION_CSS = `
   gap: 12px;
   min-width: 0;
   margin: 0;
+  /* Every z-index inside the form is form-internal business, and nothing in
+     here may ever paint over the document. Without a stacking context of its
+     own, the form's descendants resolve against the SAME context as the
+     stacked-mode viewer (position: sticky, z-index: 2) — so the sticky header
+     row (z-index: 3) painted straight over the document image as the form
+     scrolled under the floating viewer. Confirmed in chromium and firefox
+     before this line existed. Isolating caps the whole subtree beneath the
+     viewer no matter what numbers it uses later. */
+  isolation: isolate;
 }
 .gemina-verification__confidence-summary {
   display: flex;
@@ -428,14 +437,32 @@ const VERIFICATION_CSS = `
   padding: 0;
   list-style: none;
 }
-.gemina-verification__table-wrap { overflow-x: auto; }
+.gemina-verification__table-wrap {
+  overflow-x: auto;
+  /* Sticky binds to the nearest scrollport, and in an embedded widget that
+     must be THIS wrapper (no per-host offset math). Bounding the block size
+     turns it into a vertical scrollport too: long tables scroll internally
+     with the header row pinned; short tables never reach the cap and are
+     unchanged. */
+  overflow-y: auto;
+  max-block-size: min(56vh, 520px);
+}
 .gemina-verification__table {
   width: 100%;
-  border-collapse: collapse;
+  /* separate, not collapse: collapsed borders belong to the row grid, so a
+     stuck header sheds its underline mid-scroll. With separate borders the
+     border-block-end travels with the th. */
+  border-collapse: separate;
+  border-spacing: 0;
   font-size: 13px;
   font-variant-numeric: tabular-nums;
 }
 .gemina-verification__table th {
+  position: sticky;
+  inset-block-start: 0;
+  /* Above cell content and focus rings; below the viewer toolbar (5) and the
+     confirm scrim. */
+  z-index: 3;
   text-align: start;
   padding: 6px 10px;
   font-size: 12px;

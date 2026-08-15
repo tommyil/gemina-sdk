@@ -154,3 +154,31 @@ describe('rtl layout pinning', () => {
     );
   });
 });
+
+describe('sticky table headers', () => {
+  it('bounds the table wrapper and sticks the header row inside it', async () => {
+    const { ensureVerificationStylesInjected } = await import('../../src/verification/styles');
+    ensureVerificationStylesInjected();
+
+    const cssText = document.head.querySelector('style[data-gemina-verification]')?.textContent ?? '';
+    expect(cssText).toMatch(
+      /\.gemina-verification__table-wrap \{[^}]*max-block-size: min\(56vh, 520px\);/,
+    );
+    expect(cssText).toMatch(/\.gemina-verification__table th \{[^}]*position: sticky;/);
+    // collapse -> separate: collapsed borders belong to the row grid and
+    // visually detach from a stuck header; separate keeps the th underline.
+    expect(cssText).toMatch(/\.gemina-verification__table \{[^}]*border-collapse: separate;/);
+  });
+
+  it('isolates the form so a stuck header can never paint over the document', async () => {
+    const { ensureVerificationStylesInjected } = await import('../../src/verification/styles');
+    ensureVerificationStylesInjected();
+
+    const cssText = document.head.querySelector('style[data-gemina-verification]')?.textContent ?? '';
+    // The stacked-mode viewer is sticky at z-index 2; the sticky th is 3. In a
+    // shared stacking context the header wins and covers the document image
+    // (measured in both engines). The form must own a stacking context so its
+    // internal z-indexes cannot escape it.
+    expect(cssText).toMatch(/\.gemina-verification__form \{[^}]*isolation: isolate;/);
+  });
+});
