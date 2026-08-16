@@ -755,29 +755,45 @@ export function GeminaVerification(props: GeminaVerificationProps): React.JSX.El
   // The SAME suppression the form applies, computed from the SAME helper, so
   // the two can never disagree about which promoted headers exist. A pointer
   // counted here but skipped there (or vice versa) makes "Showing X of Y" lie.
-  const suppressed = useMemo(
-    () => withEmptyMutableTables(classified, loaded?.rowMutableTables ?? []).suppressed,
+  // The SAME promotion the form applies, from the SAME helper, so the two can
+  // never disagree about which tables are rendered or which headers are
+  // suppressed. `tables` matters as much as `suppressed`: an empty
+  // server-declared row-mutable table is promoted into the rendered list
+  // without existing in `classified.tables`, so rows added to one would
+  // otherwise render without being counted.
+  const rendered = useMemo(
+    () => withEmptyMutableTables(classified, loaded?.rowMutableTables ?? []),
     [classified, loaded?.rowMutableTables],
   );
   // Offering the switch on an unscored extraction would be a control that
   // does nothing. Overall confidence does not count — it is not a review unit
   // and cannot be hidden.
-  const canFilter = useMemo(() => hasAnyConfidence(classified), [classified]);
+  const canFilter = useMemo(
+    () => hasAnyConfidence(classified, rendered.tables, plannedTables),
+    [classified, rendered, plannedTables],
+  );
   const hidden = useMemo(
     () => (filterOn && canFilter
       ? computeHidden({
-        classified, plannedTables, cellViews, bindingIndex, edits, pairErrors, suppressed,
+        classified,
+        tables: rendered.tables,
+        plannedTables,
+        cellViews,
+        bindingIndex,
+        edits,
+        pairErrors,
+        suppressed: rendered.suppressed,
       })
       : NOTHING_HIDDEN),
-    [filterOn, canFilter, classified, plannedTables, cellViews, bindingIndex, edits, pairErrors, suppressed],
+    [filterOn, canFilter, classified, rendered, plannedTables, cellViews, bindingIndex, edits, pairErrors],
   );
   // `unmatched` bindings render as the "Not detected" section — editable
   // fields the reviewer can fill in — so they are review units too. They carry
   // no confidence and are therefore never hidden, which is why they add to
   // both totals equally. Leaving them out made the count contradict the screen.
   const totalUnits = useMemo(
-    () => countUnits(classified, plannedTables, suppressed) + unmatched.length,
-    [classified, plannedTables, suppressed, unmatched],
+    () => countUnits(classified, rendered.tables, plannedTables, rendered.suppressed) + unmatched.length,
+    [classified, rendered, plannedTables, unmatched],
   );
   const visibleUnits = totalUnits - hidden.fields.size - hidden.rows.size;
 

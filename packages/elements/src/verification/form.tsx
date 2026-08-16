@@ -887,11 +887,14 @@ function TableSection(props: {
   const visiblePlanned = planned
     ?.map((plannedRow, position) => ({ plannedRow, position }))
     .filter(({ plannedRow }) => !shared.hidden.rows.has(plannedRow.entry.id));
+  // Empty rather than null when a plan exists: the two are mutually exclusive
+  // by construction, and an always-array keeps the render below free of
+  // non-null assertions that only restate that fact.
   const visibleRowIndices = planned
-    ? null
+    ? []
     : table.rows.map((_row, index) => index)
       .filter((index) => !shared.hidden.rows.has(unplannedRowKey(table.pointer, index)));
-  const visibleCount = visiblePlanned ? visiblePlanned.length : visibleRowIndices!.length;
+  const visibleCount = visiblePlanned ? visiblePlanned.length : visibleRowIndices.length;
   // Never an empty <tbody>: say why the rows are gone, or a filtered table
   // reads as a table that lost its data.
   const allHidden = visibleCount === 0 && rowCount > 0;
@@ -948,7 +951,7 @@ function TableSection(props: {
                   tablePointer={mutable!.pointer}
                 />
               ))
-              : visibleRowIndices!.map((rowIndex) => (
+              : visibleRowIndices.map((rowIndex) => (
                 <TableRow
                   key={rowIndex}
                   row={table.rows[rowIndex]}

@@ -6,7 +6,7 @@
  * so there is exactly ONE definition of "already reviewed" rather than one per
  * section component.
  *
- * Two design constraints run through this file, both learned the hard way:
+ * Three design constraints run through this file, all learned the hard way:
  *
  * 1. Identity comes from `CellView`/`PlannedRow`, never from a pointer built
  *    by hand. Under row editing a cell's edit key, its submitted key and its
@@ -17,6 +17,11 @@
  * 2. Unmeasured is not reviewed. A field with no confidence at all has not
  *    been checked by anything; hiding it would drop it from review silently.
  *    Only an explicit `high` hides.
+ *
+ * 3. Counting and hiding must walk the SAME units. When they disagree, the
+ *    footer's "Showing X of Y" contradicts the screen — which reads to a
+ *    reviewer as data having gone missing. That is why every consumer here
+ *    shares the two traversals below instead of re-deriving the buckets.
  */
 
 import { ROW_META_KEY } from './classify';
@@ -26,7 +31,7 @@ import type { CellView, PlannedRow } from './row-cells';
 
 export type ConfidenceLike = { level: string; reasons: string[] } | null | undefined;
 
-/** Only an explicit `high` hides. See the plan's §F7. */
+/** Only an explicit `high` hides. */
 export function isHighConfidence(confidence: ConfidenceLike): boolean {
   return (confidence?.level ?? '').toLowerCase() === 'high';
 }
@@ -34,39 +39,105 @@ export function isHighConfidence(confidence: ConfidenceLike): boolean {
 export interface HiddenSets {
   /** Field pointers (headers, list items, entity cells). */
   fields: ReadonlySet<string>;
-  /** `${tablePointer}#${rowId}` — row ID, NOT position, so a hidden row stays
-   *  hidden when a row above it is deleted. */
+  /** Row keys, in the same spelling `CellView.rowKey` uses. */
   rows: ReadonlySet<string>;
 }
 
 /** Shared empty result, so "nothing hidden" is always the same object and the
- *  section memos see no change. (A Set is mutable even under Object.freeze —
- *  the guarantee here is the readonly TYPE plus never mutating it, not the
- *  runtime.) */
+ *  section memos see no change. The readonly TYPE is the guarantee — a Set
+ *  stays mutable at runtime even under Object.freeze — so nothing may write to
+ *  these. */
 export const NOTHING_HIDDEN: HiddenSets = {
   fields: new Set<string>(),
   rows: new Set<string>(),
 };
 
 /**
- * How a hidden row is addressed: by the SAME key `CellView.rowKey` uses, so
- * the two can never disagree.
+ * How a row of an UNPLANNED table is addressed: its row pointer, which is what
+ * `collectCellViews` derives by splitting the cell pointer.
  *
- * For a planned table that is `entry.id`, which `initialRowPlan` already
- * scopes with the table pointer (`/taxes#row-0`) — prefixing it again would
- * produce `/taxes#/taxes#row-0` and match nothing. For an unplanned table it
- * is the row pointer (`/taxes/0`), which is what `collectCellViews` derives
- * by splitting the cell pointer.
+ * A planned row is addressed by `entry.id` instead, and that id is ALREADY
+ * scoped with the table pointer by `initialRowPlan` (`/taxes#row-0`) — so it
+ * is used verbatim. Prefixing it again would produce `/taxes#/taxes#row-0` and
+ * match nothing, hiding silently.
  */
 export const unplannedRowKey = (tablePointer: string, index: number): string => `${tablePointer}/${index}`;
 
+/** The tables the FORM renders — `withEmptyMutableTables`' output, not
+ *  `classified.tables`. They differ: an empty server-declared row-mutable
+ *  table is promoted into the rendered list without existing in the
+ *  classifier's output, and rows the reviewer adds to one would otherwise
+ *  render uncounted. */
+type RenderedTables = ClassifiedData['tables'];
+
+/**
+ * Every non-table review unit, once: header fields, simple-list items and
+ * entity-card cells.
+ *
+ * One traversal shared by the hide rule, the counter and the
+ * "is there anything to filter" check — when those three disagreed about which
+ * buckets exist, the counter contradicted the screen.
+ */
+function forEachFieldUnit(
+  classified: ClassifiedData,
+  visit: (pointer: string, confidence: ConfidenceLike) => void,
+): void {
+  for (const header of classified.headers) visit(header.pointer, header.confidence);
+  for (const list of classified.simpleLists) {
+    for (const item of list.items) visit(item.pointer, item.confidence);
+  }
+  for (const entity of classified.entities) {
+    for (const item of entity.items) {
+      for (const cell of Object.values(item)) visit(cell.pointer, cell.confidence);
+    }
+  }
+}
+
+/**
+ * Every table ROW the form renders, once, with the key it is addressed by.
+ *
+ * A row counts and hides as a whole, never per cell. The plan wins where there
+ * is one: it carries the rows the reviewer added and drops the ones they
+ * removed, so it — not the extracted array — is what is on screen.
+ */
+function forEachRowUnit(
+  tables: RenderedTables,
+  plannedTables: ReadonlyMap<string, PlannedRow[]>,
+  visit: (rowKey: string, confidence: ConfidenceLike, added: boolean) => void,
+): void {
+  const confidenceOf = (row: unknown): ConfidenceLike => {
+    const meta = (row as Record<string, unknown> | undefined)?.[ROW_META_KEY] as
+      { confidence?: ConfidenceLike } | undefined;
+    return meta?.confidence ?? null;
+  };
+
+  for (const table of tables) {
+    const planned = plannedTables.get(table.pointer);
+    if (planned) {
+      for (const row of planned) {
+        // An added row was never extracted, so it has no confidence and is not
+        // in `table.rows` at all — it can only be reached through the plan.
+        // Narrowed via a local so the extracted branch needs no assertion.
+        const { source } = row.entry;
+        visit(row.entry.id, source === null ? null : confidenceOf(table.rows[source]), source === null);
+      }
+      continue;
+    }
+    table.rows.forEach((row, index) => {
+      visit(unplannedRowKey(table.pointer, index), confidenceOf(row), false);
+    });
+  }
+}
+
 interface HiddenInput {
   classified: ClassifiedData;
+  /** What the form renders — see RenderedTables. */
+  tables: RenderedTables;
   /** Table pointer -> planned rows. Absent entry = unplanned table. */
   plannedTables: ReadonlyMap<string, PlannedRow[]>;
-  /** Authoritative cell identities (editKey + rowKey) — index.tsx:584. */
+  /** Authoritative cell identities (editKey + rowKey). */
   cellViews: readonly CellView[];
-  /** Pointer-keyed — `indexBindingsByFieldPointer`, index.tsx:427. */
+  /** Pointer-keyed — `indexBindingsByFieldPointer`. */
   bindingIndex: ReadonlyMap<string, FieldBinding>;
   edits: ReadonlyMap<string, string>;
   pairErrors: ReadonlyMap<string, string>;
@@ -76,20 +147,22 @@ interface HiddenInput {
   suppressed: ReadonlySet<string>;
 }
 
-/** Fields and rows the filter may hide. Hide iff high-confidence AND untouched
- *  AND error-free (§F7). */
+/** Fields and rows the filter may hide: high-confidence AND untouched AND
+ *  error-free. */
 export function computeHidden(input: HiddenInput): HiddenSets {
-  const { classified, plannedTables, cellViews, bindingIndex, edits, pairErrors, suppressed } = input;
+  const {
+    classified, tables, plannedTables, cellViews, bindingIndex, edits, pairErrors, suppressed,
+  } = input;
 
   const fields = new Set<string>();
   const rows = new Set<string>();
 
-  // An edit key is "touched" if the reviewer changed it OR it arrived broken.
-  // pairErrors can be non-empty with zero edits, so edits alone is not enough.
-  const touched = (editKey: string | undefined): boolean =>
-    editKey !== undefined && (edits.has(editKey) || pairErrors.has(editKey));
+  // "Touched" is edits OR pairErrors: a pair error arrives with ZERO edits when
+  // the extraction itself is half-filled, so edits alone would hide a field
+  // that is already invalid.
+  const touched = (editKey: string): boolean => edits.has(editKey) || pairErrors.has(editKey);
 
-  // rowKey -> its cells' edit keys. One pass; the row loops below only look up.
+  // rowKey -> its cells' edit keys. One pass; the row walk below only looks up.
   const editKeysByRow = new Map<string, string[]>();
   for (const view of cellViews) {
     const list = editKeysByRow.get(view.rowKey);
@@ -97,112 +170,72 @@ export function computeHidden(input: HiddenInput): HiddenSets {
     else editKeysByRow.set(view.rowKey, [view.editKey]);
   }
 
-  const considerField = (pointer: string, confidence: ConfidenceLike): void => {
-    if (suppressed.has(pointer)) return;
-    if (!isHighConfidence(confidence)) return;
-    // No binding means nothing can resolve this field's edit key, so we cannot
-    // tell whether it was touched. Never hide what we cannot reason about.
+  forEachFieldUnit(classified, (pointer, confidence) => {
+    if (suppressed.has(pointer) || !isHighConfidence(confidence)) return;
+    // With no binding, nothing can resolve this field's edit key, so whether it
+    // was touched is unknowable. Never hide what cannot be reasoned about.
     const editKey = bindingIndex.get(pointer)?.key.raw;
     if (editKey === undefined || touched(editKey)) return;
     fields.add(pointer);
-  };
+  });
 
-  for (const header of classified.headers) {
-    considerField(header.pointer, header.confidence);
-  }
-  for (const list of classified.simpleLists) {
-    for (const item of list.items) considerField(item.pointer, item.confidence);
-  }
-  for (const entity of classified.entities) {
-    for (const item of entity.items) {
-      for (const entityCell of Object.values(item)) considerField(entityCell.pointer, entityCell.confidence);
-    }
-  }
-
-  const rowConfidence = (row: Record<string, unknown> | undefined): ConfidenceLike => {
-    const meta = row?.[ROW_META_KEY] as { confidence?: ConfidenceLike } | undefined;
-    return meta?.confidence ?? null;
-  };
-
-  const rowIsHidable = (rowKey: string): boolean =>
-    !(editKeysByRow.get(rowKey) ?? []).some((editKey) => touched(editKey));
-
-  for (const table of classified.tables) {
-    const planned = plannedTables.get(table.pointer);
-    if (planned) {
-      for (const plannedRow of planned) {
-        // An added row was never extracted, so it carries no confidence and
-        // must always stay visible. It is not in table.rows at all.
-        if (plannedRow.entry.source === null) continue;
-        if (!isHighConfidence(rowConfidence(table.rows[plannedRow.entry.source] as Record<string, unknown>))) continue;
-        if (!rowIsHidable(plannedRow.entry.id)) continue;
-        rows.add(plannedRow.entry.id);
-      }
-      continue;
-    }
-    table.rows.forEach((row, index) => {
-      if (!isHighConfidence(rowConfidence(row as Record<string, unknown>))) return;
-      const key = unplannedRowKey(table.pointer, index);
-      if (!rowIsHidable(key)) return;
-      rows.add(key);
-    });
-  }
+  forEachRowUnit(tables, plannedTables, (rowKey, confidence, added) => {
+    if (added || !isHighConfidence(confidence)) return;
+    if ((editKeysByRow.get(rowKey) ?? []).some(touched)) return;
+    rows.add(rowKey);
+  });
 
   if (fields.size === 0 && rows.size === 0) return NOTHING_HIDDEN;
   return { fields, rows };
 }
 
 /**
- * How many things the reviewer can act on.
+ * How many things the reviewer can act on — the denominator of "Showing X of Y".
  *
- * A "review unit" is one header field, one simple-list item, one entity-card
- * cell, or one TABLE ROW — a row counts once, not once per cell, because rows
- * hide whole or not at all.
+ * Walks the same two traversals `computeHidden` does, so the two cannot drift.
+ * Suppressed (promoted) headers are excluded from both.
  *
- * Suppressed (promoted) headers are excluded, so `total − hidden` stays honest:
- * `computeHidden` skips them too, and counting them in one place but not the
- * other is what makes "Showing 6 of 29" drift.
+ * Note this does NOT include `unmatched` bindings: they are review units too,
+ * but they live outside `ClassifiedData` and the caller adds them.
  */
 export function countUnits(
   classified: ClassifiedData,
+  tables: RenderedTables,
   plannedTables: ReadonlyMap<string, PlannedRow[]>,
   suppressed: ReadonlySet<string>,
 ): number {
   let total = 0;
-  total += classified.headers.filter((header) => !suppressed.has(header.pointer)).length;
-  for (const list of classified.simpleLists) {
-    total += list.items.filter((item) => !suppressed.has(item.pointer)).length;
-  }
-  for (const entity of classified.entities) {
-    for (const item of entity.items) {
-      total += Object.values(item).filter((entityCell) => !suppressed.has(entityCell.pointer)).length;
-    }
-  }
-  for (const table of classified.tables) {
-    // The plan is the source of truth when there is one: it includes rows the
-    // reviewer added and excludes ones they removed.
-    total += plannedTables.get(table.pointer)?.length ?? table.rows.length;
-  }
+  forEachFieldUnit(classified, (pointer) => {
+    if (!suppressed.has(pointer)) total += 1;
+  });
+  forEachRowUnit(tables, plannedTables, () => {
+    total += 1;
+  });
   return total;
 }
 
 /**
- * True when any FIELD or ROW carries a confidence level.
+ * True when any FIELD or ROW carries a confidence level — i.e. whether the
+ * filter has anything at all to act on.
  *
- * Overall confidence is excluded deliberately: it is rendered as its own
- * summary line, is not a review unit, and cannot be hidden — counting it would
- * offer a switch that does nothing. Row confidence alone is enough, because an
- * `invoice_line_items` extraction has no header fields at all and scores
- * every row.
+ * Overall confidence is excluded deliberately: it renders as its own summary
+ * line, is not a review unit and cannot be hidden, so offering a switch on its
+ * account would give the reviewer a control that does nothing. Row confidence
+ * alone qualifies, because an `invoice_line_items` extraction has no header
+ * fields whatsoever and scores every row.
  */
-export function hasAnyConfidence(classified: ClassifiedData): boolean {
-  if (classified.headers.some((header) => header.confidence?.level)) return true;
-  if (classified.simpleLists.some((list) => list.items.some((item) => item.confidence?.level))) return true;
-  if (classified.entities.some((entity) => entity.items.some(
-    (item) => Object.values(item).some((entityCell) => entityCell.confidence?.level),
-  ))) return true;
-  return classified.tables.some((table) => table.rows.some((row) => {
-    const meta = (row as Record<string, unknown>)[ROW_META_KEY] as { confidence?: ConfidenceLike } | undefined;
-    return Boolean(meta?.confidence?.level);
-  }));
+export function hasAnyConfidence(
+  classified: ClassifiedData,
+  tables: RenderedTables,
+  plannedTables: ReadonlyMap<string, PlannedRow[]>,
+): boolean {
+  let found = false;
+  forEachFieldUnit(classified, (_pointer, confidence) => {
+    if (confidence?.level) found = true;
+  });
+  if (found) return true;
+  forEachRowUnit(tables, plannedTables, (_rowKey, confidence) => {
+    if (confidence?.level) found = true;
+  });
+  return found;
 }

@@ -79,9 +79,13 @@ function run(over: {
   edits?: ReadonlyMap<string, string>;
   pairErrors?: ReadonlyMap<string, string>;
   suppressed?: ReadonlySet<string>;
+  tables?: ClassifiedData['tables'];
 } = {}) {
+  const data = over.classified ?? classified();
   return computeHidden({
-    classified: over.classified ?? classified(),
+    classified: data,
+    // Defaults to the classified tables; a promoted-table case passes its own.
+    tables: over.tables ?? data.tables,
     plannedTables: over.plannedTables ?? new Map(),
     cellViews: over.cellViews ?? [],
     bindingIndex: over.bindingIndex ?? new Map(),
@@ -236,7 +240,7 @@ describe('computeHidden — rows', () => {
 
 describe('hasAnyConfidence', () => {
   it('is true when a header is scored', () => {
-    expect(hasAnyConfidence(classified({ headers: [field('a', 'high')] }))).toBe(true);
+    expect(hasAnyConfidence(classified({ headers: [field('a', 'high')] }), [], new Map())).toBe(true);
   });
 
   // §F12 — invoice_line_items extractions have NO headers and a null overall
@@ -244,18 +248,20 @@ describe('hasAnyConfidence', () => {
   // offer the switch.
   it('is true for a rows-only extraction', () => {
     const table = { key: 'lineItems', pointer: '/line_items', columns: [], overallConfidence: null, rows: [taxRow('high')] };
-    expect(hasAnyConfidence(classified({ tables: [table] as any }))).toBe(true);
+    expect(hasAnyConfidence(classified({ tables: [table] as any }), [table] as any, new Map())).toBe(true);
   });
 
   // §F10 — overall confidence is not a review unit and cannot be hidden, so
   // counting it would offer a switch that does nothing.
   it('is FALSE when only overall confidence is present', () => {
     const table = { key: 'taxes', pointer: '/taxes', columns: [], overallConfidence: conf('high'), rows: [taxRow(null)] };
-    expect(hasAnyConfidence(classified({ overallConfidence: conf('high'), tables: [table] as any }))).toBe(false);
+    expect(hasAnyConfidence(
+      classified({ overallConfidence: conf('high'), tables: [table] as any }), [table] as any, new Map(),
+    )).toBe(false);
   });
 
   it('is false for an unscored extraction', () => {
-    expect(hasAnyConfidence(classified({ headers: [field('a', null)] }))).toBe(false);
+    expect(hasAnyConfidence(classified({ headers: [field('a', null)] }), [], new Map())).toBe(false);
   });
 });
 
@@ -270,12 +276,12 @@ describe('countUnits', () => {
       tables: [{ key: 'taxes', pointer: '/taxes', columns: ['rate'], overallConfidence: null, rows: [taxRow(null), taxRow(null)] }] as any,
     });
     // 2 headers + 2 list items + 2 entity cells + 2 rows
-    expect(countUnits(data, new Map(), new Set())).toBe(8);
+    expect(countUnits(data, data.tables, new Map(), new Set())).toBe(8);
   });
 
   it('excludes suppressed pointers, matching computeHidden', () => {
     const data = classified({ headers: [field('a', 'high'), field('b', null)] });
-    expect(countUnits(data, new Map(), new Set(['/a']))).toBe(1);
+    expect(countUnits(data, data.tables, new Map(), new Set(['/a']))).toBe(1);
   });
 
   // The plan includes added rows and excludes removed ones, so it wins.
@@ -287,6 +293,63 @@ describe('countUnits', () => {
       { entry: { id: '/taxes#row-0', source: 0 }, cells: [] },
       { entry: { id: '/taxes#added-1', source: null }, cells: [] },
     ] as any]]);
-    expect(countUnits(data, planned, new Set())).toBe(2);
+    expect(countUnits(data, data.tables, planned, new Set())).toBe(2);
+  });
+});
+
+// --- the two gaps this audit found ------------------------------------------
+
+describe('units the form renders but classifyData does not produce', () => {
+  // withEmptyMutableTables PROMOTES an empty server-declared row-mutable table
+  // into the rendered list without it existing in classified.tables. Counting
+  // classified.tables alone meant rows the reviewer added to one rendered
+  // uncounted, so "Showing 3 of 3" could appear with four things on screen.
+  const promoted = [{
+    key: 'lineItems', pointer: '/line_items', columns: [], overallConfidence: null, rows: [],
+  }] as any;
+  const planned = new Map([['/line_items', [
+    { entry: { id: '/line_items#added-1', source: null }, cells: [] },
+    { entry: { id: '/line_items#added-2', source: null }, cells: [] },
+  ] as any]]);
+
+  it('counts rows added to a promoted table', () => {
+    const data = classified({ headers: [field('a', null)] });
+    expect(countUnits(data, data.tables, planned, new Set())).toBe(1);
+    expect(countUnits(data, promoted, planned, new Set())).toBe(3);
+  });
+
+  it('still never hides those rows — they are added, so unscored', () => {
+    const data = classified({ headers: [field('a', null)] });
+    const { rows } = run({ classified: data, tables: promoted, plannedTables: planned });
+    expect(rows.size).toBe(0);
+  });
+});
+
+describe('an UNPLANNED table honours edits too', () => {
+  // collectCellViews emits unplanned cells with rowKey = the row POINTER, so
+  // the lookup has to use the same spelling. If it did not, the edit check
+  // would silently find nothing and hide an edited row anyway.
+  const table = {
+    key: 'taxes', pointer: '/taxes', columns: ['rate'], overallConfidence: null,
+    rows: [taxRow('high')],
+  };
+  const data = classified({ tables: [table] as any });
+
+  it('keeps a high row whose cell was edited', () => {
+    const { rows } = run({
+      classified: data,
+      cellViews: [cellView('/taxes/0/rate', '/taxes/0')],
+      edits: new Map([['/taxes/0/rate', '19']]),
+    });
+    expect(rows.size).toBe(0);
+  });
+
+  it('keeps a high row whose cell arrived with a pair error', () => {
+    const { rows } = run({
+      classified: data,
+      cellViews: [cellView('/taxes/0/rate', '/taxes/0')],
+      pairErrors: new Map([['/taxes/0/rate', 'needs a unit']]),
+    });
+    expect(rows.size).toBe(0);
   });
 });
