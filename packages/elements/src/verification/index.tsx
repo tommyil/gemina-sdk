@@ -36,7 +36,7 @@ import {
 } from './bindings';
 import type { FieldBinding, RowSourcesEntry } from './bindings';
 import {
-  collectCellViews, displayColumns, matchesTablePointer, planTableCells, pruneEmptyAddedRows,
+  collectCellViews, declaredTableColumns, planTableCells, pruneEmptyAddedRows,
   unitSizePairErrors,
 } from './row-cells';
 import type { PlannedRow } from './row-cells';
@@ -583,10 +583,11 @@ export function GeminaVerification(props: GeminaVerificationProps): React.JSX.El
       if (plan === undefined) {
         continue;
       }
-      const classifiedTable = classified.tables.find(
-        (candidate) => matchesTablePointer(table.pointer, candidate.pointer),
-      );
-      const columns = displayColumns(table, classifiedTable?.columns ?? []);
+      // The SAME derivation the form renders with (`tableColumns`), run from
+      // the other end. These two lists must agree: this one becomes the cells
+      // `resolveRowCell` reads edit keys from, so a drift here attributes a
+      // correction to the wrong column.
+      const columns = declaredTableColumns(table, classified.tables);
       out.set(table.pointer, planTableCells(table, plan, columns, bindingsByRawKey));
     }
     return out;

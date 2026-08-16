@@ -157,6 +157,68 @@ export function matchesTablePointer(serverPointer: string, classifiedPointer: st
   return serverPointer === classifiedPointer || snakeToCamel(serverPointer) === classifiedPointer;
 }
 
+/** As much of a classified table as pairing it with its declaration needs. */
+interface ClassifiedTableLike {
+  pointer: string;
+  columns: string[];
+}
+
+/**
+ * The one place `displayColumns` is called from.
+ *
+ * A table's column list is needed from BOTH ends — the form renders it, and the
+ * cell planner keys `PlannedCell.editKey` by it — and the two used to derive it
+ * separately with nothing forcing them to agree. `planTableCells`' output is
+ * what `resolveRowCell` consults for edit keys, so a drift there attributes a
+ * reviewer's correction to the wrong column rather than merely mis-rendering.
+ *
+ * Returns `classifiedColumns` ITSELF when there is no declaration, not a copy:
+ * `areRowPropsEqual` compares `columns` by reference (form.tsx), so a defensive
+ * copy here would re-render every row of the table on every keystroke.
+ *
+ * Deliberately NOT exported. The two wrappers below each pair a table with its
+ * counterpart before calling this; an exported low-level form would let a
+ * fourth caller hand it a mismatched pair and skip the pairing entirely, which
+ * is the drift this whole file exists to close.
+ */
+function columnsForTable(
+  mutable: RowMutableTable | undefined,
+  classifiedColumns: string[],
+): string[] {
+  return mutable ? displayColumns(mutable, classifiedColumns) : classifiedColumns;
+}
+
+/**
+ * Renderer direction: the classified table in hand, its declaration looked up.
+ *
+ * Returns the declaration too, because the caller needs it for the row controls
+ * and the column descriptions — and looking it up twice is how the control and
+ * the columns would come to disagree about which table this is.
+ */
+export function tableColumns(
+  table: ClassifiedTableLike,
+  rowMutableTables: readonly RowMutableTable[],
+): { mutable: RowMutableTable | undefined; columns: string[] } {
+  const mutable = rowMutableTables.find((entry) => matchesTablePointer(entry.pointer, table.pointer));
+  return { mutable, columns: columnsForTable(mutable, table.columns) };
+}
+
+/**
+ * Plan-builder direction: the declaration in hand, its classified table looked
+ * up. A server-declared table the extraction found nothing in has no classified
+ * counterpart at all — that is the zero-row table a reviewer types the first
+ * line into, so it must still yield its declared columns.
+ */
+export function declaredTableColumns(
+  mutable: RowMutableTable,
+  classifiedTables: readonly ClassifiedTableLike[],
+): string[] {
+  const classified = classifiedTables.find(
+    (candidate) => matchesTablePointer(mutable.pointer, candidate.pointer),
+  );
+  return columnsForTable(mutable, classified?.columns ?? []);
+}
+
 /**
  * Every editable cell in the form, as one flat list.
  *

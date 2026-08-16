@@ -64,6 +64,34 @@ export const NOTHING_HIDDEN: HiddenSets = {
  */
 export const unplannedRowKey = (tablePointer: string, index: number): string => `${tablePointer}/${index}`;
 
+/**
+ * The plan for a RENDERED table, resolved the way its pointer actually spells.
+ *
+ * `plannedTables` is keyed by the SERVER-declared pointer, which need not match
+ * the payload's spelling — a server `/line_items` can classify as `/lineItems`.
+ * Anything holding a RENDERED table's pointer must therefore resolve it with
+ * matchesTablePointer — as `tableColumns` (row-cells.ts) does to find that
+ * table's declaration — rather than looking it up exactly: an exact lookup
+ * silently falls through to the unplanned branch, generating `/lineItems/0`
+ * keys while the rendered rows are keyed `/line_items#row-0`. Nothing would
+ * ever hide, and no error would be raised — which is why this is one exported
+ * function rather than a closure each caller re-writes.
+ *
+ * TableSection itself needs none of this (form.tsx): by then it holds the
+ * DECLARATION, and `mutable.pointer` is the map key verbatim.
+ */
+export function planForTable(
+  plannedTables: ReadonlyMap<string, PlannedRow[]>,
+  tablePointer: string,
+): PlannedRow[] | undefined {
+  const exact = plannedTables.get(tablePointer);
+  if (exact !== undefined) return exact;
+  for (const [serverPointer, planned] of plannedTables) {
+    if (matchesTablePointer(serverPointer, tablePointer)) return planned;
+  }
+  return undefined;
+}
+
 /** The tables the FORM renders — `withEmptyMutableTables`' output, not
  *  `classified.tables`. They differ: an empty server-declared row-mutable
  *  table is promoted into the rendered list without existing in the
@@ -112,24 +140,8 @@ function forEachRowUnit(
     return meta?.confidence ?? null;
   };
 
-  // `plannedTables` is keyed by the SERVER-declared pointer, which need not
-  // match the payload's spelling — a server `/line_items` can classify as
-  // `/lineItems`. TableSection resolves this with matchesTablePointer before
-  // looking the plan up (form.tsx), and so must this: an exact lookup silently
-  // falls through to the unplanned branch, generating `/lineItems/0` keys
-  // while the rendered rows are keyed `/line_items#row-0`. Nothing would ever
-  // hide, and no error would be raised.
-  const planFor = (tablePointer: string): PlannedRow[] | undefined => {
-    const exact = plannedTables.get(tablePointer);
-    if (exact !== undefined) return exact;
-    for (const [serverPointer, planned] of plannedTables) {
-      if (matchesTablePointer(serverPointer, tablePointer)) return planned;
-    }
-    return undefined;
-  };
-
   for (const table of tables) {
-    const planned = planFor(table.pointer);
+    const planned = planForTable(plannedTables, table.pointer);
     if (planned) {
       for (const row of planned) {
         // An added row was never extracted, so it has no confidence and is not

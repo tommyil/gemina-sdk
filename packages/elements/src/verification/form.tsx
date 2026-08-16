@@ -38,7 +38,7 @@ import type { ClassifiedCell, ClassifiedData, ClassifiedField } from './classify
 import { ROW_META_KEY, formatLabel, formatValue } from './classify';
 import { ISO_4217_CODES, cellSchemaKey, validateInput } from './field-types';
 import type { RowMutableTable, ValidationFieldDescriptor } from './field-types';
-import { displayColumns, matchesTablePointer } from './row-cells';
+import { matchesTablePointer, tableColumns } from './row-cells';
 import type { PlannedCell, PlannedRow } from './row-cells';
 import { cellEditKey } from './row-plan';
 import { NOTHING_HIDDEN, unplannedRowKey } from './review-filter';
@@ -726,7 +726,17 @@ function TableRowView(props: TableRowViewProps): React.JSX.Element {
  * comparator inspects only edits for this row's cells, so one keystroke
  * re-renders one row. Callbacks are compared by reference: the parent must
  * pass referentially stable `onEdit`/`onFlash` (and a stable
- * `classified`/`bindingIndex`) or the memoization degrades to plain renders. */
+ * `classified`/`bindingIndex`) or the memoization degrades to plain renders.
+ *
+ * `rowMutableTables` belongs on that list too, and less obviously so, because
+ * it is not compared here at all. `columns` is — and TableSection derives it
+ * with one `tableColumns` memo keyed on `[table, shared.rowMutableTables]`.
+ * `displayColumns` mints a fresh array every time that memo runs, so a
+ * `rowMutableTables` prop rebuilt per render invalidates `columns` on every
+ * keystroke and re-renders EVERY row of the table, not one. (The earlier
+ * two-memo shape happened to absorb this — `.find` returns the same element,
+ * so the inner memo did not re-run — but that buffer is gone, and no lint in
+ * this repo would report its loss.) */
 function areRowPropsEqual(prev: TableRowViewProps, next: TableRowViewProps): boolean {
   if (
     prev.row !== next.row
@@ -840,13 +850,9 @@ function TableSection(props: {
   // Row editing is offered ONLY where the server declared it. Any wide array
   // of objects looks like a table to the classifier — custom_template's do —
   // and controls on one the scorer cannot align would mis-score permanently.
-  const mutable = React.useMemo(
-    () => shared.rowMutableTables.find((entry) => matchesTablePointer(entry.pointer, table.pointer)),
-    [shared.rowMutableTables, table.pointer],
-  );
-  const columns = React.useMemo(
-    () => (mutable ? displayColumns(mutable, table.columns) : table.columns),
-    [mutable, table.columns],
+  const { mutable, columns } = React.useMemo(
+    () => tableColumns(table, shared.rowMutableTables),
+    [table, shared.rowMutableTables],
   );
   const planned = mutable ? shared.plannedTables.get(mutable.pointer) : undefined;
 

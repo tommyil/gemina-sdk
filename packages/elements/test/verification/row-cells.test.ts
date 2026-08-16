@@ -9,7 +9,9 @@
 
 import { describe, expect, it } from 'vitest';
 import { buildBindings, composeSubmission } from '../../src/verification/bindings';
-import { collectCellViews, displayColumns, planTableCells } from '../../src/verification/row-cells';
+import {
+  collectCellViews, declaredTableColumns, displayColumns, planTableCells, tableColumns,
+} from '../../src/verification/row-cells';
 import {
   initialRowPlan, insertRowAfter, isIdentityPlan, removeRow, rowSourcesOf,
 } from '../../src/verification/row-plan';
@@ -47,6 +49,75 @@ describe('displayColumns', () => {
       ],
     };
     expect(displayColumns(table, ['unit_size', 'unitSize'])).toEqual(['unit_size', 'unitSize']);
+  });
+});
+
+/**
+ * The renderer and the plan builder used to derive a table's column list
+ * separately — and nothing forced them to agree, even though `planTableCells`'
+ * output is what `resolveRowCell` later consults for edit keys. A drift there
+ * mis-attributes a correction rather than merely mis-rendering, so both
+ * directions now bottom out in `columnsForTable`.
+ */
+describe('tableColumns', () => {
+  it('tableColumns returns the server display order for a mutable table', () => {
+    const table = {
+      pointer: '/lineItems', columns: ['description'], rows: [], key: 'lineItems', overallConfidence: null,
+    };
+    const mutable = {
+      ...TABLE,
+      columns: [
+        { key: 'catalog_number', type: 'string' as const },
+        { key: 'description', type: 'string' as const },
+      ],
+    };
+    expect(tableColumns(table, [mutable]).columns).toEqual(['catalog_number', 'description']);
+  });
+
+  it('tableColumns falls back to the classified columns when nothing is declared', () => {
+    const table = {
+      pointer: '/taxes', columns: ['rate', 'amount'], rows: [], key: 'taxes', overallConfidence: null,
+    };
+    const resolved = tableColumns(table, []);
+    expect(resolved.columns).toEqual(['rate', 'amount']);
+    expect(resolved.mutable).toBeUndefined();
+    // The SAME array, not a copy. `areRowPropsEqual` compares `columns` by
+    // reference (form.tsx), so a defensive copy here re-renders every row of
+    // the table on every keystroke.
+    expect(resolved.columns).toBe(table.columns);
+  });
+
+  it('the plan builder and the renderer derive the SAME columns for a casing mismatch', () => {
+    const mutable = {
+      ...TABLE,
+      columns: [
+        { key: 'unit_of_measure', type: 'string' as const },
+        { key: 'description', type: 'string' as const },
+      ],
+    };
+    const classified = {
+      key: 'lineItems',
+      pointer: '/lineItems',
+      // `notes` is UNDECLARED, and it is what makes this test discriminating:
+      // with every classified column an alias of a declared one, a lookup that
+      // failed outright would produce the same declared-only answer and the
+      // assertion would hold under the bug. The undeclared column can only
+      // appear if the pointer actually resolved across the casing mismatch.
+      columns: ['unitOfMeasure', 'description', 'notes'],
+      rows: [],
+      overallConfidence: null,
+    };
+    // The renderer holds the classified table and looks the declaration up;
+    // the plan builder runs the other way round. Same answer either way.
+    const rendered = tableColumns(classified, [mutable]).columns;
+    expect(rendered).toEqual(['unit_of_measure', 'description', 'notes']);
+    expect(declaredTableColumns(mutable, [classified])).toEqual(rendered);
+  });
+
+  it('declaredTableColumns keeps the declaration for a table the classifier never saw', () => {
+    // F9's zero-row row-mutable table: promoted for the reviewer to type into,
+    // so it has a declaration and no classified counterpart at all.
+    expect(declaredTableColumns(TABLE, [])).toEqual(['description']);
   });
 });
 
