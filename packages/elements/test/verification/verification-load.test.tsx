@@ -1086,6 +1086,12 @@ describe('GeminaVerification — empty columns (state, reset, and what the rule 
     fireEvent.click(screen.getByRole('switch', { name: SWITCH_NAME }));
     expect(screen.getByLabelText('Line Items row 1 — Barcode')).toBeTruthy();
     expect(lastFormProps().emptyColumns).toBe(NO_EMPTY_COLUMNS);
+    // The OFF-click keeps focus too. Its own half of the guard —
+    // `emptyColumns.size === 0` — is what distinguishes this surviving click
+    // from the one that unmounts the button, and only this line pins it: the
+    // ON-click above is guarded by `hideEmptyColumns` being false instead, so
+    // it cannot notice if the size check goes.
+    expect(document.activeElement).toBe(screen.getByRole('switch', { name: SWITCH_NAME }));
   });
 
   it('resets the switch when the extraction id changes', async () => {
