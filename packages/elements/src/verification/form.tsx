@@ -41,6 +41,8 @@ import type { RowMutableTable, ValidationFieldDescriptor } from './field-types';
 import { displayColumns, matchesTablePointer } from './row-cells';
 import type { PlannedCell, PlannedRow } from './row-cells';
 import { cellEditKey } from './row-plan';
+import { NOTHING_HIDDEN } from './review-filter';
+import type { HiddenSets } from './review-filter';
 import type { RowPlanEntry } from './row-plan';
 import { NOT_FOUND, parseSchemaKey, snakeToCamel } from './pointer';
 import { Tip } from './tip';
@@ -319,6 +321,23 @@ interface SectionShared {
   onEdit: (editKey: string, value: string, binding: FieldBinding) => void;
   readOnly: boolean;
   onFlash: (rects: FlashRect[]) => void;
+  /**
+   * Fields and rows the review filter is hiding. `NOTHING_HIDDEN` when off.
+   *
+   * NOT part of `areRowPropsEqual`, on purpose: it is derived from `edits`, so
+   * a new object arrives on every keystroke and comparing it would re-render
+   * every row in the table — the same cost `pairErrors` is excluded to avoid.
+   * It costs nothing to leave out, because a hidden row is never rendered at
+   * all; only the sections need to read it.
+   */
+  hidden: HiddenSets;
+  /**
+   * Whether the filter is engaged. Rows DO react to this — they drop their
+   * add/remove controls, because "insert below row 3" is meaningless when row
+   * 4 is hidden — so unlike `hidden` it must be compared. It is a stable
+   * boolean, so that is free.
+   */
+  filterOn: boolean;
 }
 
 /** Props for the whole form pane.
@@ -334,7 +353,12 @@ const NO_PLANNED: ReadonlyMap<string, PlannedRow[]> = new Map();
 const NOOP_ROW = () => {};
 
 export interface VerificationFormProps
-  extends Omit<SectionShared, 'pairErrors' | 'rowMutableTables' | 'plannedTables' | 'onAddRow' | 'onRemoveRow'> {
+  extends Omit<SectionShared,
+  'pairErrors' | 'rowMutableTables' | 'plannedTables' | 'onAddRow' | 'onRemoveRow' | 'hidden' | 'filterOn'> {
+  /** Review filter. Omitted = off, hiding nothing — same contract as the row
+   *  props above: a host rendering the form directly need not know it exists. */
+  hidden?: HiddenSets;
+  filterOn?: boolean;
   /**
    * All optional on the public surface. The pair rule and the row plans are
    * internal details of the full component, and a host — or a test — rendering
@@ -593,7 +617,12 @@ function TableRowView(props: TableRowViewProps): React.JSX.Element {
   };
 
   const firstRect = rects.length > 0 ? rects[0]! : null;
-  const showControls = planned !== undefined && tablePointer !== undefined && !readOnly;
+  // Row controls are OMITTED while filtering, not disabled: "insert below
+  // row 3" is meaningless when row 4 is hidden, and a disabled button
+  // cannot carry its own explanation — Tip attaches hover/focus handlers to
+  // its child, and a disabled button dispatches neither.
+  const showControls = planned !== undefined && tablePointer !== undefined && !readOnly
+    && !shared.filterOn;
   // A REDUNDANT channel: the confidence dot and its tooltip already carry the
   // meaning, so this marker does not have to pass contrast on its own — it is
   // there so a reviewer can find the rows worth checking by scanning the edge
@@ -688,6 +717,9 @@ function areRowPropsEqual(prev: TableRowViewProps, next: TableRowViewProps): boo
     || prev.shared.onEdit !== next.shared.onEdit
     || prev.shared.onFlash !== next.shared.onFlash
     || prev.shared.readOnly !== next.shared.readOnly
+    // Stable boolean, and rows must react to it (controls disappear).
+    // `shared.hidden` is deliberately absent — see SectionShared.
+    || prev.shared.filterOn !== next.shared.filterOn
   ) {
     // NOT compared by reference: `pairErrors` is derived from `edits`, so a new
     // Map arrives on EVERY keystroke and a blanket check would re-render every
@@ -828,7 +860,8 @@ function TableSection(props: {
     }).length,
     [table.rows],
   );
-  const showControls = planned !== undefined && mutable !== undefined && !shared.readOnly;
+  const showControls = planned !== undefined && mutable !== undefined && !shared.readOnly
+    && !shared.filterOn;
   return (
     <section className="gemina-verification__section" aria-label={label}>
       <div className="gemina-verification__section-header">
@@ -978,6 +1011,7 @@ export function VerificationForm(props: VerificationFormProps): React.JSX.Elemen
   const {
     classified, unmatched, bindingIndex, edits, onEdit, readOnly, onFlash,
     pairErrors, rowMutableTables, plannedTables, onAddRow, onRemoveRow,
+    hidden, filterOn,
   } = props;
   const { tables: promotedTables, suppressed } = React.useMemo(
     () => withEmptyMutableTables(classified, rowMutableTables ?? NO_TABLES),
@@ -990,6 +1024,8 @@ export function VerificationForm(props: VerificationFormProps): React.JSX.Elemen
     plannedTables: plannedTables ?? NO_PLANNED,
     onAddRow: onAddRow ?? NOOP_ROW,
     onRemoveRow: onRemoveRow ?? NOOP_ROW,
+    hidden: hidden ?? NOTHING_HIDDEN,
+    filterOn: filterOn ?? false,
   };
   return (
     // A real, labeled <form> (role "form" landmark): AT users can jump

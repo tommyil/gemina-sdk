@@ -779,19 +779,19 @@ describe('VerificationForm: row-mutable tables', () => {
     const byRaw = new Map(bindings.map((b) => [b.key.raw, b]));
     const plan = initialRowPlan(descriptions.length);
     const planned = new Map([[MUTABLE.pointer, planTableCells(MUTABLE, plan, COLS, byRaw)]]);
+    const base = {
+      classified: classifyData(values),
+      bindingIndex: indexBindingsByFieldPointer(bindings),
+      rowMutableTables: [MUTABLE],
+      plannedTables: planned,
+      ...extra,
+    };
+    const view = render(<VerificationForm {...formProps(base)} />);
     return {
-      ...render(
-        <VerificationForm
-          {...formProps({
-            classified: classifyData(values),
-            bindingIndex: indexBindingsByFieldPointer(bindings),
-            rowMutableTables: [MUTABLE],
-            plannedTables: planned,
-            ...extra,
-          })}
-        />,
-      ),
+      ...view,
       plan,
+      rerenderWith: (more: Partial<VerificationFormProps>) =>
+        view.rerender(<VerificationForm {...formProps({ ...base, ...more })} />),
     };
   }
 
@@ -802,6 +802,18 @@ describe('VerificationForm: row-mutable tables', () => {
     expect(screen.getByRole('button', { name: 'Remove line 2' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Insert line below line 1' })).toBeTruthy();
     expect(screen.getByRole('button', { name: /add line/i })).toBeTruthy();
+  });
+
+  // §F4: the row memo compares an explicit whitelist of `shared` fields, so a
+  // new flag that rows must react to has to join it. `filterOn` is a stable
+  // boolean, which is why it may — unlike the edits-derived `hidden` set,
+  // which would re-render every row on every keystroke.
+  it('drops row controls on already-rendered rows when the filter turns on', () => {
+    const { rerenderWith } = renderTable(['A', 'B']);
+    expect(screen.getByRole('button', { name: 'Insert line below line 1' })).toBeTruthy();
+    rerenderWith({ filterOn: true });
+    expect(screen.queryByRole('button', { name: 'Insert line below line 1' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Remove line 1' })).toBeNull();
   });
 
   it('reports the removal to the parent with the SERVER pointer and the position', () => {
