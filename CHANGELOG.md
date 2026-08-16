@@ -9,6 +9,20 @@ spec snapshot it was generated from where that matters.
 
 Pre-1.0: minor versions carry features and may change behaviour.
 
+## v0.13.3 — 2026-08-16
+
+Documentation only — no code changed in any artifact. Registry pages render
+the README from the published package, so the docs written after v0.13.2
+could not reach npm, PyPI, NuGet, Maven Central or Packagist without a
+release.
+
+What those READMEs gained: the whole of `<GeminaVerification>` in
+`@gemina/elements` — what the reviewer sees, the confidence filter and the
+`evaluation` prerequisite behind it, row editing, the theming variables, RTL
+— and, in all five language SDKs, a *Human verification* section covering
+`extractionIds`-scoped tokens and how to read the corrections back
+(`verifiedValues` / `verifiedDiff`).
+
 ## v0.13.2 — 2026-08-16
 
 Fixes from an external review of the confidence filter, each with a test that
