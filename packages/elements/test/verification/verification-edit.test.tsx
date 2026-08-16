@@ -422,17 +422,18 @@ function bodyRowCount(): number {
 }
 
 /**
- * The per-table "N empty columns hidden" notes.
+ * The per-table "N columns hidden — empty in this extraction" notes.
  *
  * Filtered by text rather than read wholesale: the same class also renders
  * "Row editing is off while filtering", which the CONFIDENCE filter puts in
- * the same header — so an unfiltered read would silently mean something
- * different in the tests that turn both switches on.
+ * the same header, and the §D1 note beside *Add line* — so an unfiltered read
+ * would silently mean something different in the tests that turn both switches
+ * on. The count is the part that varies, so it is what the pattern anchors on.
  */
 function columnNotes(): string[] {
   return [...document.querySelectorAll('.gemina-verification__filter-note')]
     .map((node) => node.textContent ?? '')
-    .filter((text) => /empty columns? hidden/.test(text));
+    .filter((text) => /^\d+ columns? hidden/.test(text));
 }
 
 /** The 8 of 19 columns the wide fixture actually populates, in server order. */
@@ -476,7 +477,7 @@ describe('GeminaVerification: the two review filters together', () => {
     fireEvent.click(screen.getByRole('switch', { name: COLUMNS_SWITCH }));
     const columnsAlone = dataHeaders();
     expect(columnsAlone).toEqual(POPULATED_HEADERS);
-    expect(columnNotes()).toEqual(['11 empty columns hidden']);
+    expect(columnNotes()).toEqual(['11 columns hidden — empty in this extraction']);
     expect(bodyRowCount()).toBe(4);
 
     // The other filter now removes ROWS underneath it — including the only row
@@ -490,7 +491,7 @@ describe('GeminaVerification: the two review filters together', () => {
     // gets no `HiddenSets`, and the memo that runs it does not depend on
     // anything `filterOn` changes — that dependency list IS this property.
     expect(dataHeaders()).toEqual(columnsAlone);
-    expect(columnNotes()).toEqual(['11 empty columns hidden']);
+    expect(columnNotes()).toEqual(['11 columns hidden — empty in this extraction']);
 
     // Engaged in the OTHER order, on the same screen: with the confidence
     // filter already on, turning the column filter off and back on lands on the
@@ -531,7 +532,7 @@ describe('GeminaVerification: the two review filters together', () => {
     // must not start counting a column blank merely because the other filter
     // hid the row that fills it. This number is what a rule threading
     // `HiddenSets` through would move, silently and plausibly.
-    expect(columnNotes()).toEqual(['11 empty columns hidden']);
+    expect(columnNotes()).toEqual(['11 columns hidden — empty in this extraction']);
   });
 });
 
@@ -553,7 +554,7 @@ describe('GeminaVerification: hide empty columns while editing', () => {
     // `unit_size` and `unit_size_uom` are blank TOGETHER in all four rows —
     // the shape 23 of 29 real tables had — so both qualify and both go.
     fireEvent.click(screen.getByRole('switch', { name: COLUMNS_SWITCH }));
-    expect(columnNotes()).toEqual(['11 empty columns hidden']);
+    expect(columnNotes()).toEqual(['11 columns hidden — empty in this extraction']);
     expect(dataHeaders()).not.toContain('Unit Size');
     expect(dataHeaders()).not.toContain('Unit Size Uom');
 
@@ -578,7 +579,7 @@ describe('GeminaVerification: hide empty columns while editing', () => {
     // pair-error clause alone. Hiding the blank half would remove exactly the
     // cell blocking Submit while the footer says a field needs attention: an
     // unresolvable dead end with no visible cause.
-    expect(columnNotes()).toEqual(['9 empty columns hidden']);
+    expect(columnNotes()).toEqual(['9 columns hidden — empty in this extraction']);
     expect(dataHeaders()).toContain('Unit Size');
     expect(dataHeaders()).toContain('Unit Size Uom');
     expect(screen.getByLabelText('Line Items row 1 — Unit Size Uom')).toBeTruthy();
@@ -588,6 +589,56 @@ describe('GeminaVerification: hide empty columns while editing', () => {
       (screen.getByRole('button', { name: 'Submit' }) as HTMLButtonElement).disabled,
     ).toBe(true);
     expect(container.querySelector('.gemina-verification__attention')).not.toBeNull();
+  });
+
+  /* The live column unmount, decided in the browser in Task 7 and pinned here.
+   *
+   * Resolving the pair error while the filter is on takes the partner column's
+   * only reason to be visible away, and it leaves the grid in front of the
+   * reviewer. Driven in chromium at 1280 (scripts/visual/probe-empty-columns
+   * in the console repo, shots `unmount-before/after`): the caret does not
+   * move — the cell being edited is held by touched-ever, keeps its DOM node
+   * and keeps focus — the count ticks 9 -> 10, and the column that leaves is
+   * blank in every row and was never typed into. It reads as the filter
+   * answering the reviewer's own edit, not as data disappearing, so it stays.
+   *
+   * Pinned rather than left to prose because the alternative — a column that
+   * became visible staying visible for the rest of the session — is the
+   * plausible "fix" a later reader reaches for, and it would contradict §S,
+   * which computes emptiness from current state on every render. The
+   * confidence filter's same-class behaviour (F11) is on the backlog for the
+   * same reason: one of these two is not the place to diverge.
+   */
+  it('lets a column go when the pair error that held it is resolved', async () => {
+    getDocumentExtraction.mockResolvedValueOnce(wideTableExtraction());
+    renderVerification();
+    await screen.findByLabelText('Line Items row 1 — Description');
+
+    // Raise the error with the filter off (the only order that reaches it),
+    // then filter: `unit_size` is held by touched-ever, `unit_size_uom` by the
+    // error alone.
+    const unitSize = screen.getByLabelText<HTMLInputElement>('Line Items row 1 — Unit Size');
+    fireEvent.change(unitSize, { target: { value: '5' } });
+    fireEvent.click(screen.getByRole('switch', { name: COLUMNS_SWITCH }));
+    expect(columnNotes()).toEqual(['9 columns hidden — empty in this extraction']);
+    expect(dataHeaders()).toContain('Unit Size Uom');
+
+    const held = screen.getByLabelText<HTMLInputElement>('Line Items row 1 — Unit Size');
+    held.focus();
+    fireEvent.change(held, { target: { value: '' } });
+
+    // The partner column is gone, live, with the switch untouched.
+    expect(dataHeaders()).not.toContain('Unit Size Uom');
+    expect(screen.queryByLabelText('Line Items row 1 — Unit Size Uom')).toBeNull();
+    expect(columnNotes()).toEqual(['10 columns hidden — empty in this extraction']);
+    expect(screen.queryAllByText(UNIT_PAIR_MESSAGE)).toHaveLength(0);
+
+    // …and NOT under the cursor. The cell the reviewer is in was typed into,
+    // so touched-ever holds its column even though the edit was just deleted
+    // by the return-to-pristine rule (F11) — same DOM node, still focused.
+    expect(screen.getByLabelText('Line Items row 1 — Unit Size')).toBe(held);
+    expect(document.activeElement).toBe(held);
+    expect(dataHeaders()).toContain('Unit Size');
   });
 
   it('re-shows nothing when the reviewer edits a VISIBLE cell', async () => {
@@ -612,7 +663,7 @@ describe('GeminaVerification: hide empty columns while editing', () => {
     // land on exactly the same answer.
     expect(dataHeaders()).toEqual(filtered);
     expect(screen.queryByLabelText('Line Items row 1 — Barcode')).toBeNull();
-    expect(columnNotes()).toEqual(['11 empty columns hidden']);
+    expect(columnNotes()).toEqual(['11 columns hidden — empty in this extraction']);
 
     // …and it costs ONE row render, not four. While the switch is on,
     // `emptyColumns` is derived from `edits`, so a fresh Map holding fresh Sets
@@ -684,7 +735,7 @@ describe('GeminaVerification: hide empty columns while editing', () => {
     fireEvent.click(screen.getByRole('switch', { name: COLUMNS_SWITCH }));
     // Ten of eleven: `barcode` survived the filter because it was touched. Its
     // extracted value is still null, so nothing about the DATA keeps it here.
-    expect(columnNotes()).toEqual(['10 empty columns hidden']);
+    expect(columnNotes()).toEqual(['10 columns hidden — empty in this extraction']);
     const barcode = screen.getByLabelText<HTMLInputElement>('Line Items row 1 — Barcode');
     barcode.focus();
     expect(document.activeElement).toBe(barcode);
@@ -704,6 +755,6 @@ describe('GeminaVerification: hide empty columns while editing', () => {
     // out.
     expect(screen.getByLabelText('Line Items row 1 — Barcode')).toBe(barcode);
     expect(document.activeElement).toBe(barcode);
-    expect(columnNotes()).toEqual(['10 empty columns hidden']);
+    expect(columnNotes()).toEqual(['10 columns hidden — empty in this extraction']);
   });
 });

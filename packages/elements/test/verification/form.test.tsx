@@ -1307,12 +1307,21 @@ describe('VerificationForm: empty columns', () => {
    * not a unit, and folding it in would make one number mean two things.
    *
    * The note reads `.gemina-verification__filter-note`, shared with the row-
-   * editing note, so read it by TEXT: the class alone would not distinguish
-   * the two, and both can be on a header at once.
+   * editing note AND with the *Add line* note in the table footer, so read it
+   * by CONTAINER: the class alone names three different statements, and two of
+   * them can be on a header at once.
    */
   function filterNotes(section: HTMLElement): string[] {
-    return [...section.querySelectorAll('.gemina-verification__filter-note')]
-      .map((node) => node.textContent ?? '');
+    return [...section.querySelectorAll(
+      '.gemina-verification__section-header .gemina-verification__filter-note',
+    )].map((node) => node.textContent ?? '');
+  }
+
+  /** The §D1 note that sits beside *Add line*, in the table footer. */
+  function addLineNotes(section: HTMLElement): string[] {
+    return [...section.querySelectorAll(
+      '.gemina-verification__table-footer .gemina-verification__filter-note',
+    )].map((node) => node.textContent ?? '');
   }
 
   it('states the hidden-column count on each affected table', () => {
@@ -1329,18 +1338,24 @@ describe('VerificationForm: empty columns', () => {
 
     // Per table, and the two numbers differ — one note copied to both headers,
     // or a single count summed across tables, reads the same on one table and
-    // wrong here. Plural and singular in the same render, because "1 empty
-    // columns hidden" is the kind of thing that ships.
+    // wrong here. Plural and singular in the same render, because "1 columns
+    // hidden" is the kind of thing that ships.
+    //
+    // The trailing clause is load-bearing, not decoration: the rule walks the
+    // whole row plan, so a column populated ONLY in a confidence-hidden row
+    // stays on screen reading blank. "N empty columns" unqualified invites the
+    // reviewer to check the claim against the grid, where it is false exactly
+    // there; "empty in this extraction" is true in both states.
     expect(filterNotes(screen.getByRole('region', { name: 'Line Items' })))
-      .toEqual(['11 empty columns hidden']);
+      .toEqual(['11 columns hidden — empty in this extraction']);
     expect(filterNotes(screen.getByRole('region', { name: 'Taxes' })))
-      .toEqual(['1 empty column hidden']);
+      .toEqual(['1 column hidden — empty in this extraction']);
   });
 
   it('states nothing on a table with no hidden columns', () => {
     // The same two-table world, with only the NEIGHBOUR filtered. A note
-    // rendered unconditionally would say "0 empty columns hidden" on a full
-    // table — a report of an absence that is not there.
+    // rendered unconditionally would say "0 columns hidden" on a full table —
+    // a report of an absence that is not there.
     render(
       <VerificationForm
         {...fixtureProps()}
@@ -1350,7 +1365,7 @@ describe('VerificationForm: empty columns', () => {
 
     expect(filterNotes(screen.getByRole('region', { name: 'Line Items' }))).toEqual([]);
     expect(filterNotes(screen.getByRole('region', { name: 'Taxes' })))
-      .toEqual(['1 empty column hidden']);
+      .toEqual(['1 column hidden — empty in this extraction']);
   });
 
   it('counts the columns actually dropped, not the size of the host’s set', () => {
@@ -1369,7 +1384,7 @@ describe('VerificationForm: empty columns', () => {
     const section = screen.getByRole('region', { name: 'Line Items' });
 
     expect(dataHeaders(section)).toEqual(['Description', 'Quantity', 'Item Code']);
-    expect(filterNotes(section)).toEqual(['1 empty column hidden']);
+    expect(filterNotes(section)).toEqual(['1 column hidden — empty in this extraction']);
   });
 
   it('keeps row add/remove available while columns are hidden', () => {
@@ -1385,9 +1400,58 @@ describe('VerificationForm: empty columns', () => {
     expect(within(section).getByRole('button', { name: 'Remove line 1' })).toBeTruthy();
     expect(within(section).getByRole('button', { name: 'Remove line 2' })).toBeTruthy();
     expect(within(section).getByRole('button', { name: /add line/i })).toBeTruthy();
-    expect(filterNotes(section)).toEqual(['1 empty column hidden']);
+    expect(filterNotes(section)).toEqual(['1 column hidden — empty in this extraction']);
     // The column really is hidden while all of that is true.
     expect(screen.queryByLabelText('Line Items row 1 — Discount')).toBeNull();
+  });
+
+  /* §D1's accepted consequence and its way out (Task 7's copy pass).
+   *
+   * Keeping row editing on means a line added now has no input for the hidden
+   * columns. That is a limit on *Add line*, not a fact about the extraction,
+   * so it is stated in the table footer beside the button rather than folded
+   * into the header's count — one job per element, and this one is met where
+   * the button is. These pin the placement, not just the words: a note that
+   * drifted into the header would still pass a text-only assertion. */
+  it('states the added-line limit beside Add line, and the way out of it', () => {
+    render(<VerificationForm {...tableProps(VALUES, { emptyColumns: hideDiscount() })} />);
+    const section = screen.getByRole('region', { name: 'Line Items' });
+
+    expect(addLineNotes(section)).toEqual([
+      'New lines can only fill the visible columns'
+        + ' — turn off Hide empty columns to reach the rest.',
+    ]);
+    // The header's note keeps its one job: the count, and nothing about rows.
+    expect(filterNotes(section)).toEqual(['1 column hidden — empty in this extraction']);
+    // The way out names the switch it names in the footer — an action keeps
+    // one name everywhere it is spoken about — and it is a SENTENCE, not a
+    // second control: a per-table button flipping the one global switch would
+    // claim a scope it does not have on a multi-table extraction.
+    expect(within(section).queryByRole('button', { name: /empty columns/i })).toBeNull();
+  });
+
+  it('says nothing beside Add line when the table lost no columns', () => {
+    render(<VerificationForm {...tableProps(VALUES)} />);
+    const section = screen.getByRole('region', { name: 'Line Items' });
+
+    expect(within(section).getByRole('button', { name: /add line/i })).toBeTruthy();
+    expect(addLineNotes(section)).toEqual([]);
+  });
+
+  it('says nothing beside Add line in read-only mode — there is no Add line', () => {
+    // §D5: the switch stays available on a validated extraction, so columns
+    // are hidden there too. Nothing can be added, so the limit does not exist
+    // and stating it would be an instruction with no action behind it.
+    render(
+      <VerificationForm
+        {...tableProps(VALUES, { emptyColumns: hideDiscount(), readOnly: true })}
+      />,
+    );
+    const section = screen.getByRole('region', { name: 'Line Items' });
+
+    expect(within(section).queryByRole('button', { name: /add line/i })).toBeNull();
+    expect(addLineNotes(section)).toEqual([]);
+    expect(filterNotes(section)).toEqual(['1 column hidden — empty in this extraction']);
   });
 
   // The optional-prop contract the row props already have: a host — or a test

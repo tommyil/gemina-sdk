@@ -1175,13 +1175,13 @@ describe('GeminaVerification — empty columns (state, reset, and what the rule 
 
     fireEvent.click(screen.getByRole('switch', { name: SWITCH_NAME }));
     // Non-vacuity: with the grid on screen the note IS there, and says 11.
-    expect(screen.getByText('11 empty columns hidden')).toBeTruthy();
+    expect(screen.getByText('11 columns hidden — empty in this extraction')).toBeTruthy();
 
     fireEvent.click(screen.getByRole('switch', { name: 'Hide high-confidence fields' }));
 
     expect(screen.getByText('All 4 rows scored high')).toBeTruthy();
     expect(screen.queryByRole('table')).toBeNull();
-    expect(screen.queryByText(/empty columns? hidden/)).toBeNull();
+    expect(screen.queryByText(/columns? hidden/)).toBeNull();
   });
 
   /** Submit the wide fixture once, filter on or off, and hand back the exact

@@ -297,8 +297,20 @@ const VERIFICATION_CSS = `
 }
 .gemina-verification__section-header {
   display: flex;
+  /* Wraps for the same reason the footer does, and it was measured the same
+     way: with BOTH review filters on this row carries four children — the
+     label, the confidence filter's "row editing is off" note, the column
+     filter's count, and the overall-confidence readout, which is
+     white-space: nowrap on margin-inline-start: auto. At 320 that readout
+     was pushed 36px (chromium) / 48px (firefox) past the header's edge and
+     clipped, in BOTH directions. Without wrapping, the three text children
+     also squeeze into narrow word-per-line columns from ~420px down, which is
+     the state the screenshots showed before this rule. Row gap is tighter
+     than the column gap: wrapped lines are one meta line continued, not
+     separate blocks. */
+  flex-wrap: wrap;
   align-items: center;
-  gap: 8px;
+  gap: 4px 8px;
   padding: 8px 12px;
   background: var(--gemina-verification-surface);
   border-block-end: 1px solid var(--gemina-verification-border);
@@ -592,16 +604,49 @@ const VERIFICATION_CSS = `
   border-color: var(--gemina-verification-accent);
   color: var(--gemina-verification-accent-fg);
 }
-/* Stands in for a table's grid when every row of it scored high. Muted and
-   unemphatic on purpose — it reports an absence, it is not a finding. */
 .gemina-verification__filter-count {
   font-size: 12px;
   color: var(--gemina-verification-muted);
+  /* "Showing 6 of 11" is untranslated English chrome whose first characters
+     are a digit run, and it sits in a footer that takes the widget's
+     direction. Same fix, same reason as __progress above: base the line's
+     direction on its own first strong character. */
+  unicode-bidi: plaintext;
 }
+/* The per-section notes both filters write into the section header. Muted and
+   unemphatic on purpose — they report an absence, they are not findings.
+   Explicitly 400: the header sets font-weight: 600 for its LABEL, and
+   without this the notes inherit it and become the boldest thing in the row
+   after the label itself. The header's three weights are the hierarchy —
+   600 label, 500 confidence readout, 400 notes. */
 .gemina-verification__filter-note {
   font-size: 12px;
+  font-weight: 400;
   color: var(--gemina-verification-muted);
+  /* Observed at 320 RTL before this rule: "1 empty column hidden" rendered as
+     "empty 1 column hidden" — the RTL paragraph direction reordered the
+     leading number run. The copy is English chrome either way, so it takes
+     its direction from its own first strong character. */
+  unicode-bidi: plaintext;
 }
+/* Two notes side by side is a reachable state — the confidence filter's
+   constraint and this filter's count — and unseparated they read as one
+   sentence ("…while filtering 11 columns hidden"). A hairline rather than the
+   house middot, because a separator CHARACTER cannot land on the right side
+   here: the note carries unicode-bidi: plaintext, so its own content resolves
+   LTR even inside an RTL header, and a ::before then paints at the note's left
+   edge — the side AWAY from the sibling it is separating from. Measured that
+   way at 780 RTL before this rule. A border-inline-start resolves against the
+   direction property, which plaintext does not touch, so it faces the previous
+   sibling in both directions. It also survives the header wrapping: when the
+   two notes land on different lines the hairline leads the second one, where a
+   rule reads as an indent and a stray middot would have read as a typo. */
+.gemina-verification__filter-note + .gemina-verification__filter-note {
+  border-inline-start: 1px solid var(--gemina-verification-border);
+  padding-inline-start: 8px;
+}
+/* Stands in for a table's grid when every row of it scored high. Muted and
+   unemphatic on purpose — it reports an absence, it is not a finding. */
 .gemina-verification__all-scored {
   margin: 0;
   padding: 12px;
@@ -798,6 +843,12 @@ const VERIFICATION_CSS = `
 }
 .gemina-verification__table-footer {
   display: flex;
+  /* *Add line* sits here alone until the column filter hides something, and
+     then a note joins it — long enough to need its own line at 390 and below,
+     which is why this row wraps and centres what is on it. */
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
   padding: 8px 10px;
 }
 .gemina-verification__add-row {

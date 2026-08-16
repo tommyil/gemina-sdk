@@ -145,6 +145,40 @@ describe('verification styles', () => {
     expect(css).toMatch(/\.gemina-verification__progress\s*\{[^}]*unicode-bidi:\s*plaintext/);
   });
 
+  /* Task 7's browser pass, as four assertions. Each one is a rule that was
+   * MEASURED to be needed, not a preference: probed in chromium and firefox at
+   * 1440/1280/780/390/320, LTR and RTL, with both review filters on
+   * (scripts/visual/probe-empty-columns.mjs in the console repo). */
+  it('wraps the section header and keeps its notes quiet and LTR', async () => {
+    const { ensureVerificationStylesInjected } = await import('../../src/verification/styles');
+    ensureVerificationStylesInjected();
+    const css = document.head.querySelector('style[data-gemina-verification]')?.textContent ?? '';
+
+    // With both filters on the header carries four children, the last of them
+    // `white-space: nowrap` on `margin-inline-start: auto`. At 320 it was
+    // pushed 36px (chromium) / 48px (firefox) past the header edge and
+    // clipped, both directions — the same failure the footer's wrap fixed in
+    // v0.13.1, on the row the fix never reached.
+    expect(css).toMatch(/\.gemina-verification__section-header\s*\{[^}]*flex-wrap:\s*wrap/);
+    // The header sets font-weight 600 for its LABEL. Without an explicit
+    // weight the notes inherit it and a muted report becomes the boldest thing
+    // in the row after the label — the opposite of what its own styling
+    // comment says it is for.
+    expect(css).toMatch(/\.gemina-verification__filter-note\s*\{[^}]*font-weight:\s*400/);
+    // "1 column hidden — empty in this extraction" rendered as "empty 1 column
+    // hidden" at 320 RTL before this: the RTL paragraph direction reorders a
+    // leading number run. Same for the footer's "Showing 6 of 11".
+    expect(css).toMatch(/\.gemina-verification__filter-note\s*\{[^}]*unicode-bidi:\s*plaintext/);
+    expect(css).toMatch(/\.gemina-verification__filter-count\s*\{[^}]*unicode-bidi:\s*plaintext/);
+    // Two adjacent notes are separated by a hairline rather than a character:
+    // plaintext resolves the note's own content LTR, so a ::before lands on
+    // the side AWAY from the sibling under RTL. A logical border resolves
+    // against `direction`, which plaintext does not touch.
+    expect(css).toMatch(
+      /\.gemina-verification__filter-note \+ \.gemina-verification__filter-note\s*\{[^}]*border-inline-start/,
+    );
+  });
+
   it('keeps viewer chrome sticky, field eyes inline, and table actions padded', async () => {
     const { ensureVerificationStylesInjected } = await import('../../src/verification/styles');
     ensureVerificationStylesInjected();

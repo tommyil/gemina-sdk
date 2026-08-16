@@ -1002,28 +1002,40 @@ function TableSection(props: {
             and rows — and a column is not one, so folding them together would
             make one number mean two things.
             Only on a table that lost something: rendered unconditionally it
-            would report "0 empty columns hidden" on a full table, which is an
+            would report "0 columns hidden" on a full table, which is an
             absence that is not there.
-            "Empty" means empty in the EXTRACTION, never "empty in what you
-            are looking at" — this rule walks the whole row plan, including
-            rows the confidence filter is hiding, so with both filters on a
-            column populated only in a hidden row stays visible and reads
-            blank. Copy that claimed the screen would be false exactly there.
-            And row editing stays ON under this filter (§D1), which leaves one
-            consequence for the copy to carry: a reviewer who adds a line
-            cannot reach its hidden cells until they switch back. That belongs
-            HERE, beside the absence, and not on a tooltip attached to a
-            control that is still present and still works.
+            THE COPY CLAIMS THE EXTRACTION, NOT THE SCREEN, and the trailing
+            clause is the whole reason it is worded that way: this rule walks
+            the whole row plan, including rows the confidence filter is
+            hiding, so with both filters on a column populated only in a
+            hidden row stays visible and reads blank in every row on screen.
+            "N empty columns" unqualified invites the reviewer to check that
+            against what they can see, where it is false exactly there;
+            "empty in this extraction" is true in both states and carries the
+            warning that matters — a column the model missed reads empty here
+            even when the document has ink in it.
+            The count is the note's ONE job. §D1's consequence — a reviewer
+            who adds a line cannot reach its hidden cells — is a different
+            statement, and it is made in the table footer beside *Add line*,
+            which is where that limit is met.
+            NO `aria-live` HERE, deliberately, and unlike the footer's
+            `Showing X of Y`. One toggle mounts one of these per affected
+            table, so a live region would announce N times for a single press
+            on a multi-table extraction. The state change is already announced
+            by the switch itself (`role="switch"` + `aria-checked`), which is
+            one announcement for one action; this note is the detail, read at
+            the table it belongs to, in reading order.
             And silent when `allHidden`: the confidence filter has by then
             replaced the whole grid with "All N rows scored high", so there is
             no table for a column to have been hidden FROM. The two are
             computed independently and neither implies the other, so without
             this clause the header of a section showing no grid at all reads
-            "11 empty columns hidden" — which no wording can rescue, because at
+            "11 columns hidden" — which no wording can rescue, because at
             that moment there is no true sentence to write. */}
         {hiddenColumnCount > 0 && !allHidden ? (
           <span className="gemina-verification__filter-note">
-            {`${hiddenColumnCount} empty ${hiddenColumnCount === 1 ? 'column' : 'columns'} hidden`}
+            {`${hiddenColumnCount} ${hiddenColumnCount === 1 ? 'column' : 'columns'} hidden`
+              + ' — empty in this extraction'}
           </span>
         ) : null}
         {table.overallConfidence ? (
@@ -1090,6 +1102,29 @@ function TableSection(props: {
           >
             Add line
           </button>
+          {/* §D1's accepted consequence, stated where it is met. Row editing
+              stays ON while columns are hidden — rows keep their identity, so
+              the confidence filter's renumbering rationale does not transfer —
+              and the cost is that a line added now has no input for the hidden
+              columns. That is not a fact about this table's data, so it is not
+              part of the header's count; it is a limit on the button beside
+              it. Not a tooltip on that button either: the button works, and a
+              hover-only explanation is found by the reviewer only after they
+              have already pressed it and typed into the wrong grid.
+              It names the switch rather than pointing vaguely at the footer:
+              the control keeps one name everywhere it is spoken about.
+              Gated on `showControls`, which already carries the rest of the
+              conditions — no plan or no row-mutable declaration means no line
+              to add, read-only means no editing (§D5), and the confidence
+              filter being on removes *Add line* entirely, at which point there
+              is no button for this to qualify. `hiddenColumnCount > 0` is what
+              makes it appear only when something is actually out of reach. */}
+          {hiddenColumnCount > 0 ? (
+            <span className="gemina-verification__filter-note">
+              {'New lines can only fill the visible columns'
+                + ' — turn off Hide empty columns to reach the rest.'}
+            </span>
+          ) : null}
         </div>
       ) : null}
     </section>
