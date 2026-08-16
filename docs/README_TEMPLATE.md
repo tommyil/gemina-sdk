@@ -89,8 +89,12 @@ never the API key. Mention `@gemina/elements` for a drop-in chat UI (npm).
   authorizes the end-user against those ids.
 - `evaluation` at upload is what produces per-field confidence and the
   reviewer's "hide high-confidence" filter.
-- One-shot per extraction (409 on resubmission); corrected payload comes back
-  on the extraction as `verifiedValues`, null until verified.
+- **How you get the result** — the question integrators actually ask. A
+  `get_document_extraction` sample reading `meta.validated`, `values`,
+  `verifiedValues` and `verifiedDiff` (statuses `corrected`/`added`/`removed`,
+  pointers resolving against both payloads). Say plainly that the server read
+  is the source of truth and the widget's browser callback is best-effort.
+- One-shot per extraction (409 on resubmission).
 - Server-side submit sample (`documents` group /
   `validate_document_extraction`) for hosts using their own review UI.
 

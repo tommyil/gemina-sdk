@@ -308,12 +308,28 @@ extractions: Gemina enforces the claim, you decide who gets it.
 Upload with `evaluation: true` to give the reviewer per-field confidence scores
 and the "hide everything already scored high" filter.
 
+**Reading the result back** is one call, and it's the source of truth — the
+widget's browser callback is best-effort, this isn't:
+
+```csharp
+var view = await client.Documents.GetDocumentExtractionAsync(extractionId);
+
+view.Meta.Validated;    // has a human verified this yet?
+view.Values;            // what the model extracted
+view.VerifiedValues;    // same shape, corrections merged in — null until verified
+view.VerifiedDiff;      // what the reviewer changed
+```
+
+`VerifiedValues` is deliberately the same shape as `Values`, so moving your
+pipeline from raw to human-verified data is a one-name change. Each
+`VerifiedDiff` entry is `Field`, `Pointer`, `Original`, `Verified` and a
+`Status` of `corrected`, `added` or `removed`; the pointer resolves against
+both payloads, so you can show before and after. All three are also on the
+results-poll and list surfaces, so a batch job can sweep for `Meta.Validated`
+without fetching extractions one by one.
+
 Verification is **one-shot** per extraction — a second submission is rejected
-with 409. Afterwards the extraction carries two new properties, both null until
-someone verifies it: `VerifiedValues` — the same shape as `Values`, with the
-reviewer's corrections merged in, so switching payloads is a one-name change —
-and `VerifiedDiff`, the typed list of what they changed. To submit a review
-from your own UI instead of the widget:
+with 409. To submit a review from your own UI instead of the widget:
 
 ```csharp
 var summary = await client.Documents.ValidateDocumentExtractionAsync(

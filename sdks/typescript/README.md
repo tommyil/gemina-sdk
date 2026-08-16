@@ -258,7 +258,22 @@ An empty list is rejected rather than quietly minting a tenant-wide token. Your 
 
 Upload with `evaluation: true` to give the reviewer per-field confidence scores and the "hide everything already scored high" filter.
 
-Verification is **one-shot** per extraction — a second submission is rejected with 409. Afterwards the extraction carries two new fields, both null until someone verifies it: `verifiedValues` — the same shape as `values`, with the reviewer's corrections merged in, so switching payloads is a one-name change — and `verifiedDiff`, the typed list of what they changed. To submit a review from your own UI instead of the widget:
+**Reading the result back** is one call, and it's the source of truth — the widget's browser callback is best-effort, this isn't:
+
+```ts
+const view = await client.documents.getDocumentExtraction({
+  documentExtractionId: extractionId,
+});
+
+view.meta.validated;   // has a human verified this yet?
+view.values;           // what the model extracted
+view.verifiedValues;   // same shape, corrections merged in — null until verified
+view.verifiedDiff;     // what the reviewer changed
+```
+
+`verifiedValues` is deliberately the same shape as `values`, so moving your pipeline from raw to human-verified data is a one-key change. Each `verifiedDiff` entry is `field`, `pointer`, `original`, `verified` and a `status` of `corrected`, `added` or `removed`; the pointer resolves against both payloads, so you can show before and after. All three fields also appear on the results-poll and list surfaces, so a batch job can sweep for `meta.validated` without fetching extractions one by one.
+
+Verification is **one-shot** per extraction — a second submission is rejected with 409. To submit a review from your own UI instead of the widget:
 
 ```ts
 const summary = await client.documents.validateDocumentExtraction({

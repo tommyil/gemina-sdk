@@ -336,12 +336,28 @@ extractions: Gemina enforces the claim, you decide who gets it.
 Upload with `evaluation=True` to give the reviewer per-field confidence scores
 and the "hide everything already scored high" filter.
 
+**Reading the result back** is one call, and it's the source of truth — the
+widget's browser callback is best-effort, this isn't:
+
+```python
+view = await client.documents.get_document_extraction(extraction_id)
+
+view.meta.validated    # has a human verified this yet?
+view.values            # what the model extracted
+view.verified_values   # same shape, corrections merged in — None until verified
+view.verified_diff     # what the reviewer changed
+```
+
+`verified_values` is deliberately the same shape as `values`, so moving your
+pipeline from raw to human-verified data is a one-name change. Each
+`verified_diff` entry is `field`, `pointer`, `original`, `verified` and a
+`status` of `corrected`, `added` or `removed`; the pointer resolves against
+both payloads, so you can show before and after. All three fields also appear
+on the results-poll and list surfaces, so a batch job can sweep for
+`meta.validated` without fetching extractions one by one.
+
 Verification is **one-shot** per extraction — a second submission is rejected
-with 409. Afterwards the extraction carries two new fields, both `None` until
-someone verifies it: `verified_values` — the same shape as `values`, with the
-reviewer's corrections merged in, so switching payloads is a one-name change —
-and `verified_diff`, the typed list of what they changed. To submit a review
-from your own UI instead of the widget:
+with 409. To submit a review from your own UI instead of the widget:
 
 ```python
 from gemina.generated.models.extraction_validation_in_dto import (

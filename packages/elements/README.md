@@ -295,6 +295,18 @@ function VerifyStep({ extractionId }: { extractionId: string }) {
 }
 ```
 
+### The flow, end to end
+
+1. **Process the document** as usual, with your Gemina SDK. Turn on
+   `evaluation` if you want the reviewer to see confidence scores.
+2. **Mint a session token scoped to that extraction**, server-side, and hand
+   it to the browser. Never the API key.
+3. **Render the component.** The reviewer corrects what's wrong and submits
+   once.
+4. **Read the verified data back** — either from `onComplete` in the browser,
+   or from the extraction itself server-side. See *Getting the verified data*
+   below.
+
 The `extractionId` in that request comes from the browser — a curious
 end-user can substitute any ID:
 
@@ -421,6 +433,50 @@ line after the first is deleted.
 
 Tables the server hasn't declared row-mutable render as an editable grid with
 a fixed row count.
+
+### Getting the verified data
+
+Two routes, and you'll usually want both:
+
+| Route | Available | Carries |
+|---|---|---|
+| The `onComplete` prop | The instant the reviewer submits | `correctedValues` — every submitted entry keyed by human label — and `summary`, Gemina's scoring of the submission |
+| Reading the extraction back, server-side | Any time afterwards, forever | `verifiedValues`, `verifiedDiff`, `meta.validated` |
+
+`onComplete` is for continuing the user's session — closing the modal,
+advancing your wizard, showing a thank-you. **The server read is the source of
+truth.** If the network drops the success response the verification is still
+recorded, and `onComplete` never fires.
+
+The server read is one call, with your API key, using any Gemina SDK:
+
+```ts
+const view = await client.documents.getDocumentExtraction({
+  documentExtractionId: extractionId,
+});
+
+view.meta.validated;   // has a human verified this yet?
+view.values;           // what the model extracted
+view.verifiedValues;   // the same shape, corrections merged in — null until verified
+view.verifiedDiff;     // what the reviewer changed
+```
+
+`verifiedValues` is deliberately the *same shape* as `values`, from the same
+serializer — switching your pipeline from raw to human-verified data is a
+one-key change, not a reshape.
+
+`verifiedDiff` is the change list, one entry per field the reviewer touched:
+
+```ts
+[{ field: "vendorTaxId", pointer: "/vendorTaxId/value",
+   original: "51-234567", verified: "514234567", status: "corrected" }]
+```
+
+`status` is `"corrected"`, `"added"` or `"removed"`. Each `pointer` resolves
+against **both** payloads, so you can show the before and after side by side.
+
+The same three fields appear on the results-poll and list surfaces, so a batch
+job can sweep for `meta.validated` without fetching extractions one at a time.
 
 ### Edge states
 
