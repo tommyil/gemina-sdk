@@ -25,6 +25,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { GeminaVerification } from '../../src/verification/index';
 import { GeminaTokenManager } from '../../src/token-manager';
 import { extraction, httpError } from './helpers';
+import { wideTableExtraction } from './empty-columns.fixture';
 
 const { getDocumentExtraction, validateDocumentExtraction, withSessionToken } = vi.hoisted(() => {
   const getDocumentExtraction = vi.fn();
@@ -803,5 +804,113 @@ describe('the review filter does not touch the payload', () => {
     expect(filtered).toEqual(unfiltered);
     // And the hidden field is genuinely IN there, not merely equal-by-absence.
     expect(JSON.stringify(filtered)).toContain('supplier_name');
+  });
+});
+
+/**
+ * BOTH review filters at once, against the payload (plan Task 6).
+ *
+ * The two above cover the confidence filter alone; verification-load.test.tsx
+ * covers the column filter alone. Neither covers the state a reviewer actually
+ * reaches — both switches on, rows AND columns off screen — and F1 is the
+ * safety property the whole feature rests on, so the combination gets its own
+ * proof rather than an argument that two independent results compose.
+ */
+describe('neither review filter touches the payload', () => {
+  /**
+   * The wide fixture (19 declared columns, 11 blank in every row) with the
+   * first two rows scored `high`, so both switches are offered on one screen.
+   * Confidence has to be synthesised — no locally reachable extraction runs
+   * with `evaluation` on — and it goes on the ROW, which is the only unit an
+   * `invoice_line_items` extraction has to score.
+   */
+  function scoredWide(): Record<string, unknown> {
+    const view = wideTableExtraction();
+    const rows = (view.values as Record<string, unknown>).line_items as Array<Record<string, unknown>>;
+    for (const index of [0, 1]) {
+      const row = rows[index];
+      if (row === undefined) {
+        throw new Error('the wide fixture must have at least two rows');
+      }
+      row.confidence = 'high';
+    }
+    return view;
+  }
+
+  /** Submit the wide fixture once, both filters engaged or neither, and hand
+   *  back the exact body that went on the wire. */
+  async function submitWideBody(filters: boolean): Promise<Record<string, unknown>> {
+    getDocumentExtraction.mockResolvedValueOnce(scoredWide());
+    renderVerification();
+    await screen.findByLabelText('Line Items row 1 — Description');
+    if (filters) {
+      fireEvent.click(screen.getByRole('switch', { name: 'Hide empty columns' }));
+      fireEvent.click(screen.getByRole('switch', { name: 'Hide high-confidence fields' }));
+      // Non-vacuity, both axes: a blank COLUMN's cells are gone, and so is
+      // every cell of the two high-confidence ROWS.
+      expect(screen.queryByLabelText('Line Items row 3 — Barcode')).toBeNull();
+      expect(screen.queryByLabelText('Line Items row 1 — Description')).toBeNull();
+      expect(screen.getByLabelText('Line Items row 3 — Description')).toBeTruthy();
+    }
+    // The SAME correction in both arms, and deliberately AFTER the switches.
+    //
+    // Without it this test cannot see the likeliest shape of the defect it
+    // exists for. `doSubmit` is a `useCallback` keyed on `submission`, so a
+    // render-derived filter added to the body it sends — but whose new
+    // dependency is not added to that list — reads a closure captured before
+    // the switches were touched, drops nothing, and passes. It is not benign
+    // in the app: the first keystroke after filtering rebuilds the callback
+    // with the filter state live, and from then on the payload really is
+    // missing rows. This repo has no ESLint, so the deps-omission form is the
+    // form such a change would actually ship in (F14). Editing here makes both
+    // arms compose their body from a post-filter closure.
+    fireEvent.change(screen.getByLabelText('Line Items row 3 — Description'), {
+      target: { value: 'Cable, 2m (rev B)' },
+    });
+    validateDocumentExtraction.mockResolvedValueOnce(VALIDATION_RESULT);
+    await submitAndConfirm();
+    return validateDocumentExtraction.mock.calls[0]![0].extractionValidationInDTO;
+  }
+
+  it('submits byte-identical payloads with both filters on and both off', async () => {
+    const off = await submitWideBody(false);
+    cleanup();
+    getDocumentExtraction.mockReset();
+    validateDocumentExtraction.mockReset();
+    const on = await submitWideBody(true);
+
+    // `toEqual` for the readable diff when it fails; `JSON.stringify` for the
+    // claim actually being made — key ORDER too, which toEqual is blind to.
+    expect(on).toEqual(off);
+    expect(JSON.stringify(on)).toBe(JSON.stringify(off));
+
+    // …and not equality-by-absence, in BOTH directions. `composeSubmission`
+    // walks bindings and edits and never the DOM, so a cell that is off screen
+    // for either reason is still on the wire.
+    const data = (on as { data: Record<string, unknown> }).data;
+    // A hidden COLUMN, on a row that is itself hidden.
+    expect('label:line_0_barcode|ptr:/line_items/0/barcode' in data).toBe(true);
+    expect(data['label:line_0_barcode|ptr:/line_items/0/barcode']).toBeNull();
+    // A visible column of a hidden ROW, carrying its value verbatim.
+    expect(data['label:line_0_description|ptr:/line_items/0/description'])
+      .toBe('Widget housing, matte');
+    // A hidden column of a VISIBLE row — the third quadrant, so the pass
+    // cannot come from one axis happening to cover for the other.
+    expect('label:line_2_barcode|ptr:/line_items/2/barcode' in data).toBe(true);
+    // The fourth: a VISIBLE column of a VISIBLE row — and specifically the
+    // cell edited above, which is the only one of the four whose value the
+    // reviewer produced rather than the extraction.
+    //
+    // Load-bearing, not tidiness. That edit is what makes this test able to
+    // see a render-derived submission body whose dependency was omitted from
+    // `doSubmit` (see the change site), and `getByLabelText` throwing only
+    // covers the input DISAPPEARING. A regression where the change event stops
+    // registering as an edit — a readOnly flip while filtering, handler
+    // rewiring — hits both arms identically, leaves `toEqual` and the
+    // stringify comparison green, and silently disarms this test's best
+    // protection with nothing going red. Asserting the string reached the wire
+    // is what closes that.
+    expect(data['label:line_2_description|ptr:/line_items/2/description'])
+      .toBe('Cable, 2m (rev B)');
   });
 });

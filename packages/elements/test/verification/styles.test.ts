@@ -80,6 +80,28 @@ const CONTRACT_CLASS_NAMES = [
   '.gemina-verification__magnifier',
 ];
 
+/**
+ * A class name at a SELECTOR BOUNDARY, not merely somewhere in the sheet.
+ *
+ * The list above used to be checked with `toContain`, which is a substring
+ * match — and a substring match cannot see a rename. `.gemina-verification__
+ * filter-noteX` still contains `.gemina-verification__filter-note`, so a
+ * selector renamed out from under the JSX that renders it passed, and the
+ * feature shipped unstyled with this test green. (Deleting a rule was caught;
+ * renaming one was not, and renaming is what a refactor actually does.)
+ *
+ * The lookahead is the whole fix: `-`, `_` and alphanumerics are the characters
+ * a CSS identifier may continue with, so forbidding them after the name means
+ * the match ended where the class does. Everything a real selector can be
+ * followed by — ` `, `,`, `{`, `:`, `.`, `[`, `>`, a newline — is a boundary.
+ * It also stops `.gemina-verification` itself from being satisfied by the 40
+ * `.gemina-verification__*` rules that contain it.
+ */
+function selectorPattern(className: string): RegExp {
+  const escaped = className.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return new RegExp(`${escaped}(?![A-Za-z0-9_-])`);
+}
+
 describe('verification styles', () => {
   it('importing the module does not touch the document', async () => {
     await import('../../src/verification/styles');
@@ -105,7 +127,7 @@ describe('verification styles', () => {
 
     const css = document.head.querySelector('style[data-gemina-verification]')?.textContent ?? '';
     for (const className of CONTRACT_CLASS_NAMES) {
-      expect(css, `missing contract selector ${className}`).toContain(className);
+      expect(css, `missing contract selector ${className}`).toMatch(selectorPattern(className));
     }
   });
 

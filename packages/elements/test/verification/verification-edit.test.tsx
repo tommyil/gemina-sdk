@@ -24,12 +24,14 @@
  *   clickable <tr> creations (exactly one per TableRowView render; the thead
  *   row carries no onClick).
  */
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { GeminaVerification } from '../../src/verification/index';
 import { GeminaTokenManager } from '../../src/token-manager';
 import { buildBindings, composeSubmission } from '../../src/verification/bindings';
+import { UNIT_PAIR_MESSAGE } from '../../src/verification/row-cells';
 import { extraction } from './helpers';
+import { wideTableExtraction } from './empty-columns.fixture';
 
 const { getDocumentExtraction, validateDocumentExtraction, withSessionToken } = vi.hoisted(() => {
   const getDocumentExtraction = vi.fn();
@@ -378,5 +380,330 @@ describe('GeminaVerification: review filter', () => {
       expect(screen.getByRole('textbox', { name: 'Supplier Name' })).toBeTruthy();
     });
     expect(screen.getByRole('switch', { name: FILTER_NAME }).getAttribute('aria-checked')).toBe('false');
+  });
+});
+
+/* ---------------------------------------------------------------------------
+ * The two review filters, together (plan Task 6).
+ *
+ * Each filter is pinned on its own elsewhere: the rule that decides which
+ * columns are empty in empty-columns.test.ts, the render filter over them in
+ * form.test.tsx, the state/gate/switch in verification-load.test.tsx. What is
+ * NOT covered there is the pair of them engaged at once, which is where §S
+ * consequence 3 lives — `computeEmptyColumns` takes no `HiddenSets`, so
+ * emptiness is computed over the WHOLE row plan including the rows the
+ * confidence filter is hiding.
+ *
+ * That independence is a decision with a visible cost (a column populated only
+ * in a high-confidence row stays on screen reading blank), so it is exactly the
+ * kind of thing a later reader "fixes". These tests are what stops that.
+ * ------------------------------------------------------------------------- */
+
+const CONFIDENCE_SWITCH = 'Hide high-confidence fields';
+const COLUMNS_SWITCH = 'Hide empty columns';
+
+/** The Line Items grid — the one section both filters act on. */
+function lineItems(): HTMLElement {
+  return screen.getByRole('region', { name: 'Line Items' });
+}
+
+/** Its DATA column headers, in render order. The eye / row-confidence /
+ *  row-actions `<th>`s carry no text and drop out, which is deliberate: they
+ *  are not columns and must never be counted as ones that survived. */
+function dataHeaders(): string[] {
+  return within(lineItems())
+    .getAllByRole('columnheader')
+    .map((th) => th.textContent ?? '')
+    .filter((text) => text !== '');
+}
+
+function bodyRowCount(): number {
+  return lineItems().querySelectorAll('tbody tr').length;
+}
+
+/**
+ * The per-table "N empty columns hidden" notes.
+ *
+ * Filtered by text rather than read wholesale: the same class also renders
+ * "Row editing is off while filtering", which the CONFIDENCE filter puts in
+ * the same header — so an unfiltered read would silently mean something
+ * different in the tests that turn both switches on.
+ */
+function columnNotes(): string[] {
+  return [...document.querySelectorAll('.gemina-verification__filter-note')]
+    .map((node) => node.textContent ?? '')
+    .filter((text) => /empty columns? hidden/.test(text));
+}
+
+/** The 8 of 19 columns the wide fixture actually populates, in server order. */
+const POPULATED_HEADERS = [
+  'Line Number', 'Description', 'Item Code', 'Quantity',
+  'Unit Of Measure', 'Unit Price', 'Discount Percentage', 'Line Total',
+];
+
+/**
+ * The wide fixture (19 declared columns, 11 blank in every row) with ROW-LEVEL
+ * confidence on the first two rows, so BOTH switches are offered at once.
+ *
+ * Scores have to be synthesised: no local extraction has `evaluation` on, so
+ * nothing reachable carries real confidence — and row confidence is what the
+ * filter needs, since an `invoice_line_items` extraction has no header fields
+ * to score at all.
+ *
+ * Rows 1 and 2 specifically, because row 2 is the ONLY row carrying
+ * `discountPercentage`. That makes "populated only in a confidence-hidden row"
+ * a real state of this fixture rather than a hypothetical.
+ */
+function scoredWideExtraction(): Record<string, unknown> {
+  const view = wideTableExtraction();
+  const rows = (view.values as Record<string, unknown>).line_items as Array<Record<string, unknown>>;
+  for (const index of [0, 1]) {
+    const row = rows[index];
+    if (row === undefined) {
+      throw new Error('the wide fixture must have at least two rows');
+    }
+    row.confidence = 'high';
+  }
+  return view;
+}
+
+describe('GeminaVerification: the two review filters together', () => {
+  it('composes with the confidence filter without changing the column set', async () => {
+    getDocumentExtraction.mockResolvedValueOnce(scoredWideExtraction());
+    renderVerification();
+    await screen.findByLabelText('Line Items row 1 — Description');
+
+    fireEvent.click(screen.getByRole('switch', { name: COLUMNS_SWITCH }));
+    const columnsAlone = dataHeaders();
+    expect(columnsAlone).toEqual(POPULATED_HEADERS);
+    expect(columnNotes()).toEqual(['11 empty columns hidden']);
+    expect(bodyRowCount()).toBe(4);
+
+    // The other filter now removes ROWS underneath it — including the only row
+    // `discount_percentage` was ever populated in.
+    fireEvent.click(screen.getByRole('switch', { name: CONFIDENCE_SWITCH }));
+    expect(bodyRowCount()).toBe(2);
+
+    // …and the column set is byte-for-byte what it was. This is §S consequence
+    // 3 as the reviewer experiences it: the two filters move different axes,
+    // and neither one's structure shifts when the other is toggled. The rule
+    // gets no `HiddenSets`, and the memo that runs it does not depend on
+    // anything `filterOn` changes — that dependency list IS this property.
+    expect(dataHeaders()).toEqual(columnsAlone);
+    expect(columnNotes()).toEqual(['11 empty columns hidden']);
+
+    // Engaged in the OTHER order, on the same screen: with the confidence
+    // filter already on, turning the column filter off and back on lands on the
+    // identical set. (Order-dependence would mean one filter had read the
+    // other's output — the whole thing this pins against.)
+    fireEvent.click(screen.getByRole('switch', { name: COLUMNS_SWITCH }));
+    expect(dataHeaders().length).toBe(19);
+    fireEvent.click(screen.getByRole('switch', { name: COLUMNS_SWITCH }));
+    expect(dataHeaders()).toEqual(columnsAlone);
+    expect(bodyRowCount()).toBe(2);
+  });
+
+  it('keeps a column populated ONLY in a confidence-hidden row', async () => {
+    getDocumentExtraction.mockResolvedValueOnce(scoredWideExtraction());
+    renderVerification();
+    await screen.findByLabelText('Line Items row 1 — Description');
+
+    fireEvent.click(screen.getByRole('switch', { name: COLUMNS_SWITCH }));
+    fireEvent.click(screen.getByRole('switch', { name: CONFIDENCE_SWITCH }));
+
+    // THE ACCEPTED COST, pinned so nobody "fixes" it into a bug. `discount_
+    // percentage` is populated on row 2 and nowhere else, and row 2 is one of
+    // the two the confidence filter just took away. The column therefore stays
+    // — it is not empty in the EXTRACTION — and reads blank in every row that
+    // is actually on screen.
+    expect(dataHeaders()).toContain('Discount Percentage');
+    // Its only value is genuinely off screen, so this is not a false-positive
+    // pass from a row that quietly stayed.
+    expect(screen.queryByLabelText('Line Items row 2 — Discount Percentage')).toBeNull();
+    // Rows keep their PLAN positions, so the survivors are 3 and 4.
+    for (const row of [3, 4]) {
+      expect(
+        screen.getByLabelText<HTMLInputElement>(`Line Items row ${row} — Discount Percentage`).value,
+      ).toBe('');
+    }
+
+    // And the count says 11, not 12 — the note claims the extraction, so it
+    // must not start counting a column blank merely because the other filter
+    // hid the row that fills it. This number is what a rule threading
+    // `HiddenSets` through would move, silently and plausibly.
+    expect(columnNotes()).toEqual(['11 empty columns hidden']);
+  });
+});
+
+/* ---------------------------------------------------------------------------
+ * The column filter while the reviewer is actually working: typing, adding and
+ * removing rows underneath it.
+ *
+ * The rule re-runs on every keystroke (that is what keeps a just-touched column
+ * from unmounting), so "what the filter shows" is live state, not a snapshot
+ * taken at load. These drive it through the real component — the memo chain,
+ * the row plan and the DOM identity of the input under the cursor.
+ * ------------------------------------------------------------------------- */
+describe('GeminaVerification: hide empty columns while editing', () => {
+  it('re-shows a column the moment a pair error appears in it', async () => {
+    getDocumentExtraction.mockResolvedValueOnce(wideTableExtraction());
+    const { container } = renderVerification();
+    await screen.findByLabelText('Line Items row 1 — Description');
+
+    // `unit_size` and `unit_size_uom` are blank TOGETHER in all four rows —
+    // the shape 23 of 29 real tables had — so both qualify and both go.
+    fireEvent.click(screen.getByRole('switch', { name: COLUMNS_SWITCH }));
+    expect(columnNotes()).toEqual(['11 empty columns hidden']);
+    expect(dataHeaders()).not.toContain('Unit Size');
+    expect(dataHeaders()).not.toContain('Unit Size Uom');
+
+    // Half-fill the pair. The error must be raised with the filter OFF, and
+    // that is not a convenience: with the filter ON a pair error can NEVER
+    // newly appear in a hidden column. If the partner column holds a value
+    // anywhere, the error already existed at load and the column was never
+    // hidden; if the partner is blank everywhere, both halves are hidden and
+    // neither has an input to type into. (The plan named this as a live
+    // in-filter route; it is not one. Same correction Task 3 and Task 5 each
+    // had to make about a route on this feature.)
+    fireEvent.click(screen.getByRole('switch', { name: COLUMNS_SWITCH }));
+    fireEvent.change(screen.getByLabelText('Line Items row 1 — Unit Size'), {
+      target: { value: '5' },
+    });
+    expect(screen.getAllByText(UNIT_PAIR_MESSAGE).length).toBe(2);
+
+    fireEvent.click(screen.getByRole('switch', { name: COLUMNS_SWITCH }));
+
+    // NINE, not eleven. `unit_size` is kept by touched-ever (its extracted
+    // value is still null — an edit is not a value), and `unit_size_uom` by the
+    // pair-error clause alone. Hiding the blank half would remove exactly the
+    // cell blocking Submit while the footer says a field needs attention: an
+    // unresolvable dead end with no visible cause.
+    expect(columnNotes()).toEqual(['9 empty columns hidden']);
+    expect(dataHeaders()).toContain('Unit Size');
+    expect(dataHeaders()).toContain('Unit Size Uom');
+    expect(screen.getByLabelText('Line Items row 1 — Unit Size Uom')).toBeTruthy();
+    expect(screen.getAllByText(UNIT_PAIR_MESSAGE).length).toBe(2);
+    // The dead end this prevents, stated as the state it prevents it in.
+    expect(
+      (screen.getByRole('button', { name: 'Submit' }) as HTMLButtonElement).disabled,
+    ).toBe(true);
+    expect(container.querySelector('.gemina-verification__attention')).not.toBeNull();
+  });
+
+  it('re-shows nothing when the reviewer edits a VISIBLE cell', async () => {
+    getDocumentExtraction.mockResolvedValueOnce(wideTableExtraction());
+    renderVerification();
+    await screen.findByLabelText('Line Items row 1 — Description');
+
+    fireEvent.click(screen.getByRole('switch', { name: COLUMNS_SWITCH }));
+    const filtered = dataHeaders();
+    expect(filtered).toEqual(POPULATED_HEADERS);
+
+    // Engaging the filter legitimately re-rendered every row (they are handed a
+    // new `columns` array), so the probe is reset AFTER it and before the
+    // keystroke that is actually being measured.
+    probe.rowRenders = 0;
+    fireEvent.change(screen.getByLabelText('Line Items row 1 — Description'), {
+      target: { value: 'Widget housing, gloss' },
+    });
+
+    // Touching a cell in a column that is already visible must not move the
+    // column set at all: touched-ever grows, the rule re-runs, and it has to
+    // land on exactly the same answer.
+    expect(dataHeaders()).toEqual(filtered);
+    expect(screen.queryByLabelText('Line Items row 1 — Barcode')).toBeNull();
+    expect(columnNotes()).toEqual(['11 empty columns hidden']);
+
+    // …and it costs ONE row render, not four. While the switch is on,
+    // `emptyColumns` is derived from `edits`, so a fresh Map holding fresh Sets
+    // arrives per keystroke; the positional bitmask is what keeps
+    // `visibleColumns` referentially stable through that, and `columns` IS
+    // compared by `areRowPropsEqual`. A dependency on the Set instead would
+    // re-render every row of a 169-row table per character — with byte-
+    // identical DOM, which is why this counts renders. (form.test.tsx pins the
+    // same property against a hand-built harness; this is the real chain.)
+    expect(probe.rowRenders).toBe(1);
+    expect(
+      screen.getByLabelText<HTMLInputElement>('Line Items row 2 — Description').value,
+    ).toBe('Bracket set, steel');
+  });
+
+  it('survives a table where the plan removed the only populated row', async () => {
+    // One extracted row, so removing it is what empties the extraction side of
+    // the table while a row the reviewer typed remains.
+    getDocumentExtraction.mockResolvedValueOnce(wideTableExtraction({ rows: 1 }));
+    renderVerification();
+    await screen.findByLabelText('Line Items row 1 — Description');
+
+    fireEvent.click(screen.getByRole('switch', { name: COLUMNS_SWITCH }));
+    expect(screen.queryByLabelText('Line Items row 1 — Barcode')).toBeNull();
+
+    // §D1: row editing stays ON under this filter, and BOTH `showControls`
+    // sites have to honour that — the section-level one owns *Add line* and the
+    // Row-actions header, and gating it on this filter once shipped green
+    // against the whole suite (F12b).
+    fireEvent.click(screen.getByRole('button', { name: 'Add line' }));
+    fireEvent.change(screen.getByLabelText('Line Items row 2 — Description'), {
+      target: { value: 'Typed by hand' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Remove line 1' }));
+
+    // F9's gate, reached the only way it can be: the table now has rows but no
+    // EXTRACTED row, so it hides nothing and every column comes back. The wrong
+    // gate here — "at least one row" — leaves 18 of 19 columns qualifying
+    // (only the one just typed into does not), and §D4's never-empty-a-table
+    // guard does NOT catch that: the grid collapses to a single column at the
+    // exact moment the reviewer is filling the line in.
+    expect(dataHeaders().length).toBe(19);
+    expect(columnNotes()).toEqual([]);
+    expect(bodyRowCount()).toBe(1);
+    expect(
+      screen.getByLabelText<HTMLInputElement>('Line Items row 1 — Description').value,
+    ).toBe('Typed by hand');
+    // The point of it coming back: the added row's blank cells are reachable.
+    const barcode = screen.getByLabelText<HTMLInputElement>('Line Items row 1 — Barcode');
+    fireEvent.change(barcode, { target: { value: '7290000000001' } });
+    expect(screen.getByLabelText<HTMLInputElement>('Line Items row 1 — Barcode').value)
+      .toBe('7290000000001');
+    // The switch itself stays put and still reads on — it is engaged, and a
+    // control that vanished here would strand the state with no way back.
+    expect(
+      screen.getByRole('switch', { name: COLUMNS_SWITCH }).getAttribute('aria-checked'),
+    ).toBe('true');
+  });
+
+  it('never unmounts a column while it holds focus', async () => {
+    getDocumentExtraction.mockResolvedValueOnce(wideTableExtraction());
+    const { container } = renderVerification();
+
+    // Type into a blank column BEFORE filtering — the only order in which a
+    // hidden column's cell can be reached at all.
+    const typed = await screen.findByLabelText<HTMLInputElement>('Line Items row 1 — Barcode');
+    fireEvent.change(typed, { target: { value: '7290000000001' } });
+
+    fireEvent.click(screen.getByRole('switch', { name: COLUMNS_SWITCH }));
+    // Ten of eleven: `barcode` survived the filter because it was touched. Its
+    // extracted value is still null, so nothing about the DATA keeps it here.
+    expect(columnNotes()).toEqual(['10 empty columns hidden']);
+    const barcode = screen.getByLabelText<HTMLInputElement>('Line Items row 1 — Barcode');
+    barcode.focus();
+    expect(document.activeElement).toBe(barcode);
+
+    // Now clear it back to the pristine string. `handleEdit` DELETES the edit
+    // on return-to-pristine — the progress line is the proof — so a rule fed
+    // `edits` instead of the ref-held touched-ever set would see this cell as
+    // never visited, call the column empty, and unmount it out from under the
+    // cursor mid-correction (F11).
+    fireEvent.change(barcode, { target: { value: '' } });
+    expect(
+      container.querySelector('.gemina-verification__progress')?.textContent,
+    ).toContain('0 corrected');
+
+    // Same DOM node, still focused: not merely "an input with that label is on
+    // screen" — a remount would satisfy that and still have thrown the caret
+    // out.
+    expect(screen.getByLabelText('Line Items row 1 — Barcode')).toBe(barcode);
+    expect(document.activeElement).toBe(barcode);
+    expect(columnNotes()).toEqual(['10 empty columns hidden']);
   });
 });
