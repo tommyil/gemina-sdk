@@ -548,6 +548,11 @@ const VERIFICATION_CSS = `
 }
 .gemina-verification__footer {
   display: flex;
+  /* Wraps because the review filter adds two more items to this row, and at
+     320 the four together overflow: Submit was pushed 28px past the inline
+     start and clipped. Measured RTL, where the overflow runs the other way
+     and a scrollWidth-minus-clientWidth check on the document never sees it. */
+  flex-wrap: wrap;
   align-items: center;
   gap: 10px;
   padding-block-start: 12px;
