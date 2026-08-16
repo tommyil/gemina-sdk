@@ -36,6 +36,7 @@ import type { FieldBinding } from './bindings';
 import { toInputString } from './bindings';
 import type { ClassifiedCell, ClassifiedData, ClassifiedField } from './classify';
 import { ROW_META_KEY, formatLabel, formatValue } from './classify';
+import { NO_EMPTY_COLUMNS } from './empty-columns';
 import type { EmptyColumns } from './empty-columns';
 import { ISO_4217_CODES, cellSchemaKey, validateInput } from './field-types';
 import type { RowMutableTable, ValidationFieldDescriptor } from './field-types';
@@ -339,6 +340,21 @@ interface SectionShared {
    * boolean, so that is free.
    */
   filterOn: boolean;
+  /**
+   * The SECOND filter: rendered table pointer -> the columns of it nothing was
+   * extracted into. `NO_EMPTY_COLUMNS` when the switch is off.
+   *
+   * Absent from `areRowPropsEqual` for the same reason `hidden` is, and it
+   * matters more here: with the switch ON this is derived from `edits`, so a
+   * fresh Map — holding fresh Sets — arrives on every keystroke, and comparing
+   * it would re-render every row of the table per character typed. (With the
+   * switch off it is the shared sentinel and never changes at all, which is
+   * why the cost only appears once the reviewer opts in.) Rows never read it. Only
+   * `TableSection` does, and what it hands the rows is a `columns` array kept
+   * referentially stable across those fresh Maps (see the mask below), which is
+   * what the row comparator actually depends on.
+   */
+  emptyColumns: EmptyColumns;
 }
 
 /** Props for the whole form pane.
@@ -366,7 +382,8 @@ const NOOP_ROW = () => {};
 
 export interface VerificationFormProps
   extends Omit<SectionShared,
-  'pairErrors' | 'rowMutableTables' | 'plannedTables' | 'onAddRow' | 'onRemoveRow' | 'hidden' | 'filterOn'> {
+  'pairErrors' | 'rowMutableTables' | 'plannedTables' | 'onAddRow' | 'onRemoveRow' | 'hidden' | 'filterOn'
+  | 'emptyColumns'> {
   /** Review filter. Omitted = off, hiding nothing — same contract as the row
    *  props above: a host rendering the form directly need not know it exists. */
   hidden?: HiddenSets;
@@ -376,10 +393,18 @@ export interface VerificationFormProps
    * nothing was extracted into. `NO_EMPTY_COLUMNS` (the shared empty map) when
    * the switch is off, which is also what omitting it means.
    *
-   * Declared here in Task 3 so the root can pass what it computes; TASK 4 is
-   * what threads it through `SectionShared` and actually drops the `<th>`/`<td>`
-   * pairs. Until then it is accepted and ignored — deliberately, so the state
-   * lands in one reviewable commit and the rendering in another.
+   * Every named column leaves its table's grid — the `<th>` and the matching
+   * `<td>` of every row. Nothing else changes: the payload is composed from
+   * bindings and edits and never from what rendered, so a hidden column submits
+   * exactly what it would have submitted visible.
+   *
+   * There is deliberately no all-columns-hidden state and no guard against one.
+   * `computeEmptyColumns` guarantees a table is never handed its whole column
+   * list — it drops such a table from the result entirely — because the grid is
+   * what carries the document-eye button, the row confidence dot and the only
+   * Remove-line control. A caller that supplies a full column set anyway gets
+   * what it asked for: a well-formed grid of those three cells and no data
+   * columns, which is the honest rendering of that instruction.
    */
   emptyColumns?: EmptyColumns;
   /**
@@ -865,6 +890,37 @@ function TableSection(props: {
   );
   const planned = mutable ? shared.plannedTables.get(mutable.pointer) : undefined;
 
+  // The empty-column filter, as a render filter over exactly that list. Keyed
+  // by the RENDERED pointer, which is what `computeEmptyColumns` keys by — no
+  // pointer matching happens here.
+  const hiddenColumns = shared.emptyColumns.get(table.pointer);
+  // A POSITIONAL bitmask over `columns`, not the Set and not a joined name
+  // list. Two reasons, both load-bearing:
+  //
+  // (a) the memo body then reads ONLY `columns` and `mask`, so its dependency
+  //     list is complete — and no lint in this repo would report it if it were
+  //     not. Depending on `hiddenColumns` instead would be complete AND wrong:
+  //     while the switch is ON, `emptyColumns` is derived from `edits`, so a
+  //     fresh Map holding fresh Sets arrives on every keystroke, the memo would
+  //     re-run every time, and `visibleColumns` would be a new array per
+  //     render. `columns` IS compared by `areRowPropsEqual`, so that costs a
+  //     re-render of EVERY row of the table per character typed — 169 of them
+  //     on a real line-items table. (Off, the prop is the shared sentinel and
+  //     nothing here moves; the cost arrives exactly when the filter does.)
+  // (b) a joined name list collides for a dynamic template column whose own
+  //     name contains the separator — hidden `{'a|b'}` and `{'a','b'}` join to
+  //     the same string — and a collision does not merely waste a render: the
+  //     memo returns the STALE array, so the wrong columns render. Positions
+  //     cannot collide.
+  //
+  // The string is rebuilt each render and compared by value, which is the point:
+  // same columns hidden, same string, same array back out of the memo.
+  const mask = columns.map((column) => (hiddenColumns?.has(column) ? '1' : '0')).join('');
+  const visibleColumns = React.useMemo(
+    () => (mask.includes('1') ? columns.filter((_column, index) => mask[index] !== '1') : columns),
+    [columns, mask],
+  );
+
   // Full-row scans — memoized so keystroke re-renders don't re-walk every cell.
   const hasCoords = React.useMemo(
     () =>
@@ -950,7 +1006,13 @@ function TableSection(props: {
             <tr>
               {hasCoords ? <th aria-label="Show row on document" /> : null}
               {hasRowConfidence ? <th aria-label="Row confidence" /> : null}
-              {columns.map((column) => (
+              {/* There is deliberately no "every column is hidden" branch, in
+                  the header or anywhere else: the rule refuses to empty a
+                  table, so `visibleColumns` is non-empty whenever `columns`
+                  was. A stand-in for the grid would take the eye button, the
+                  confidence dot and the only Remove-line control with it —
+                  they are all <td>s of the row. */}
+              {visibleColumns.map((column) => (
                 <th key={column}>
                   <FieldLabel
                     label={formatLabel(column)}
@@ -970,7 +1032,7 @@ function TableSection(props: {
                 key={plannedRow ? plannedRow.entry.id : position}
                 row={row}
                 rowIndex={position}
-                columns={columns}
+                columns={visibleColumns}
                 tableLabel={label}
                 hasCoords={hasCoords}
                 hasRowConfidence={hasRowConfidence}
@@ -1068,7 +1130,7 @@ export function VerificationForm(props: VerificationFormProps): React.JSX.Elemen
   const {
     classified, unmatched, bindingIndex, edits, onEdit, readOnly, onFlash,
     pairErrors, rowMutableTables, plannedTables, onAddRow, onRemoveRow,
-    hidden, filterOn,
+    hidden, filterOn, emptyColumns,
   } = props;
   const { tables: promotedTables, suppressed } = React.useMemo(
     () => withEmptyMutableTables(classified, rowMutableTables ?? NO_TABLES),
@@ -1083,6 +1145,7 @@ export function VerificationForm(props: VerificationFormProps): React.JSX.Elemen
     onRemoveRow: onRemoveRow ?? NOOP_ROW,
     hidden: hidden ?? NOTHING_HIDDEN,
     filterOn: filterOn ?? false,
+    emptyColumns: emptyColumns ?? NO_EMPTY_COLUMNS,
   };
   return (
     // A real, labeled <form> (role "form" landmark): AT users can jump

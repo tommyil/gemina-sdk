@@ -26,18 +26,47 @@
  *   announces ambiguously across rows.
  */
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ConfidenceDot, EyeButton, FieldInput, VerificationForm } from '../../src/verification/form';
 import type { VerificationFormProps } from '../../src/verification/form';
-import { buildBindings, indexBindingsByFieldPointer } from '../../src/verification/bindings';
+import { buildBindings, countRowsAt, indexBindingsByFieldPointer } from '../../src/verification/bindings';
 import type { FieldBinding } from '../../src/verification/bindings';
 import { classifyData, ROW_META_KEY } from '../../src/verification/classify';
-import { planTableCells } from '../../src/verification/row-cells';
+import { computeEmptyColumns } from '../../src/verification/empty-columns';
+import { cellSchemaKey, readDescriptors, readRowMutableTables } from '../../src/verification/field-types';
+import { declaredTableColumns, planTableCells } from '../../src/verification/row-cells';
+import type { PlannedRow } from '../../src/verification/row-cells';
 import { initialRowPlan, insertRowAfter } from '../../src/verification/row-plan';
 import { NOT_FOUND } from '../../src/verification/pointer';
+import { wideTableExtraction } from './empty-columns.fixture';
 
-afterEach(cleanup);
+/**
+ * The row-render probe (row-render-probe.ts), wired into this file because the
+ * empty-column filter's whole reason for memoizing on a bitmask is a memo
+ * bail-out that no DOM assertion can see. The mock CALLS have to live here —
+ * mocking is per-file — but the wrapping is shared with
+ * verification-edit.test.tsx rather than copied into it.
+ *
+ * Deliberately file-wide: the wrappers are pass-through, so the other ~80 tests
+ * here see exactly what they saw before, and the counter resets in `afterEach`.
+ */
+const probe = vi.hoisted(() => ({ rowRenders: 0 }));
+
+vi.mock('react/jsx-runtime', async (importOriginal) => {
+  const { wrapJsxRuntime } = await import('./row-render-probe');
+  return wrapJsxRuntime(await importOriginal<Record<string, (...args: unknown[]) => unknown>>(), probe);
+});
+
+vi.mock('react/jsx-dev-runtime', async (importOriginal) => {
+  const { wrapJsxDevRuntime } = await import('./row-render-probe');
+  return wrapJsxDevRuntime(await importOriginal<Record<string, (...args: unknown[]) => unknown>>(), probe);
+});
+
+afterEach(() => {
+  cleanup();
+  probe.rowRenders = 0;
+});
 
 // --- Fixtures ----------------------------------------------------------------
 
@@ -1040,6 +1069,289 @@ describe('VerificationForm: row-mutable tables', () => {
     expect(screen.getByRole('button', { name: /add line/i })).toBeTruthy();
     // ...and it does NOT also render as an empty header field.
     expect(screen.queryByRole('textbox', { name: 'Line Items' })).toBeNull();
+  });
+});
+
+/**
+ * The SECOND review filter, at the point where it actually removes something.
+ *
+ * `emptyColumns` is a render filter and nothing else: the payload is composed
+ * from bindings and edits, never from the DOM, so a hidden column submits
+ * exactly what it would have submitted visible. What these tests pin is the
+ * part that IS observable — which cells leave the grid, which cells may never
+ * leave it, and that filtering does not cost a re-render per row per keystroke.
+ */
+describe('VerificationForm: empty columns', () => {
+  const TEMPLATE = 'label:line_{index}_{field}|ptr:/line_items/{index}/{field}/value';
+  // FOUR columns minimum — isTableArray wants >3 non-meta fields — and
+  // `discount` is the one nothing was extracted into, which is the normal
+  // state of real line items rather than an edge case: a real
+  // invoice_line_items table declares 19 columns and leaves 5 to 16 of them
+  // blank in every row.
+  const COLS = ['description', 'quantity', 'discount', 'item_code'];
+  const MUTABLE = {
+    pointer: '/line_items',
+    keyTemplate: TEMPLATE,
+    columns: COLS.map((key) => ({ key, label: key, type: 'string' as const, enum: null })),
+  };
+  /** The rendered table pointer — the key `TableSection` looks `emptyColumns`
+   *  up with, and the only spelling a hand-written map may use. */
+  const POINTER = '/line_items';
+
+  // Blanks are bare `null` with the key present, which is what every blank
+  // cell of every real extraction sampled looked like. Row 1 carries cell
+  // coordinates and a row-level confidence so the eye cell and the row-dot
+  // cell exist to be preserved (F12).
+  const VALUES = {
+    line_items: [
+      {
+        description: { value: 'Widget', coordinates: { relative: DESC_RECT.points }, confidence: 'low' },
+        quantity: { value: 2 },
+        discount: null,
+        item_code: { value: 'X' },
+        confidence: 'medium',
+      },
+      {
+        description: { value: 'Gadget' },
+        quantity: { value: 1 },
+        discount: null,
+        item_code: { value: 'Y' },
+      },
+    ],
+  };
+
+  /** Every column blank in every row — §D4's case, built as data so the RULE
+   *  gets to decide, rather than by hand-writing a map it would never emit. */
+  const ALL_BLANK = {
+    line_items: [
+      { description: null, quantity: null, discount: null, item_code: null, confidence: 'medium' },
+      { description: null, quantity: null, discount: null, item_code: null },
+    ],
+  };
+
+  function tableProps(
+    values: { line_items: unknown[] },
+    extra: Partial<VerificationFormProps> = {},
+  ): VerificationFormProps {
+    const schema = values.line_items.flatMap(
+      (_row, index) => COLS.map((column) => cellSchemaKey(TEMPLATE, index, column)),
+    );
+    const bindings = buildBindings(schema, values);
+    const byRaw = new Map(bindings.map((binding) => [binding.key.raw, binding]));
+    const plan = initialRowPlan(values.line_items.length);
+    return formProps({
+      classified: classifyData(values),
+      bindingIndex: indexBindingsByFieldPointer(bindings),
+      unmatched: [],
+      rowMutableTables: [MUTABLE],
+      plannedTables: new Map([[MUTABLE.pointer, planTableCells(MUTABLE, plan, COLS, byRaw)]]),
+      ...extra,
+    });
+  }
+
+  /** What the root passes when the switch is on and `discount` qualified. */
+  const hideDiscount = () => new Map([[POINTER, new Set(['discount'])]]);
+
+  /** The <th>s that name a data column — the eye, row-dot and row-action
+   *  headers are deliberately empty (they carry aria-labels instead). */
+  function dataHeaders(section: HTMLElement): string[] {
+    return within(section)
+      .getAllByRole('columnheader')
+      .map((th) => th.textContent ?? '')
+      .filter((text) => text !== '');
+  }
+
+  it('drops the <th> and every matching <td> for a hidden column', () => {
+    render(<VerificationForm {...tableProps(VALUES, { emptyColumns: hideDiscount() })} />);
+    const section = screen.getByRole('region', { name: 'Line Items' });
+
+    expect(within(section).queryByRole('columnheader', { name: 'Discount' })).toBeNull();
+    expect(dataHeaders(section)).toEqual(['Description', 'Quantity', 'Item Code']);
+    // Both sides, or a <thead>-only filter leaves every row one cell wider
+    // than its header and the grid shears.
+    expect(screen.queryByLabelText('Line Items row 1 — Discount')).toBeNull();
+    expect(screen.queryByLabelText('Line Items row 2 — Discount')).toBeNull();
+
+    // The surviving columns still carry their values, in both rows.
+    expect(
+      screen.getByLabelText<HTMLInputElement>('Line Items row 1 — Description').value,
+    ).toBe('Widget');
+    expect(
+      screen.getByLabelText<HTMLInputElement>('Line Items row 2 — Item Code').value,
+    ).toBe('Y');
+  });
+
+  // F12: the document-eye, the confidence dot and the insert/remove controls
+  // are <td>s OF THE ROW. They are the reason there is no "everything is
+  // hidden" branch anywhere in this feature — a stand-in for the grid takes
+  // all three down with it.
+  it('keeps the eye, confidence and row-action cells', () => {
+    render(<VerificationForm {...tableProps(VALUES, { emptyColumns: hideDiscount() })} />);
+    const row = screen.getByLabelText('Line Items row 1 — Description').closest('tr') as HTMLElement;
+
+    expect(within(row).getByRole('button', { name: 'Show on document' })).toBeTruthy();
+    expect(within(row).getByRole('img', { name: 'Medium confidence' })).toBeTruthy();
+    expect(within(row).getByRole('button', { name: 'Insert line below line 1' })).toBeTruthy();
+    expect(within(row).getByRole('button', { name: 'Remove line 1' })).toBeTruthy();
+    // An EXACT count, not "at least": eye + row confidence + three visible
+    // data columns + row actions. A filter applied to the <thead> alone, or a
+    // row still handed the unfiltered `columns`, reads 7 here.
+    expect(row.querySelectorAll('td')).toHaveLength(6);
+  });
+
+  // §D4 END TO END — the rule and the renderer against one fixture, which is
+  // what this pins and all it pins. The rule's own §D4 coverage (including a
+  // two-table world, where the neighbour still reports its blank column) is
+  // empty-columns.test.ts; what cannot be asserted there is that the grid the
+  // rule protected actually renders whole, with the affordances F12 names.
+  it('runs the real rule over an all-blank table and renders every column, dot and control', () => {
+    const props = tableProps(ALL_BLANK);
+    const emptyColumns = computeEmptyColumns({
+      tables: props.classified.tables,
+      plannedTables: props.plannedTables!,
+      rowMutableTables: props.rowMutableTables!,
+      bindingIndex: props.bindingIndex,
+      touchedEver: new Set<string>(),
+      pairErrors: new Map<string, string>(),
+    });
+    // Every one of the four columns is blank in every row, and the rule still
+    // hands the table nothing to hide.
+    expect(emptyColumns.size).toBe(0);
+
+    render(<VerificationForm {...props} emptyColumns={emptyColumns} />);
+    const section = screen.getByRole('region', { name: 'Line Items' });
+    expect(dataHeaders(section)).toEqual(['Description', 'Quantity', 'Discount', 'Item Code']);
+    expect(within(section).getByRole('table')).toBeTruthy();
+    expect(within(section).getByRole('img', { name: 'Medium confidence' })).toBeTruthy();
+    expect(within(section).getByRole('button', { name: 'Remove line 1' })).toBeTruthy();
+    expect(within(section).getByRole('button', { name: /add line/i })).toBeTruthy();
+  });
+
+  /**
+   * The two-table world, built from the shared F16 fixture through the
+   * component's own derivation chain (index.tsx: classifyData / buildBindings
+   * / seedRowPlans / declaredTableColumns + planTableCells). 19 declared
+   * line-item columns with 11 blank in every row, beside a 5-column `/taxes`
+   * whose `base` is blank — the real production shape, invented content.
+   */
+  function fixtureProps(extra: Partial<VerificationFormProps> = {}): VerificationFormProps {
+    const view = wideTableExtraction({ withTaxes: true });
+    const values = view.values as Record<string, unknown>;
+    const feedback = (view.meta as { validationFeedback: Record<string, unknown> }).validationFeedback;
+    const rowMutableTables = readRowMutableTables(feedback.rowMutableTables);
+    const classified = classifyData(values);
+    const bindings = buildBindings(
+      feedback.validationSchema as string[],
+      values,
+      readDescriptors(feedback.validationFields),
+    );
+    const byRaw = new Map(bindings.map((binding) => [binding.key.raw, binding]));
+    const plannedTables = new Map<string, PlannedRow[]>();
+    for (const table of rowMutableTables) {
+      const plan = initialRowPlan(countRowsAt(values, table.pointer), table.pointer);
+      plannedTables.set(
+        table.pointer,
+        planTableCells(table, plan, declaredTableColumns(table, classified.tables), byRaw),
+      );
+    }
+    return formProps({
+      classified,
+      bindingIndex: indexBindingsByFieldPointer(bindings),
+      unmatched: [],
+      rowMutableTables,
+      plannedTables,
+      ...extra,
+    });
+  }
+
+  // THE POINTER IS THE LOOKUP. `emptyColumns` is keyed by the rendered table
+  // pointer and every table reads its OWN entry — with one table on screen
+  // nothing distinguishes that from grabbing whatever the map happens to hold,
+  // and a build that applied one table's blank columns to its neighbour would
+  // ship green. Two tables, two different entries, and the assertions cross:
+  // the taxes grid must lose `base` and nothing else, which no line-items
+  // entry can do for it (their column names do not overlap at all).
+  it('reads each table\'s own entry — a neighbour\'s hidden columns are not applied', () => {
+    const props = fixtureProps();
+    const emptyColumns = computeEmptyColumns({
+      tables: props.classified.tables,
+      plannedTables: props.plannedTables!,
+      rowMutableTables: props.rowMutableTables!,
+      bindingIndex: props.bindingIndex,
+      touchedEver: new Set<string>(),
+      pairErrors: new Map<string, string>(),
+    });
+    // Both tables qualified, separately — the premise of the test.
+    expect([...emptyColumns.keys()].sort()).toEqual(['/line_items', '/taxes']);
+
+    render(<VerificationForm {...props} emptyColumns={emptyColumns} />);
+
+    // 19 declared columns, 11 blank in every row: the 8 populated survive, in
+    // server order, and the sparsely-populated one is among them.
+    expect(dataHeaders(screen.getByRole('region', { name: 'Line Items' }))).toEqual([
+      'Line Number', 'Description', 'Item Code', 'Quantity',
+      'Unit Of Measure', 'Unit Price', 'Discount Percentage', 'Line Total',
+    ]);
+    // ...and the neighbour dropped ITS blank column, which is the assertion a
+    // pointer-blind lookup cannot satisfy: `base` is in no other table's set.
+    expect(dataHeaders(screen.getByRole('region', { name: 'Taxes' }))).toEqual([
+      'Type', 'Name', 'Rate', 'Amount',
+    ]);
+    expect(screen.queryByLabelText('Taxes row 1 — Base')).toBeNull();
+    expect(screen.getByLabelText<HTMLInputElement>('Taxes row 1 — Amount').value).toBe('44.03');
+  });
+
+  // The optional-prop contract the row props already have: a host — or a test
+  // — rendering the form directly need not know this filter exists.
+  it('renders unchanged when emptyColumns is omitted', () => {
+    render(<VerificationForm {...tableProps(VALUES)} />);
+    const section = screen.getByRole('region', { name: 'Line Items' });
+    expect(dataHeaders(section)).toEqual(['Description', 'Quantity', 'Discount', 'Item Code']);
+    expect(screen.getByLabelText('Line Items row 1 — Discount')).toBeTruthy();
+    expect(screen.getByLabelText('Line Items row 2 — Discount')).toBeTruthy();
+  });
+
+  // The reason the visible-column array is memoized on a positional bitmask
+  // instead of being filtered inline: `columns` IS compared by
+  // `areRowPropsEqual`, and `emptyColumns` is derived from `edits`, so a fresh
+  // Map and a fresh Set arrive on every keystroke. A new array per render
+  // re-renders all 169 rows of a real line-items table per character typed —
+  // with byte-identical DOM, which is why this counts renders instead.
+  it('does not re-render an untouched row on a keystroke while filtering', () => {
+    // Built ONCE: `formProps` mints a fresh `classified` and `bindingIndex`
+    // per call, and either one rebuilt per render defeats every row bail-out
+    // on its own — the assertion would then fail for the wrong reason.
+    const base = tableProps(VALUES);
+
+    function Harness() {
+      const [edits, setEdits] = useState<ReadonlyMap<string, string>>(new Map());
+      const onEdit = useCallback((editKey: string, value: string) => {
+        setEdits((previous) => new Map(previous).set(editKey, value));
+      }, []);
+      // A fresh Map AND a fresh Set on every render — exactly what the root's
+      // `computeEmptyColumns` memo produces, since it re-runs on `edits`.
+      const emptyColumns = new Map([[POINTER, new Set(['discount'])]]);
+      return (
+        <VerificationForm {...base} edits={edits} onEdit={onEdit} emptyColumns={emptyColumns} />
+      );
+    }
+
+    render(<Harness />);
+    // Probe wired: the first commit rendered both rows.
+    expect(probe.rowRenders).toBe(2);
+
+    probe.rowRenders = 0;
+    const cell = screen.getByLabelText<HTMLInputElement>('Line Items row 1 — Description');
+    fireEvent.change(cell, { target: { value: 'WidgetX' } });
+
+    expect(cell.value).toBe('WidgetX');
+    // Row 2 shares nothing with the edit — and never re-rendered.
+    expect(
+      screen.getByLabelText<HTMLInputElement>('Line Items row 2 — Description').value,
+    ).toBe('Gadget');
+    expect(probe.rowRenders).toBe(1);
+    // ...and the filter is still doing its job while that is true.
+    expect(screen.queryByLabelText('Line Items row 1 — Discount')).toBeNull();
   });
 });
 

@@ -1,9 +1,14 @@
 /**
  * <GeminaVerification> — Task 16: edit state + progress summary.
  *
- * Separate file from verification-load.test.tsx for two reasons: that file is
- * already ~740 lines, and the render-count probe below needs a FILE-SCOPED
- * jsx-runtime mock that must not ride along on every load test.
+ * Separate file from verification-load.test.tsx because that file is already
+ * ~740 lines, and because the render-count probe below needs a jsx-runtime
+ * mock — which is per-FILE, so every test in whichever file declares it runs
+ * under it. That is a reason to keep it off the load tests, which do not need
+ * it; it is not a rule that only one file may have it. form.test.tsx declares
+ * the same probe (the wrapping is shared — row-render-probe.ts) because the
+ * visible-column array this comparator reads is memoized there, and a bail-out
+ * is invisible in the DOM wherever you assert it from.
  *
  * Contracts pinned here:
  * - The progress line renders composeSubmission's counts VERBATIM — the tests
@@ -38,44 +43,20 @@ const { getDocumentExtraction, validateDocumentExtraction, withSessionToken } = 
 vi.mock('@gemina/sdk', () => ({ GeminaClient: { withSessionToken } }));
 
 /**
- * TableRowView render probe. Every TableRowView render creates exactly one
- * clickable <tr> (row click-to-flash); the thead <tr> has no onClick and
- * nothing else in the tree creates table rows. A memo bail-out renders
- * nothing, so the counter counts actual row renders. Both automatic-runtime
- * entry points are wrapped (vitest's esbuild may emit either).
+ * TableRowView render probe — what it counts and why it is not a DOM
+ * assertion is recorded once, in row-render-probe.ts. The counter is this
+ * file's own (hoisted, reset in `afterEach`); only the wrapping is shared.
  */
 const probe = vi.hoisted(() => ({ rowRenders: 0 }));
 
-function countClickableTr(type: unknown, props: unknown): void {
-  if (type === 'tr' && typeof (props as { onClick?: unknown } | null)?.onClick === 'function') {
-    probe.rowRenders += 1;
-  }
-}
-
 vi.mock('react/jsx-runtime', async (importOriginal) => {
-  const actual = await importOriginal<Record<string, (...args: unknown[]) => unknown>>();
-  return {
-    ...actual,
-    jsx: (type: unknown, props: unknown, key?: unknown) => {
-      countClickableTr(type, props);
-      return actual.jsx!(type, props, key);
-    },
-    jsxs: (type: unknown, props: unknown, key?: unknown) => {
-      countClickableTr(type, props);
-      return actual.jsxs!(type, props, key);
-    },
-  };
+  const { wrapJsxRuntime } = await import('./row-render-probe');
+  return wrapJsxRuntime(await importOriginal<Record<string, (...args: unknown[]) => unknown>>(), probe);
 });
 
 vi.mock('react/jsx-dev-runtime', async (importOriginal) => {
-  const actual = await importOriginal<Record<string, (...args: unknown[]) => unknown>>();
-  return {
-    ...actual,
-    jsxDEV: (type: unknown, props: unknown, ...rest: unknown[]) => {
-      countClickableTr(type, props);
-      return actual.jsxDEV!(type, props, ...rest);
-    },
-  };
+  const { wrapJsxDevRuntime } = await import('./row-render-probe');
+  return wrapJsxDevRuntime(await importOriginal<Record<string, (...args: unknown[]) => unknown>>(), probe);
 });
 
 function makeManager() {
