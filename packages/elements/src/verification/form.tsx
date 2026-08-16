@@ -1013,8 +1013,15 @@ function TableSection(props: {
             consequence for the copy to carry: a reviewer who adds a line
             cannot reach its hidden cells until they switch back. That belongs
             HERE, beside the absence, and not on a tooltip attached to a
-            control that is still present and still works. */}
-        {hiddenColumnCount > 0 ? (
+            control that is still present and still works.
+            And silent when `allHidden`: the confidence filter has by then
+            replaced the whole grid with "All N rows scored high", so there is
+            no table for a column to have been hidden FROM. The two are
+            computed independently and neither implies the other, so without
+            this clause the header of a section showing no grid at all reads
+            "11 empty columns hidden" — which no wording can rescue, because at
+            that moment there is no true sentence to write. */}
+        {hiddenColumnCount > 0 && !allHidden ? (
           <span className="gemina-verification__filter-note">
             {`${hiddenColumnCount} empty ${hiddenColumnCount === 1 ? 'column' : 'columns'} hidden`}
           </span>

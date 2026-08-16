@@ -874,6 +874,14 @@ export function GeminaVerification(props: GeminaVerificationProps): React.JSX.El
   // map while the switch reads aria-checked="true". So while it is ON the
   // switch stays, hiding nothing, until the reviewer turns it off — and only
   // then is it allowed to go.
+  //
+  // THE TRADE, stated because the clause is not free: it converts a stranded
+  // STATE into a control that can unmount from its own click, and an element
+  // that deletes itself drops focus to <body>. That is a real cost, paid down
+  // in the onClick below by moving focus to Submit before the flip rather
+  // than by weakening this guard. No other footer control has the problem —
+  // `canFilter` does not read `filterOn`, so the confidence switch's mounting
+  // never depends on the state its own click changes.
   const canHideEmptyColumns = emptyColumns.size > 0 || hideEmptyColumns;
 
   const invalidCount = useMemo(() => {
@@ -1207,8 +1215,11 @@ export function GeminaVerification(props: GeminaVerificationProps): React.JSX.El
             </>
           )}
           {/* The SECOND view mode, and deliberately shaped like the first: same
-              role, same class, same off-by-default contract, and — like the
-              first — omitted when it has nothing to offer.
+              role, same class, same off-by-default contract. NOT the same
+              mounting rule, though: `canHideEmptyColumns` reads
+              `hideEmptyColumns`, so while this switch is engaged it stays even
+              with nothing left to hide — see its definition site for why, and
+              for the focus move that pays for it.
               No count beside it. `Showing X of Y` counts review UNITS, and a
               column is not one; the per-table note in the section header is
               where the absence is stated (§D2), because that is where it is
@@ -1225,7 +1236,26 @@ export function GeminaVerification(props: GeminaVerificationProps): React.JSX.El
               role="switch"
               aria-checked={hideEmptyColumns}
               className="gemina-verification__review-filter"
-              onClick={() => setHideEmptyColumns((on) => !on)}
+              onClick={() => {
+                // This click can DELETE this button: turning the switch off
+                // while the rule has nothing to offer makes
+                // `canHideEmptyColumns` false, and React then unmounts the
+                // element the event came from. The browser's response to that
+                // is to drop focus to <body>, so the next Tab restarts at the
+                // top of a form that can run to 169 rows — for exactly the
+                // keyboard and screen-reader users this switch exists to
+                // serve. So move focus first, deliberately. Submit is the
+                // target because it is the one control always rendered here,
+                // and focusing a button does not activate it. Reading
+                // `emptyColumns` from the render closure is correct: it is
+                // this render's map, the same one `canHideEmptyColumns` was
+                // computed from, so the prediction cannot disagree with the
+                // gate it is predicting.
+                if (hideEmptyColumns && emptyColumns.size === 0) {
+                  submitButtonRef.current?.focus();
+                }
+                setHideEmptyColumns((on) => !on);
+              }}
             >
               Hide empty columns
             </button>

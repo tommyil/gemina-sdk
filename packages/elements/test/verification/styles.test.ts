@@ -53,6 +53,17 @@ const CONTRACT_CLASS_NAMES = [
   '.gemina-verification__banner',
   '.gemina-verification__banner--error',
   '.gemina-verification__progress',
+  // The footer's two review switches and the notes/counts they render
+  // alongside. Added late: the list's stated job is that every selector a
+  // later task renders must already exist, and by the time both filters had
+  // shipped these five were being rendered by nothing that would notice if
+  // the rule behind them were deleted — an unstyled switch or an unstyled
+  // note would have gone out green.
+  '.gemina-verification__attention',
+  '.gemina-verification__review-filter',
+  '.gemina-verification__filter-count',
+  '.gemina-verification__filter-note',
+  '.gemina-verification__all-scored',
   '.gemina-verification__confirm',
   '.gemina-verification__confirm-dialog',
   '.gemina-verification__confirm-text',

@@ -1129,8 +1129,45 @@ describe('GeminaVerification — empty columns (state, reset, and what the rule 
     expect(toggle.getAttribute('aria-checked')).toBe('true');
 
     // Turned off with nothing left to offer, it is noise again and goes.
+    // It is the ONLY footer control that can unmount from its OWN click:
+    // `canHideEmptyColumns` reads `hideEmptyColumns`, so the state sits on
+    // both sides of the interaction. (`canFilter` does not read `filterOn`,
+    // which is why the confidence switch has never had this problem.)
+    toggle.focus();
+    expect(document.activeElement).toBe(toggle);
     fireEvent.click(toggle);
     expect(screen.queryByRole('switch', { name: SWITCH_NAME })).toBeNull();
+
+    // …and focus was moved DELIBERATELY before it went. A control that
+    // removes itself drops focus to <body>, and the next Tab then restarts at
+    // the top of a form that can run to 169 rows. Submit is the safe target:
+    // always rendered, and focusing a button does not activate it.
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Submit' }));
+    expect(document.activeElement).not.toBe(document.body);
+  });
+
+  it('says nothing about hidden columns when the grid itself is off screen', async () => {
+    // Both filters on, every row scoring high: the confidence filter replaces
+    // the whole grid with "All N rows scored high", and there is then no grid
+    // for a column to have been hidden FROM. `hiddenColumnCount` and
+    // `allHidden` are computed independently and neither consults the other,
+    // so the note would otherwise sit in the header of a section showing no
+    // table at all — §S consequence 4 (the copy must be true to what the
+    // reviewer is looking at) reached from the direction the plan did not
+    // anticipate. There is no wording that fixes it, so the note is silent.
+    getDocumentExtraction.mockResolvedValueOnce(scoredWideExtraction());
+    renderVerification();
+    await screen.findByLabelText('Line Items row 1 — Description');
+
+    fireEvent.click(screen.getByRole('switch', { name: SWITCH_NAME }));
+    // Non-vacuity: with the grid on screen the note IS there, and says 11.
+    expect(screen.getByText('11 empty columns hidden')).toBeTruthy();
+
+    fireEvent.click(screen.getByRole('switch', { name: 'Hide high-confidence fields' }));
+
+    expect(screen.getByText('All 4 rows scored high')).toBeTruthy();
+    expect(screen.queryByRole('table')).toBeNull();
+    expect(screen.queryByText(/empty columns? hidden/)).toBeNull();
   });
 
   /** Submit the wide fixture once, filter on or off, and hand back the exact
