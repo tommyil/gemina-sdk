@@ -313,6 +313,48 @@ session — but never purge one (that takes an API key or a console sign-in).
 For a drop-in chat UI in the browser, see the `@gemina/elements` package on
 npm.
 
+## Human verification in the browser
+
+`@gemina/elements` also ships `<GeminaVerification>`: a drop-in review step
+that puts the document next to every extracted field, lets a person correct
+what's wrong, and sends the corrections back to Gemina for accuracy scoring.
+
+Mint the token **scoped to the extraction being reviewed** — an unscoped token
+that reaches a browser can read every extraction in your account:
+
+```python
+token = await client.sessions.mint_retrieval_token(SessionTokenInDTO(
+    extraction_ids=[extraction_id],   # up to 10; pins the token to these
+    ttl_seconds=900,
+))
+```
+
+An empty list is rejected rather than quietly minting a tenant-wide token. Your
+endpoint must check that the requesting end-user is allowed to see those
+extractions: Gemina enforces the claim, you decide who gets it.
+
+Upload with `evaluation=True` to give the reviewer per-field confidence scores
+and the "hide everything already scored high" filter.
+
+Verification is **one-shot** per extraction — a second submission is rejected
+with 409. Afterwards the extraction carries two new fields, both `None` until
+someone verifies it: `verified_values` — the same shape as `values`, with the
+reviewer's corrections merged in, so switching payloads is a one-name change —
+and `verified_diff`, the typed list of what they changed. To submit a review
+from your own UI instead of the widget:
+
+```python
+from gemina.generated.models.extraction_validation_in_dto import (
+    ExtractionValidationInDTO,
+)
+
+summary = await client.documents.validate_document_extraction(
+    extraction_id,
+    ExtractionValidationInDTO(data=corrected_values),
+)
+print(summary.data)   # per-field comparison against what was extracted
+```
+
 ## Going deeper
 
 **Full API surface.** Every generated endpoint group is exposed on the client

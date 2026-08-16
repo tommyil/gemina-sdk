@@ -68,6 +68,10 @@ configured (missing ones are skipped loudly). Each release records the spec
 snapshot it was built from. SDK versions are semver, independent of the API
 version.
 
+One tag moves all six artifacts together, so a release that only touches one
+of them still republishes the rest. What shipped in each is in
+[`CHANGELOG.md`](./CHANGELOG.md).
+
 ## License
 
 [MIT](LICENSE)

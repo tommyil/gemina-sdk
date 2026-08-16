@@ -238,6 +238,36 @@ const results = await browserClient.retrieval.retrievalQuery({
 
 For a drop-in chat UI, see `@gemina/elements` on npm.
 
+## Human verification in the browser
+
+`@gemina/elements` also ships `<GeminaVerification>`: a drop-in review step that puts the document next to every extracted field, lets a person correct what's wrong, and sends the corrections back to Gemina for accuracy scoring.
+
+Mint the token **scoped to the extraction being reviewed** — an unscoped token that reaches a browser can read every extraction in your account:
+
+```ts
+// Server-side (holds the API key)
+const session = await client.sessions.mintRetrievalToken({
+  sessionTokenInDTO: {
+    extractionIds: [extractionId], // up to 10; pins the token to these
+    ttlSeconds: 900,
+  },
+});
+```
+
+An empty list is rejected rather than quietly minting a tenant-wide token. Your endpoint must check that the requesting end-user is allowed to see those extractions: Gemina enforces the claim, you decide who gets it.
+
+Upload with `evaluation: true` to give the reviewer per-field confidence scores and the "hide everything already scored high" filter.
+
+Verification is **one-shot** per extraction — a second submission is rejected with 409. Afterwards the extraction carries two new fields, both null until someone verifies it: `verifiedValues` — the same shape as `values`, with the reviewer's corrections merged in, so switching payloads is a one-name change — and `verifiedDiff`, the typed list of what they changed. To submit a review from your own UI instead of the widget:
+
+```ts
+const summary = await client.documents.validateDocumentExtraction({
+  targetDocumentExtractionId: extractionId,
+  extractionValidationInDTO: { data: correctedValues },
+});
+// summary.data -> per-field comparison against what was extracted
+```
+
 ## Going deeper
 
 **Full API surface.** The convenience layer sits on top of a complete generated client. Every API group is available on the client as a lazy accessor: `documents`, `retrieval`, `chat`, `templates`, `files`, `fileTag`, `sessions`, `subscriptions`, `billing`. For example, list your stored documents:

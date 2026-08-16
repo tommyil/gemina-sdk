@@ -286,6 +286,43 @@ the API key):
 var sessionClient = GeminaClient.WithSessionToken(session.Token);
 ```
 
+## Human verification in the browser
+
+`@gemina/elements` also ships `<GeminaVerification>`: a drop-in review step
+that puts the document next to every extracted field, lets a person correct
+what's wrong, and sends the corrections back to Gemina for accuracy scoring.
+
+Mint the token **scoped to the extraction being reviewed** — an unscoped token
+that reaches a browser can read every extraction in your account:
+
+```csharp
+var session = await client.Sessions.MintRetrievalTokenAsync(new SessionTokenInDTO(
+    extractionIds: new List<Guid> { extractionId },  // up to 10; pins the token
+    ttlSeconds: 900));
+```
+
+An empty list is rejected rather than quietly minting a tenant-wide token. Your
+endpoint must check that the requesting end-user is allowed to see those
+extractions: Gemina enforces the claim, you decide who gets it.
+
+Upload with `evaluation: true` to give the reviewer per-field confidence scores
+and the "hide everything already scored high" filter.
+
+Verification is **one-shot** per extraction — a second submission is rejected
+with 409. Afterwards the extraction carries two new properties, both null until
+someone verifies it: `VerifiedValues` — the same shape as `Values`, with the
+reviewer's corrections merged in, so switching payloads is a one-name change —
+and `VerifiedDiff`, the typed list of what they changed. To submit a review
+from your own UI instead of the widget:
+
+```csharp
+var summary = await client.Documents.ValidateDocumentExtractionAsync(
+    extractionId,
+    new ExtractionValidationInDTO(data: correctedValues));
+
+// summary.Data -> per-field comparison against what was extracted
+```
+
 ## Going deeper
 
 **Full API surface.** The generated client for every endpoint group is

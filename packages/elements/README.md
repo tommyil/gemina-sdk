@@ -338,6 +338,90 @@ end-user with devtools read any extraction in your account. Scope it.
   | "session-expired" | "load-failed" | "submit-failed"
 ```
 
+### What the reviewer sees
+
+The document on one side, every extracted field as an editable input on the
+other. The form's shape is derived from the extraction itself — you don't
+describe your schema to the component:
+
+| Section | What lands there |
+|---|---|
+| **Details** | Flat header fields (`supplier_name`, `total_amount`) and simple lists |
+| Entity cards | Repeating objects that aren't tabular — e.g. several suppliers |
+| Tables | Line items and other row/column arrays, rendered as an editable grid |
+| **Additional Data** | Anything the classifier couldn't place — collapsible, read-only JSON |
+| **Not detected** | Fields the server expects a value for that the extraction didn't find. Empty inputs, ready to fill in |
+
+Inputs are typed from the server's own validation descriptors — the same
+source of truth the scorer uses — so a `date` field gets a date input, a
+`number` field rejects letters, and a closed roster becomes a dropdown.
+Currency fields suggest ISO 4217 codes without requiring one: a reviewer
+looking at a real invoice is the authority on what currency it's in. Invalid
+input blocks **Submit** until it's fixed, with the reason inline.
+
+Every field you change picks up an "edited" badge — a word, not just a color,
+so it survives a field that's also flagged invalid. Where the extraction
+carries coordinates, each field gets an eye button that zooms the viewer to
+that spot on the page; fields without coordinates simply don't get the button.
+The viewer itself pans, zooms (wheel, pinch, double-click to fit), rotates,
+and has a magnifier loupe.
+
+Submitting asks for confirmation first — *"Submit these values? This is final
+— they can be submitted once and can't be changed."* — then reports back
+`N confirmed · M corrected`.
+
+### Confidence and the review filter
+
+**Prerequisite:** run the extraction with **`evaluation` enabled** (the upload
+option of that name in every Gemina SDK). Without it there are no scores, and
+everything in this section is silently absent — no dots, no switch. That is by
+design, but it is the first thing to check if you expected them.
+
+With scores present, each field and each table row carries a colored
+confidence dot, always paired with a text label and a tooltip listing the
+model's reasons (color is never the only signal). The extraction's own overall
+score sits at the top of the form, and each table's above its rows; those are
+summaries rather than review units, so the filter never hides them. A switch
+appears in the footer:
+
+> **Hide high-confidence fields** — `Showing 12 of 47`
+
+It's a **view mode, off by default**, and it resets whenever the component
+loads a different extraction. It never changes what gets submitted: a hidden
+field is submitted exactly as it would have been on screen.
+
+What it hides, precisely:
+
+| Rule | Why |
+|---|---|
+| Only an explicit `high` hides | Unscored is not "reviewed" — nothing checked it, so hiding it would drop it from review silently. Low, medium and unknown always stay |
+| A field you edited never hides | Your own change is the thing most worth a second look |
+| A field with a validation error never hides | It can't be submitted as-is, so hiding it would strand the reviewer |
+| A row hides whole, never per-cell | A line item is read as a line; half a row is worse than none |
+| A row you added never hides | It was never extracted, so it has no score |
+
+While the filter is on, row add/remove is disabled — the row numbers on screen
+would no longer be the row numbers being edited. The section header says so:
+*"Row editing is off while filtering"*.
+
+The count next to the switch is the safety rail: a filtered form that looks
+unfiltered is how a reviewer concludes data went missing. A table with nothing
+left shows `All 169 rows scored high`; when the whole form is clear, it says
+`Nothing needs review — all 47 fields scored high.`
+
+### Editing table rows
+
+Where the server declares a table row-mutable, each row gets **Insert line
+below** and **Remove line** controls. This is not cosmetic: the component
+sends the server an alignment between submitted rows and extracted ones, so an
+inserted row scores as `missing` and a deleted one as `extra` — *without*
+cascading a false correction onto every row below it. Corrections follow the
+row, not the position, so a value typed into the third line stays with that
+line after the first is deleted.
+
+Tables the server hasn't declared row-mutable render as an editable grid with
+a fixed row count.
+
 ### Edge states
 
 | Situation | Behavior |
@@ -354,9 +438,59 @@ end-user with devtools read any extraction in your account. Scope it.
 
 ### One-shot semantics
 
-Submission is final; corrections are delivered to your `onComplete` and to
-Gemina's accuracy scoring — they are not retrievable afterwards. The UI puts
-an explicit confirm step, stating exactly that, in front of the submit.
+Submission is final. An extraction can be verified once: a second attempt is
+rejected, and the component lands in the read-only already-verified view. The
+UI puts an explicit confirm step, saying exactly that, in front of the submit.
+
+What's submitted is not lost — it reaches your `onComplete`, Gemina's accuracy
+scoring, and the extraction's `verifiedValues` / `verifiedDiff` on any later
+read. What can't happen is a *second* round of corrections.
+
+### Theming
+
+Same mechanism as chat, different namespace: styles are injected once on
+mount into a `<style data-gemina-verification>` tag, every class is scoped
+under `.gemina-verification`, and every color and shape is an overridable
+custom property.
+
+```css
+.my-app .gemina-verification {
+  --gemina-verification-accent: #7c3aed;
+  --gemina-verification-radius: 4px;
+}
+```
+
+| Variable | Purpose |
+|---|---|
+| `--gemina-verification-bg` / `-fg` | Widget background / text |
+| `--gemina-verification-surface` | Section panels, table headers, toolbar |
+| `--gemina-verification-border` | Frames, table rules, dividers |
+| `--gemina-verification-accent` / `-accent-fg` | Submit button, focus ring, switch |
+| `--gemina-verification-input-bg` / `-input-border` | Field inputs |
+| `--gemina-verification-muted` | Labels, captions, counts |
+| `--gemina-verification-error` | Validation errors and failure states |
+| `--gemina-verification-dirty` | The "edited" badge and its field border |
+| `--gemina-verification-confidence-high` / `-medium` / `-low` / `-unknown` | The four confidence dots |
+| `--gemina-verification-overlay-rgb` | Coordinate boxes and the flash highlight. An `R, G, B` triplet, not a color — it's composited at several opacities |
+| `--gemina-verification-radius` | Corner radius |
+| `--gemina-verification-font` | Font stack |
+
+`theme="dark"` swaps the background/text/border/input set. The confidence and
+overlay colors are deliberately shared across both themes — they encode
+meaning, not mood. Your own overrides always win.
+
+### RTL
+
+`dir="auto"` (the default) inspects the extraction's field *values* and flips
+the whole widget to RTL when they contain Hebrew, so a Hebrew invoice reads
+correctly without you detecting anything. Layout uses CSS logical properties
+throughout, so labels, table columns, row controls and the footer all mirror.
+
+Two things deliberately don't: the **document pane keeps its side** — it's
+content, not chrome, and since `dir="auto"` resolves per extraction, mirroring
+it made the image jump sides between documents — and the viewer canvas stays
+physical, because that's page geometry. Pass `dir="rtl"` or `dir="ltr"` to pin
+the direction.
 
 ### Integration notes
 
@@ -364,6 +498,11 @@ an explicit confirm step, stating exactly that, in front of the submit.
   response, the verification IS recorded server-side but `onComplete` does
   not fire (the component lands in the already-verified state on retry).
   Treat the server's verification status as the source of truth.
+- **The corrections outlive the callback.** Reading the extraction back
+  server-side gives you `verifiedValues` — the same shape as `values` with the
+  reviewer's corrections merged in — and `verifiedDiff`, the typed list of
+  what changed. Both are null until someone verifies. Prefer these over
+  storing the callback payload yourself.
 - **`tokenManager` must be a stable instance** — module-level, `useMemo`, or
   `useRef`. Constructing it inline in JSX re-fetches on every render.
 - **`getToken()` has no built-in timeout** — enforce your own inside
@@ -390,18 +529,26 @@ The five footguns from Gemina's token spec, designed out:
 
 ## Demo
 
-A no-build-system manual demo lives in [`demo/`](./demo). From
-`packages/elements/`:
+No-build-system manual demos live in [`demo/`](./demo) — one page per
+component. From `packages/elements/`:
 
 ```bash
+# Chat -> demo/index.html
 npx esbuild demo/demo.tsx --bundle --outfile=demo/demo.js --jsx=automatic \
   --define:process.env.NODE_ENV='"production"'
+
+# Verification -> demo/verification.html
+npx esbuild demo/verification-demo.tsx --bundle \
+  --outfile=demo/verification-demo.js --jsx=automatic \
+  --define:process.env.NODE_ENV='"production"'
+
 npx serve demo
 ```
 
-Mint a session token server-side (see the comment in `demo/index.html`),
-paste it into the page, and mount the chat. The demo never touches an API
-key.
+Mint a session token server-side (each page's HTML comment has the exact
+`curl`), paste it into the page, and mount. The verification page also asks
+for an extraction id, which must be inside that token's `extractionIds`
+scope. Neither demo ever touches an API key.
 
 ## License
 

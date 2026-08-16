@@ -80,6 +80,20 @@ Server-side sample: mint a token with the SDK
 (`sessions` group / `mint_retrieval_token`), hand it to your frontend;
 never the API key. Mention `@gemina/elements` for a drop-in chat UI (npm).
 
+## Human verification in the browser
+
+`@gemina/elements`' `<GeminaVerification>` widget, and the API behind it:
+
+- Mint sample with `extractionIds` scope (up to 10 — an empty list is
+  rejected, not widened). State the shared responsibility: the host endpoint
+  authorizes the end-user against those ids.
+- `evaluation` at upload is what produces per-field confidence and the
+  reviewer's "hide high-confidence" filter.
+- One-shot per extraction (409 on resubmission); corrected payload comes back
+  on the extraction as `verifiedValues`, null until verified.
+- Server-side submit sample (`documents` group /
+  `validate_document_extraction`) for hosts using their own review UI.
+
 ## Going deeper
 
 - Full generated API surface via the group accessors (`client.documents`,
