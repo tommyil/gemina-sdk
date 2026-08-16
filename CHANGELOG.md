@@ -9,6 +9,41 @@ spec snapshot it was generated from where that matters.
 
 Pre-1.0: minor versions carry features and may change behaviour.
 
+## v0.14.0 — 2026-08-17
+
+**"Hide empty columns" in `<GeminaVerification>`.** A second switch in the
+footer, beside the confidence one, that hides the table columns nothing was
+extracted into. Every invoice line-items table we measured declares 19 columns
+and leaves 5 to 16 of them blank in every single row, so a reviewer scrolls a
+19-column grid sideways to check 8 values. With the switch on, that table reads
+as 8 columns.
+
+Unlike the confidence filter it has **no prerequisite** — no `evaluation` at
+upload, nothing to enable; it reads the extraction the component already holds.
+It is off by default, it resets when a different extraction loads, and — like
+the first filter — it never changes what gets submitted: a hidden column is
+submitted exactly as it would have been on screen.
+
+A column hides only when every cell in it is blank, no cell in it was typed
+into this session, and none carries a validation error. A table with no
+extracted rows hides nothing (an empty table is one the reviewer is still
+filling in), and a table never hides *all* of its columns — the document-eye
+button, the confidence dot and *Remove line* are cells of the row, so emptying
+a grid would take them down with it. The count is stated per table
+(`11 columns hidden — blank in every row`) rather than in the footer, because
+`Showing X of Y` counts review *units* and a column is not one.
+
+**Row editing stays on while columns are hidden**, which is the opposite of the
+confidence filter. That one disables it because hiding rows makes the numbers
+on screen stop being the numbers being edited; hiding columns leaves every row
+where it was, so the rationale does not transfer. The accepted cost is that a
+line added while filtering has no input for the hidden columns, and the table
+says so beside *Add line* instead of locking the button.
+
+The two filters are independent: emptiness is computed over the whole row plan,
+including rows the confidence filter is hiding, so neither switch moves what
+the other shows.
+
 ## v0.13.3 — 2026-08-16
 
 Documentation only — no code changed in any artifact. Registry pages render
