@@ -10,7 +10,8 @@
 import { describe, expect, it } from 'vitest';
 import { buildBindings, composeSubmission } from '../../src/verification/bindings';
 import {
-  collectCellViews, declaredTableColumns, displayColumns, planTableCells, tableColumns,
+  collectCellViews, declaredTableColumns, displayColumns, planTableCells, resolveRowCell,
+  tableColumns,
 } from '../../src/verification/row-cells';
 import {
   initialRowPlan, insertRowAfter, isIdentityPlan, removeRow, rowSourcesOf,
@@ -219,5 +220,73 @@ describe('composeSubmission with a row plan', () => {
     const { data, rowSources } = composeSubmission(bindings, new Map());
     expect(data['label:total|ptr:/total']).toBe(117);
     expect(rowSources).toEqual([]);
+  });
+});
+
+/**
+ * The renderer's cell resolution, now shared with the empty-column rule.
+ *
+ * These cases were untestable while the logic was a closure inside
+ * TableRowView, and NOTHING in the suite caught their loss: on a planned table
+ * the VALUE comes from the binding, so dropping the casing rule here only
+ * silently breaks the confidence dot, the row-flash rects and — since v0.14 —
+ * whether an unbound column counts as populated.
+ */
+describe('resolveRowCell', () => {
+  const cell = (pointer: string, value: unknown) => ({
+    pointer, value, coordinates: null, confidence: null,
+  });
+
+  it('finds a snake_case declared column in a camelCase payload row', () => {
+    // The live case: every real extraction declares `unit_of_measure` and
+    // serialises `unitOfMeasure`.
+    const row = { unitOfMeasure: cell('/line_items/0/unitOfMeasure', 'BOX') };
+    const resolved = resolveRowCell(row, 'unit_of_measure', undefined, new Map());
+    expect(resolved.classified?.value).toBe('BOX');
+  });
+
+  it('prefers an EXACT key over the camelCase alias', () => {
+    // A dynamic template may genuinely declare both spellings as separate
+    // columns, so the exact match must win rather than collapsing into one.
+    const row = {
+      unit_of_measure: cell('/t/0/unit_of_measure', 'snake'),
+      unitOfMeasure: cell('/t/0/unitOfMeasure', 'camel'),
+    };
+    expect(resolveRowCell(row, 'unit_of_measure', undefined, new Map()).classified?.value)
+      .toBe('snake');
+    expect(resolveRowCell(row, 'unitOfMeasure', undefined, new Map()).classified?.value)
+      .toBe('camel');
+  });
+
+  it('scans for a payload key that camelises to the same column', () => {
+    // The other direction: a camelCase declaration against a payload that kept
+    // the snake spelling. Neither of the two direct lookups finds it.
+    const row = { unit_of_measure: cell('/t/0/unit_of_measure', 'KG') };
+    expect(resolveRowCell(row, 'unitOfMeasure', undefined, new Map()).classified?.value)
+      .toBe('KG');
+  });
+
+  it('takes the binding and the edit key from the PLAN where there is one', () => {
+    // The plan's key follows the ROW; the pointer lookup's follows the
+    // position. After a removal those differ, and the plan is the correct one.
+    const { byRaw, count } = setup(['A', 'B']);
+    const plan = removeRow(initialRowPlan(count, TABLE.pointer), 0);
+    const planned = planTableCells(TABLE, plan, COLUMNS, byRaw)[0]!;
+    const resolved = resolveRowCell(undefined, 'description', planned, new Map());
+    expect(resolved.editKey).toBe(cellEditKey(plan[0]!.id, 'description'));
+    expect(resolved.binding?.extracted).toBe('B');
+  });
+
+  it('falls back to the pointer index when there is no plan', () => {
+    const binding = { key: { raw: 'label:x|ptr:/t/0/x' } } as never;
+    const row = { x: cell('/t/0/x', 'v') };
+    const resolved = resolveRowCell(row, 'x', undefined, new Map([['/t/0/x', binding]]));
+    expect(resolved.editKey).toBe('label:x|ptr:/t/0/x');
+  });
+
+  it('resolves to nothing at all for a column the row does not have', () => {
+    expect(resolveRowCell({}, 'missing', undefined, new Map())).toEqual({
+      classified: undefined, binding: undefined, editKey: undefined,
+    });
   });
 });

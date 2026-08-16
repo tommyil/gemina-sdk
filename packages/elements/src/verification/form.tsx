@@ -38,13 +38,13 @@ import type { ClassifiedCell, ClassifiedData, ClassifiedField } from './classify
 import { ROW_META_KEY, formatLabel, formatValue } from './classify';
 import { ISO_4217_CODES, cellSchemaKey, validateInput } from './field-types';
 import type { RowMutableTable, ValidationFieldDescriptor } from './field-types';
-import { matchesTablePointer, tableColumns } from './row-cells';
+import { matchesTablePointer, resolveRowCell, tableColumns } from './row-cells';
 import type { PlannedCell, PlannedRow } from './row-cells';
 import { cellEditKey } from './row-plan';
 import { NOTHING_HIDDEN, unplannedRowKey } from './review-filter';
 import type { HiddenSets } from './review-filter';
 import type { RowPlanEntry } from './row-plan';
-import { NOT_FOUND, parseSchemaKey, snakeToCamel } from './pointer';
+import { NOT_FOUND, parseSchemaKey } from './pointer';
 import { Tip } from './tip';
 import { IconEye } from './viewer';
 
@@ -620,25 +620,11 @@ function TableRowView(props: TableRowViewProps): React.JSX.Element {
     [rects, onFlash],
   );
 
-  /** Cells by column: from the plan when there is one, else today's lookup. */
-  const cellFor = (column: string) => {
-    // Server-declared table columns use model names (snake_case), but response
-    // DTOs expose the same keys in camelCase. Prefer an exact key (important
-    // for dynamic templates that genuinely use either spelling), then match
-    // through the one shared casing rule.
-    const direct = row?.[column];
-    const alias = direct === undefined ? row?.[snakeToCamel(column)] : undefined;
-    const fallbackKey = direct === undefined && alias === undefined && row !== undefined
-      ? Object.keys(row).find((key) => snakeToCamel(key) === snakeToCamel(column))
-      : undefined;
-    const classified = direct ?? alias ?? (fallbackKey === undefined ? undefined : row?.[fallbackKey]);
-    const fromPlan = planned?.cells.find((cell: PlannedCell) => cell.column === column);
-    if (fromPlan) {
-      return { classified, binding: fromPlan.binding, editKey: fromPlan.editKey };
-    }
-    const binding = classified === undefined ? undefined : bindingIndex.get(classified.pointer);
-    return { classified, binding, editKey: binding?.key.raw };
-  };
+  /** Cells by column: from the plan when there is one, else today's lookup.
+   *  The rule itself lives in row-cells.ts, because the empty-column filter
+   *  must resolve cells identically — a second copy here would let it call a
+   *  cell blank while this row renders a value into it (F4). */
+  const cellFor = (column: string) => resolveRowCell(row, column, planned, bindingIndex);
 
   const firstRect = rects.length > 0 ? rects[0]! : null;
   // Row controls are OMITTED while filtering, not disabled: "insert below

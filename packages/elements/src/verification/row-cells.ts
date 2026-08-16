@@ -23,6 +23,7 @@
 
 import { toInputString } from './bindings';
 import type { FieldBinding } from './bindings';
+import type { ClassifiedCell } from './classify';
 import { cellSchemaKey } from './field-types';
 import type { RowMutableTable, ValidationFieldDescriptor } from './field-types';
 import { NOT_FOUND, parseSchemaKey, snakeToCamel } from './pointer';
@@ -217,6 +218,58 @@ export function declaredTableColumns(
     (candidate) => matchesTablePointer(mutable.pointer, candidate.pointer),
   );
   return columnsForTable(mutable, classified?.columns ?? []);
+}
+
+/** One rendered table cell: what paints, and under which key it is edited. */
+export interface ResolvedCell {
+  /** The classified leaf behind this column, if the payload carries one. */
+  classified: ClassifiedCell | undefined;
+  /** Undefined ONLY on an unplanned table whose column no schema key covers. */
+  binding: FieldBinding | undefined;
+  /** Undefined exactly when `binding` is — nothing can key an edit here. */
+  editKey: string | undefined;
+}
+
+/**
+ * What one cell of one table row actually renders from.
+ *
+ * Extracted from `TableRowView`'s local `cellFor` so the emptiness rule
+ * (empty-columns.ts) resolves cells the SAME way the renderer does. Two copies
+ * would let the rule call a cell blank while the screen shows a value — the
+ * exact class of bug F4 records, and one with no symptom other than a column
+ * quietly disappearing.
+ *
+ * Column names are matched casing-aware because the server declares them in
+ * snake_case while the response DTO serialises them camelCase, and that
+ * mismatch is present on EVERY row of EVERY real extraction (`unit_of_measure`
+ * declared vs `unitOfMeasure` in the payload). Precedence is deliberate: an
+ * EXACT key first, because a dynamic template may genuinely declare either
+ * spelling; then the camelised name; then a scan for any payload key that
+ * camelises to the same thing, which is what catches a payload that kept the
+ * snake spelling against a camel declaration.
+ *
+ * The plan wins over the pointer lookup wherever there is one: a planned cell's
+ * edit key follows its ROW, so after a row is removed the pointer-derived key
+ * would attribute the correction to whichever row moved up into that position.
+ */
+export function resolveRowCell(
+  row: Record<string, ClassifiedCell> | undefined,
+  column: string,
+  planned: PlannedRow | undefined,
+  bindingIndex: ReadonlyMap<string, FieldBinding>,
+): ResolvedCell {
+  const direct = row?.[column];
+  const alias = direct === undefined ? row?.[snakeToCamel(column)] : undefined;
+  const fallbackKey = direct === undefined && alias === undefined && row !== undefined
+    ? Object.keys(row).find((key) => snakeToCamel(key) === snakeToCamel(column))
+    : undefined;
+  const classified = direct ?? alias ?? (fallbackKey === undefined ? undefined : row?.[fallbackKey]);
+  const fromPlan = planned?.cells.find((cell: PlannedCell) => cell.column === column);
+  if (fromPlan) {
+    return { classified, binding: fromPlan.binding, editKey: fromPlan.editKey };
+  }
+  const binding = classified === undefined ? undefined : bindingIndex.get(classified.pointer);
+  return { classified, binding, editKey: binding?.key.raw };
 }
 
 /**
