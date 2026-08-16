@@ -153,6 +153,40 @@ export function computeHidden(input: HiddenInput): HiddenSets {
 }
 
 /**
+ * How many things the reviewer can act on.
+ *
+ * A "review unit" is one header field, one simple-list item, one entity-card
+ * cell, or one TABLE ROW — a row counts once, not once per cell, because rows
+ * hide whole or not at all.
+ *
+ * Suppressed (promoted) headers are excluded, so `total − hidden` stays honest:
+ * `computeHidden` skips them too, and counting them in one place but not the
+ * other is what makes "Showing 6 of 29" drift.
+ */
+export function countUnits(
+  classified: ClassifiedData,
+  plannedTables: ReadonlyMap<string, PlannedRow[]>,
+  suppressed: ReadonlySet<string>,
+): number {
+  let total = 0;
+  total += classified.headers.filter((header) => !suppressed.has(header.pointer)).length;
+  for (const list of classified.simpleLists) {
+    total += list.items.filter((item) => !suppressed.has(item.pointer)).length;
+  }
+  for (const entity of classified.entities) {
+    for (const item of entity.items) {
+      total += Object.values(item).filter((entityCell) => !suppressed.has(entityCell.pointer)).length;
+    }
+  }
+  for (const table of classified.tables) {
+    // The plan is the source of truth when there is one: it includes rows the
+    // reviewer added and excludes ones they removed.
+    total += plannedTables.get(table.pointer)?.length ?? table.rows.length;
+  }
+  return total;
+}
+
+/**
  * True when any FIELD or ROW carries a confidence level.
  *
  * Overall confidence is excluded deliberately: it is rendered as its own

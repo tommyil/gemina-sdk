@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   computeHidden,
+  countUnits,
   hasAnyConfidence,
   isHighConfidence,
   NOTHING_HIDDEN,
@@ -255,5 +256,37 @@ describe('hasAnyConfidence', () => {
 
   it('is false for an unscored extraction', () => {
     expect(hasAnyConfidence(classified({ headers: [field('a', null)] }))).toBe(false);
+  });
+});
+
+// --- countUnits -------------------------------------------------------------
+
+describe('countUnits', () => {
+  it('counts each bucket, and a table ROW once rather than per cell', () => {
+    const data = classified({
+      headers: [field('a', 'high'), field('b', null)],
+      simpleLists: [{ key: 'tags', pointer: '/tags', items: [cell('/tags/0', null), cell('/tags/1', null)] }],
+      entities: [{ key: 'p', pointer: '/p', items: [{ name: cell('/p/0/name', null), id: cell('/p/0/id', null) }] }],
+      tables: [{ key: 'taxes', pointer: '/taxes', columns: ['rate'], overallConfidence: null, rows: [taxRow(null), taxRow(null)] }] as any,
+    });
+    // 2 headers + 2 list items + 2 entity cells + 2 rows
+    expect(countUnits(data, new Map(), new Set())).toBe(8);
+  });
+
+  it('excludes suppressed pointers, matching computeHidden', () => {
+    const data = classified({ headers: [field('a', 'high'), field('b', null)] });
+    expect(countUnits(data, new Map(), new Set(['/a']))).toBe(1);
+  });
+
+  // The plan includes added rows and excludes removed ones, so it wins.
+  it('counts planned rows rather than extracted ones when a plan exists', () => {
+    const data = classified({
+      tables: [{ key: 'taxes', pointer: '/taxes', columns: [], overallConfidence: null, rows: [taxRow(null)] }] as any,
+    });
+    const planned = new Map([['/taxes', [
+      { entry: { id: '/taxes#row-0', source: 0 }, cells: [] },
+      { entry: { id: '/taxes#added-1', source: null }, cells: [] },
+    ] as any]]);
+    expect(countUnits(data, planned, new Set())).toBe(2);
   });
 });
