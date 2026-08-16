@@ -12,7 +12,12 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-libra
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { GeminaVerification } from '../../src/verification/index';
 import { GeminaTokenManager } from '../../src/token-manager';
+import { NO_EMPTY_COLUMNS } from '../../src/verification/empty-columns';
+import type { EmptyColumns, EmptyColumnsInput } from '../../src/verification/empty-columns';
+import { NO_PAIR_ERRORS } from '../../src/verification/form';
+import type { VerificationFormProps } from '../../src/verification/form';
 import { extraction, FIXTURE_IMAGE_URL, httpError, ResizeObserverStub } from './helpers';
+import { wideTableExtraction } from './empty-columns.fixture';
 
 const { getDocumentExtraction, validateDocumentExtraction, withSessionToken } = vi.hoisted(() => {
   const getDocumentExtraction = vi.fn();
@@ -24,6 +29,76 @@ const { getDocumentExtraction, validateDocumentExtraction, withSessionToken } = 
 });
 
 vi.mock('@gemina/sdk', () => ({ GeminaClient: { withSessionToken } }));
+
+/**
+ * Two TRANSPARENT recording seams for the empty-columns wiring (plan Task 3).
+ *
+ * Task 3 is state only — the switch that flips `hideEmptyColumns` arrives in
+ * Task 5 and the column filtering in Task 4 — so nothing it computes reaches
+ * the screen yet. The alternative to a seam would be inventing a UI to test
+ * against, which would then have to be deleted; these two wrappers instead
+ * observe what the component ALREADY hands its collaborators: the props the
+ * form is rendered with, and the input the rule is computed from.
+ *
+ * Both delegate to the real implementation and re-export everything else
+ * untouched (`withEmptyMutableTables` and `NO_EMPTY_COLUMNS` in particular —
+ * index.tsx imports them from these same modules), so the rest of this file's
+ * ~45 tests exercise exactly the code they did before.
+ */
+const { formRenders, emptyColumnsCalls } = vi.hoisted(() => ({
+  formRenders: [] as VerificationFormProps[],
+  // `touchedEver` is the component's LIVE ref-held Set, so a later keystroke
+  // would mutate a call recorded earlier: snapshot its contents at call time.
+  emptyColumnsCalls: [] as Array<{
+    input: EmptyColumnsInput;
+    touched: string[];
+    result: EmptyColumns;
+  }>,
+}));
+
+vi.mock('../../src/verification/form', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../src/verification/form')>();
+  const RecordingForm = (props: VerificationFormProps) => {
+    formRenders.push(props);
+    return <actual.VerificationForm {...props} />;
+  };
+  return { ...actual, VerificationForm: RecordingForm };
+});
+
+vi.mock('../../src/verification/empty-columns', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../src/verification/empty-columns')>();
+  return {
+    ...actual,
+    computeEmptyColumns: (input: EmptyColumnsInput) => {
+      const result = actual.computeEmptyColumns(input);
+      emptyColumnsCalls.push({ input, touched: [...input.touchedEver], result });
+      return result;
+    },
+  };
+});
+
+/** The props of the LAST render of the form. */
+function lastFormProps(): VerificationFormProps {
+  const props = formRenders.at(-1);
+  if (props === undefined) {
+    throw new Error('VerificationForm was never rendered');
+  }
+  return props;
+}
+
+/** The LAST `computeEmptyColumns` call: its input, its touched-ever set
+ *  snapshotted, and what the rule returned for it. */
+function lastEmptyColumnsCall(): {
+  input: EmptyColumnsInput;
+  touched: string[];
+  result: EmptyColumns;
+} {
+  const call = emptyColumnsCalls.at(-1);
+  if (call === undefined) {
+    throw new Error('computeEmptyColumns was never called');
+  }
+  return call;
+}
 
 function makeManager() {
   let n = 0;
@@ -62,6 +137,8 @@ afterEach(() => {
   getDocumentExtraction.mockReset();
   validateDocumentExtraction.mockReset();
   withSessionToken.mockClear();
+  formRenders.length = 0;
+  emptyColumnsCalls.length = 0;
 });
 
 describe('GeminaVerification — loading', () => {
@@ -752,4 +829,166 @@ describe('GeminaVerification — stacked layout (root width observer)', () => {
     ResizeObserverStub.forClass('gemina-verification').resizeTo(0, 0);
     expect(root.className).not.toContain('gemina-verification--stacked');
   });
+});
+
+/**
+ * "Hide empty columns" — Task 3: the state, the reset and the memo that feeds
+ * them. The switch itself is Task 5 and the column filtering is Task 4, so
+ * everything here is asserted through the two recording seams at the top of
+ * this file rather than through the screen.
+ */
+describe('GeminaVerification — empty columns (state, reset, and what the rule is fed)', () => {
+  /** The synthetic wide table, with row 1 half-filling the unit-size pair. */
+  function pairErrorExtraction(options: { validated?: boolean } = {}): Record<string, unknown> {
+    const view = wideTableExtraction();
+    const values = view.values as Record<string, unknown>;
+    const rows = values.line_items as Array<Record<string, unknown>>;
+    // `unitSizeUom` stays null beside it — the trap §S is built around: the
+    // blank half is what blocks Submit, so it must not be hidden.
+    const firstRow = rows[0];
+    if (firstRow === undefined) {
+      throw new Error('the wide fixture must have at least one row');
+    }
+    firstRow.unitSize = 5;
+    if (options.validated === true) {
+      (view.meta as Record<string, unknown>).validated = true;
+    }
+    return view;
+  }
+
+  /** The edit key of row 1's `barcode` cell — `cellEditKey`, the ROW-plan
+   *  spelling, not the schema key: a planned cell is keyed by its row id so it
+   *  survives an insert above it. */
+  const BARCODE_KEY = 'cell:/line_items#row-0|col:barcode';
+
+  it('starts OFF: the form is handed the SHARED sentinel, and every blank column still renders', async () => {
+    getDocumentExtraction.mockResolvedValueOnce(wideTableExtraction());
+    renderVerification();
+
+    // Not vacuous: this fixture is 8 populated / 11 blank of 19 columns (the
+    // shape Task 0 measured in prod), and `barcode` is one of the blank ones —
+    // on screen, unfiltered, because the filter is off until a reviewer says
+    // otherwise. `toBe`, not `toEqual`: a fresh `new Map()` per render would
+    // defeat the section memos downstream.
+    await screen.findByLabelText('Line Items row 1 — Description');
+    expect(screen.getByText('Barcode')).toBeTruthy();
+    expect(lastFormProps().emptyColumns).toBe(NO_EMPTY_COLUMNS);
+
+    // …and the rule really did find columns to hide, end to end through the
+    // component's own bindings, row plan and column lists — so the sentinel
+    // above is the GATE's doing, not an empty result. (This is also the only
+    // place the wiring is checked against the rule's OUTPUT: all 11 blank
+    // columns of the 19, and not one populated one.)
+    const { result } = lastEmptyColumnsCall();
+    const hidden = result.get('/line_items');
+    expect(hidden === undefined ? [] : [...hidden].sort()).toEqual([
+      'barcode', 'deposit_amount', 'discount_amount', 'list_price', 'package_quantity',
+      'packaging_amount', 'tax_amount', 'tax_rate', 'unit_size', 'unit_size_uom',
+      'units_per_package',
+    ]);
+    // `discount_percentage` is populated on ONE row of four and blank on the
+    // rest — the sparse-column case F15 measured 276 of in prod.
+    expect(hidden?.has('discount_percentage')).toBe(false);
+  });
+
+  it('feeds the rule the RENDERED tables — including a zero-row table the classifier never saw', async () => {
+    getDocumentExtraction.mockResolvedValueOnce(wideTableExtraction({ rows: 0 }));
+    renderVerification();
+
+    // `line_items: []` classifies as no table at all; `withEmptyMutableTables`
+    // promotes it back so the reviewer can type the first line into it. Passing
+    // `classified.tables` here instead would make the rule blind to it.
+    await screen.findByText(/Line Items \(0 rows\)/);
+    const { input } = lastEmptyColumnsCall();
+    expect(input.tables.map((table) => table.pointer)).toContain('/line_items');
+    expect(input.rowMutableTables.map((table) => table.pointer)).toEqual(['/line_items']);
+    expect(input.plannedTables.has('/line_items')).toBe(true);
+    expect(input.bindingIndex.size).toBeGreaterThan(0);
+  });
+
+  it('keeps a reverted cell in touched-ever — the edit is deleted, the touch is not (F11)', async () => {
+    getDocumentExtraction.mockResolvedValueOnce(wideTableExtraction());
+    const { container } = renderVerification();
+
+    const barcode = await screen.findByLabelText<HTMLInputElement>('Line Items row 1 — Barcode');
+    const before = emptyColumnsCalls.length;
+    fireEvent.change(barcode, { target: { value: '7290000000001' } });
+    // The memo re-runs as the reviewer types — that is what makes a column
+    // stay visible under the cursor once Task 5 can turn the filter on.
+    expect(emptyColumnsCalls.length).toBeGreaterThan(before);
+    expect(lastEmptyColumnsCall().touched).toEqual([BARCODE_KEY]);
+
+    // Back to the pristine string: `handleEdit` DELETES the edit (the progress
+    // line is the proof — 0 corrected again)…
+    fireEvent.change(barcode, { target: { value: '' } });
+    expect(
+      container.querySelector('.gemina-verification__progress')?.textContent,
+    ).toContain('0 corrected');
+    // …and touched-ever still holds the key. Handing the rule `edits` instead
+    // of the ref-held set would drop it here and unmount the column.
+    expect(lastEmptyColumnsCall().touched).toEqual([BARCODE_KEY]);
+    // Still gated off, throughout.
+    expect(lastFormProps().emptyColumns).toBe(NO_EMPTY_COLUMNS);
+  });
+
+  it('clears touched-ever when the extraction changes — a view mode belongs to ONE extraction', async () => {
+    getDocumentExtraction.mockResolvedValue(wideTableExtraction());
+    const { rerender, tokenManager } = renderVerification();
+
+    const barcode = await screen.findByLabelText<HTMLInputElement>('Line Items row 1 — Barcode');
+    fireEvent.change(barcode, { target: { value: '7290000000001' } });
+    expect(lastEmptyColumnsCall().touched).toEqual([BARCODE_KEY]);
+
+    rerender(
+      <GeminaVerification extractionId="ext-2" tokenManager={tokenManager} />,
+    );
+    await flushMicrotasks();
+    await screen.findByLabelText('Line Items row 1 — Barcode');
+    // A touch carried across would keep a column of the NEXT extraction
+    // visible for a cell the reviewer never saw.
+    expect(lastEmptyColumnsCall().touched).toEqual([]);
+  });
+
+  it('feeds the rule the live pair errors while the extraction is still editable', async () => {
+    getDocumentExtraction.mockResolvedValueOnce(pairErrorExtraction());
+    renderVerification();
+
+    await screen.findByLabelText('Line Items row 1 — Unit Size');
+    // Both halves are keyed, and this is the non-vacuity the read-only test
+    // below leans on: the SAME fixture produces errors when it is editable.
+    const { input } = lastEmptyColumnsCall();
+    expect(input.pairErrors.size).toBe(2);
+    expect([...input.pairErrors.keys()].some((key) => key.includes('unit_size_uom'))).toBe(true);
+  });
+
+  it('drops the pair-error clause in read-only mode (§D5) — the same fixture, no errors', async () => {
+    getDocumentExtraction.mockResolvedValueOnce(pairErrorExtraction({ validated: true }));
+    renderVerification();
+
+    await screen.findByText('Already verified — showing the original extraction.');
+    // The BEHAVIOUR: the same fixture that produced two pair errors above
+    // produces none here. Nothing renders an error in read-only mode and
+    // Submit is permanently disabled, so keeping a blank pair-partner visible
+    // would be a rule with no observable reason.
+    const { input } = lastEmptyColumnsCall();
+    expect(input.pairErrors.size).toBe(0);
+    // A ride-along on the emptiness above, NOT a contract: nothing downstream
+    // compares this map by reference (`areRowPropsEqual` excludes it on
+    // purpose). It pins only that the root reuses the form's one "no row
+    // errors" instance rather than minting a map per render.
+    expect(input.pairErrors).toBe(NO_PAIR_ERRORS);
+  });
+
+  /**
+   * The six tests the plan names for this task all press the switch, and the
+   * switch is Task 5. They are pinned here by name — with the state they need
+   * already built and reset — rather than rewritten into something weaker that
+   * would pass whatever Task 5 does.
+   */
+  it.todo('offers no empty-columns switch when every column is populated — needs Task 5');
+  it.todo('offers the switch when a table has an all-blank column — needs Task 5');
+  it.todo('hides the columns only after the switch is pressed — needs Task 5');
+  it.todo('resets the switch when the extraction id changes — needs Task 5');
+  it.todo('keeps the switch mounted while engaged, even when nothing qualifies — needs Task 5');
+  it.todo('leaves the submitted payload identical whether the filter is on or off — needs Task 5');
 });

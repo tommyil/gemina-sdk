@@ -20,3 +20,20 @@ describe('review filter is internal', () => {
     }
   });
 });
+
+describe('the empty-columns filter is internal too', () => {
+  // Same status, same pin: the emptiness rule and the two shared empty
+  // instances are internals of the form, published to no one. They are
+  // exported ACROSS modules (the root computes the rule, the form will render
+  // it) but must not escape a package entry point, where their shape would
+  // become API we have to keep.
+  it('is not reachable from the package root or the verification subpath', async () => {
+    const root = await import('../../src/index');
+    const verification = await import('../../src/verification/index');
+    for (const mod of [root, verification]) {
+      expect('computeEmptyColumns' in mod).toBe(false);
+      expect('NO_EMPTY_COLUMNS' in mod).toBe(false);
+      expect('NO_PAIR_ERRORS' in mod).toBe(false);
+    }
+  });
+});

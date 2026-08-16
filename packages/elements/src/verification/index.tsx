@@ -45,7 +45,8 @@ import {
 } from './row-plan';
 import type { RowPlanEntry } from './row-plan';
 import { classifyData, ROW_META_KEY } from './classify';
-import { VerificationForm } from './form';
+import { computeEmptyColumns, NO_EMPTY_COLUMNS } from './empty-columns';
+import { NO_PAIR_ERRORS, VerificationForm } from './form';
 import { withEmptyMutableTables } from './form';
 import {
   computeHidden, countUnits, hasAnyConfidence, NOTHING_HIDDEN,
@@ -232,8 +233,29 @@ export function GeminaVerification(props: GeminaVerificationProps): React.JSX.El
   // OFF by default: this component ships to every embedder, so an unfiltered
   // form is the default everywhere, and the state is never persisted.
   const [filterOn, setFilterOn] = useState(false);
+  // The SECOND review filter: hide table columns nothing was extracted into.
+  // Independent of the one above (neither moves the other's structure), and
+  // OFF by default for the same reason — an unfiltered form is what every
+  // embedder gets until a reviewer asks for something else.
+  const [hideEmptyColumns, setHideEmptyColumns] = useState(false);
 
   const rootRef = useRef<HTMLDivElement | null>(null);
+  // Every edit key the reviewer has typed into at ANY point during this
+  // extraction — added to, never pruned. NOT `edits`: handleEdit DELETES an
+  // entry when the value returns to the binding's pristine string, so
+  // `edits.has()` answers "differs from the extraction right now", not "the
+  // reviewer has been here". A cell typed into and cleared again would
+  // un-touch, its column would qualify as empty, and it would unmount under
+  // the cursor.
+  //
+  // A ref rather than state, and READ DURING RENDER (the emptiness memo) —
+  // which React's rules warn about, so here is why it is safe rather than
+  // merely convenient: it is written ONLY from an event handler (handleEdit)
+  // and from the load path, never during render; it is monotone within one
+  // extraction, so a stale read can only be missing a touch, never inventing
+  // one; and every write is accompanied by a `setEdits` whose result is in
+  // that memo's dependency list, so the touch and the re-run arrive together.
+  const touchedEverRef = useRef<Set<string>>(new Set());
   const mountedRef = useRef(false);
   // Monotonic load id: a load that lost the race (prop change re-ran the
   // effect, or Retry started a newer attempt) must not write its result.
@@ -361,6 +383,14 @@ export function GeminaVerification(props: GeminaVerificationProps): React.JSX.El
       // slate. Without this, the same mounted component opens the next
       // extraction already filtered, which reads as missing fields.
       setFilterOn(false);
+      // Same lifetime, same reason: both switches are view modes on THIS
+      // extraction. And the touch log goes with them — a key carried across
+      // would keep a column of the NEXT extraction visible for a cell the
+      // reviewer never saw. A fresh Set rather than clear() is defensive
+      // only — nothing retains the set today (the rule reads it and discards
+      // it), so the two are interchangeable until something does.
+      setHideEmptyColumns(false);
+      touchedEverRef.current = new Set();
       setRowPlans(seedRowPlans(readRowMutableTables(view.meta.validationFeedback?.rowMutableTables), view.values));
       const url = view.document.imageUrl;
       setImageUrl(typeof url === 'string' && url.length > 0 ? url : null);
@@ -543,6 +573,13 @@ export function GeminaVerification(props: GeminaVerificationProps): React.JSX.El
   // short-circuits on reference equality, so in-place mutation renders nothing);
   // no-op updates return `prev` unchanged to keep that same short-circuit.
   const handleEdit = useCallback((editKey: string, value: string, binding: FieldBinding) => {
+    // FIRST, and OUTSIDE the setEdits updater: the pristine branch below
+    // deletes the edit, so recording the touch after it would let a cleared
+    // cell un-touch itself (see touchedEverRef). Outside the updater because
+    // an updater must be pure — React invokes it twice under Strict Mode —
+    // and because a no-op update returns `prev` without ever reaching a
+    // statement placed inside it.
+    touchedEverRef.current.add(editKey);
     // Pristine = the input shows exactly what an untouched input would show:
     // toInputString of the binding's DISPLAY value (FieldInput's prefill) —
     // including '' for a never-extracted fill-in.
@@ -801,6 +838,43 @@ export function GeminaVerification(props: GeminaVerificationProps): React.JSX.El
   // a genuinely empty extraction is a different state with its own copy.
   const allClear = filterOn && totalUnits > 0 && visibleUnits === 0;
 
+  // --- empty columns -------------------------------------------------------
+  // Deliberately NOT folded into the counts above: `Showing X of Y` counts
+  // review UNITS (fields and rows), and a column is not a unit. Folding them
+  // in would make one number mean two things.
+  const emptyColumns = useMemo(
+    () => computeEmptyColumns({
+      // The RENDERED tables, not `classified.tables`: a server-declared
+      // zero-row row-mutable table is promoted into the rendered list and the
+      // rule has to see it (it hides nothing there, by its own row gate).
+      tables: rendered.tables,
+      plannedTables,
+      rowMutableTables: loaded?.rowMutableTables ?? [],
+      bindingIndex,
+      touchedEver: touchedEverRef.current,
+      // §D5: read-only drops the pair-error clause. Nothing renders an error
+      // there and Submit is permanently disabled, so keeping a blank
+      // pair-partner visible would be a rule with no observable reason.
+      // The form's own shared empty map, so "no row errors" has one name on
+      // both sides — nothing compares it by reference (see NO_PAIR_ERRORS).
+      pairErrors: alreadyValidated ? NO_PAIR_ERRORS : pairErrors,
+    }),
+    // Spelled out rather than elided, and `edits` STAYS in it although the body
+    // no longer reads it: it is what re-runs this memo as the reviewer types,
+    // which is what keeps a just-touched column from qualifying under their
+    // cursor. This repo has no ESLint — nothing mechanical will tell you if you
+    // drop a dependency here.
+    [rendered, plannedTables, loaded, bindingIndex, edits, pairErrors, alreadyValidated],
+  );
+  // A switch that cannot hide anything is noise — the same standard `canFilter`
+  // sets. But a switch that UNMOUNTS while engaged is worse: the state is
+  // stranded on with no way to turn it off. That is reachable, not theoretical:
+  // typing into a visible `unit_size` raises a pair error on its blank
+  // `unit_size_uom` partner, which disqualifies that column and can empty the
+  // map while the switch reads aria-checked="true".
+  // Rendered by TASK 5 — the footer control is the next commit, not this one.
+  const canHideEmptyColumns = emptyColumns.size > 0 || hideEmptyColumns;
+
   const invalidCount = useMemo(() => {
     // Row-level errors count even with no edits at all: the extraction itself
     // can arrive with one half of the pair filled.
@@ -1052,6 +1126,11 @@ export function GeminaVerification(props: GeminaVerificationProps): React.JSX.El
             rowMutableTables={loaded?.rowMutableTables}
             hidden={hidden}
             filterOn={filterOn}
+            // Gated HERE, not in the form: the rule is computed unconditionally
+            // so the switch knows whether it has anything to offer, while the
+            // form is handed the shared "nothing is empty" instance until the
+            // reviewer engages it. (Task 4 is what makes the form act on it.)
+            emptyColumns={hideEmptyColumns ? emptyColumns : NO_EMPTY_COLUMNS}
             plannedTables={plannedTables}
             onAddRow={handleAddRow}
             onRemoveRow={handleRemoveRow}

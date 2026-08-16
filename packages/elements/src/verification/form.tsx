@@ -36,6 +36,7 @@ import type { FieldBinding } from './bindings';
 import { toInputString } from './bindings';
 import type { ClassifiedCell, ClassifiedData, ClassifiedField } from './classify';
 import { ROW_META_KEY, formatLabel, formatValue } from './classify';
+import type { EmptyColumns } from './empty-columns';
 import { ISO_4217_CODES, cellSchemaKey, validateInput } from './field-types';
 import type { RowMutableTable, ValidationFieldDescriptor } from './field-types';
 import { matchesTablePointer, resolveRowCell, tableColumns, tableRows } from './row-cells';
@@ -345,9 +346,20 @@ interface SectionShared {
  * The SectionShared stability contract applies (see above), and `classified`
  * must be the memoized product of one `classifyData` call — a fresh object
  * per render defeats both the row memo and the fallback-section memo. */
-/** One shared empty instance: `shared` is compared by reference downstream, so
- *  "no row errors" must always be the SAME object. */
-const NO_PAIR_ERRORS: ReadonlyMap<string, string> = new Map();
+/** One shared empty instance for "no row errors": one allocation instead of one
+ *  per render, under a single name.
+ *
+ *  NOT a by-reference contract — an earlier version of this comment claimed one
+ *  and no such comparison exists. `areRowPropsEqual` deliberately EXCLUDES
+ *  `pairErrors` from its reference checks (see its own note: a new Map arrives
+ *  on every keystroke) and compares per-cell VALUES instead, and `shared` is a
+ *  fresh object literal every render, so nothing downstream would notice a
+ *  second empty map. Reusing this one is hygiene, not correctness.
+ *
+ *  Exported for the root, which hands it to the empty-columns rule in read-only
+ *  mode to drop the pair-error clause (nothing renders an error there and
+ *  nothing can be submitted), so both sides name the same "no row errors". */
+export const NO_PAIR_ERRORS: ReadonlyMap<string, string> = new Map();
 const NO_TABLES: readonly RowMutableTable[] = [];
 const NO_PLANNED: ReadonlyMap<string, PlannedRow[]> = new Map();
 const NOOP_ROW = () => {};
@@ -359,6 +371,17 @@ export interface VerificationFormProps
    *  props above: a host rendering the form directly need not know it exists. */
   hidden?: HiddenSets;
   filterOn?: boolean;
+  /**
+   * The SECOND review filter: rendered table pointer -> the columns of it
+   * nothing was extracted into. `NO_EMPTY_COLUMNS` (the shared empty map) when
+   * the switch is off, which is also what omitting it means.
+   *
+   * Declared here in Task 3 so the root can pass what it computes; TASK 4 is
+   * what threads it through `SectionShared` and actually drops the `<th>`/`<td>`
+   * pairs. Until then it is accepted and ignored — deliberately, so the state
+   * lands in one reviewable commit and the rendering in another.
+   */
+  emptyColumns?: EmptyColumns;
   /**
    * All optional on the public surface. The pair rule and the row plans are
    * internal details of the full component, and a host — or a test — rendering
