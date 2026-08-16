@@ -11,7 +11,7 @@ import { describe, expect, it } from 'vitest';
 import { buildBindings, composeSubmission } from '../../src/verification/bindings';
 import {
   collectCellViews, declaredTableColumns, displayColumns, planTableCells, resolveRowCell,
-  tableColumns,
+  tableColumns, tableRows,
 } from '../../src/verification/row-cells';
 import {
   initialRowPlan, insertRowAfter, isIdentityPlan, removeRow, rowSourcesOf,
@@ -288,5 +288,77 @@ describe('resolveRowCell', () => {
     expect(resolveRowCell({}, 'missing', undefined, new Map())).toEqual({
       classified: undefined, binding: undefined, editKey: undefined,
     });
+  });
+});
+
+/**
+ * Which rows a table renders — the derivation TableSection and the
+ * empty-column rule now share.
+ *
+ * Every case below is a NON-identity plan, because that is the only place the
+ * mapping can be wrong: `table.rows[position]` agrees with
+ * `table.rows[entry.source]` exactly until the reviewer adds or removes a row,
+ * and the whole plan exists for what happens after that. Getting it wrong is
+ * silent in both consumers — the grid paints a deleted row's confidence dot
+ * and flash rects, and the emptiness rule reads a blank added row as extracted
+ * data (the F9 dead end, arriving through a different door).
+ */
+describe('tableRows', () => {
+  /** The classified counterpart of `setup`'s payload. */
+  const classifiedTable = (descriptions: string[]) => ({
+    rows: descriptions.map((description, index) => ({
+      description: {
+        pointer: `/line_items/${index}/description`,
+        value: description as unknown,
+        coordinates: null,
+        confidence: null,
+      },
+    })),
+  });
+
+  const walk = (
+    descriptions: string[],
+    mutate: (plan: ReturnType<typeof initialRowPlan>) => ReturnType<typeof initialRowPlan>,
+  ) => {
+    const { byRaw, count } = setup(descriptions);
+    const plan = mutate(initialRowPlan(count, TABLE.pointer));
+    const refs = tableRows(
+      classifiedTable(descriptions),
+      planTableCells(TABLE, plan, COLUMNS, byRaw),
+    );
+    return { plan, refs, values: refs.map((ref) => ref.row?.description?.value) };
+  };
+
+  it('walks the extracted rows in order when there is no plan', () => {
+    const refs = tableRows(classifiedTable(['A', 'B']), undefined);
+    expect(refs.map((ref) => ref.row?.description?.value)).toEqual(['A', 'B']);
+    expect(refs.map((ref) => ref.position)).toEqual([0, 1]);
+    expect(refs.every((ref) => ref.planned === undefined)).toBe(true);
+  });
+
+  it('resolves each planned row through its SOURCE, not its position', () => {
+    // Row 0 removed: position 0 is now the row that USED to be row 1. Reading
+    // by position would hand both consumers the deleted row's data.
+    const { values } = walk(['A', 'B', 'C'], (plan) => removeRow(plan, 0));
+    expect(values).toEqual(['B', 'C']);
+  });
+
+  it('yields no extracted row for one the reviewer added mid-table', () => {
+    // Inserted after row 0: position 1 has NO source. Reading by position
+    // would resolve it to row B and treat a blank new line as populated.
+    const { values } = walk(['A', 'B', 'C'], (plan) => insertRowAfter(plan, 0, 'added-1'));
+    expect(values).toEqual(['A', undefined, 'B', 'C']);
+  });
+
+  it('carries each row its position in the UNFILTERED plan', () => {
+    // `position` is what onAddRow/onRemoveRow take, so it must index the plan
+    // — not the extraction, and not the filtered subset the caller renders.
+    const { plan, refs } = walk(['A', 'B', 'C'], (p) => removeRow(insertRowAfter(p, 0, 'added-2'), 3));
+    expect(refs.map((ref) => ref.position)).toEqual([0, 1, 2]);
+    expect(refs.map((ref) => ref.planned?.entry.id)).toEqual(plan.map((entry) => entry.id));
+  });
+
+  it('yields nothing at all for a promoted zero-row table', () => {
+    expect(tableRows({ rows: [] }, [])).toEqual([]);
   });
 });

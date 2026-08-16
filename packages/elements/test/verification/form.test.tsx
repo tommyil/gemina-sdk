@@ -903,6 +903,27 @@ describe('VerificationForm: row-mutable tables', () => {
     expect(screen.queryByRole('table')).toBeNull();
   });
 
+  // The table analogue of the entity-card numbering case above, and the reason
+  // the shared row traversal carries a `position` rather than letting the
+  // caller re-index: a row's position is its index in the UNFILTERED plan and
+  // travels with it through the filter. Renumbering the survivors 1..n would
+  // relabel line 3 as line 2 under a screen reader, and — the moment row
+  // editing and row hiding ever coexist — point onAddRow/onRemoveRow, which
+  // take a plan position, at the wrong line.
+  it('keeps original row numbering when an earlier row is hidden', () => {
+    // renderTable builds its plan with initialRowPlan(n) — unscoped — so the
+    // ids are `#row-0`, `#row-1`, `#row-2`.
+    const rowIds = initialRowPlan(3).map((entry) => entry.id);
+    renderTable(['A', 'B', 'C'], {
+      filterOn: true,
+      hidden: { fields: new Set<string>(), rows: new Set([rowIds[0]!]) },
+    });
+    expect(screen.getAllByRole('row')).toHaveLength(3); // header + B + C
+    expect(screen.getByLabelText('Line Items row 2 — Description')).toBeTruthy();
+    expect(screen.getByLabelText('Line Items row 3 — Description')).toBeTruthy();
+    expect(screen.queryByLabelText('Line Items row 1 — Description')).toBeNull();
+  });
+
   // §R2 — an added row is NOT in table.rows, so a filter written over that
   // collection would hide the reviewer's own new row behind the summary.
   it('keeps an added row visible when every extracted row is hidden', () => {
