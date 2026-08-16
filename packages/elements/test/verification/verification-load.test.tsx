@@ -1054,7 +1054,15 @@ describe('GeminaVerification — empty columns (state, reset, and what the rule 
     await screen.findByLabelText('Line Items row 1 — Description');
     expect(screen.getByLabelText('Line Items row 1 — Barcode')).toBeTruthy();
 
-    fireEvent.click(screen.getByRole('switch', { name: SWITCH_NAME }));
+    const toggle = screen.getByRole('switch', { name: SWITCH_NAME });
+    toggle.focus();
+    fireEvent.click(toggle);
+
+    // The switch survives this click, so focus must STAY on it. The move to
+    // Submit is reserved for the one click that unmounts this button; firing
+    // it on every toggle would throw a keyboard user out of the control they
+    // are operating, twice per round trip.
+    expect(document.activeElement).toBe(screen.getByRole('switch', { name: SWITCH_NAME }));
 
     expect(
       screen.getByRole('switch', { name: SWITCH_NAME }).getAttribute('aria-checked'),
