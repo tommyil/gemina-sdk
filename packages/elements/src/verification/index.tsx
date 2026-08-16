@@ -871,8 +871,9 @@ export function GeminaVerification(props: GeminaVerificationProps): React.JSX.El
   // stranded on with no way to turn it off. That is reachable, not theoretical:
   // typing into a visible `unit_size` raises a pair error on its blank
   // `unit_size_uom` partner, which disqualifies that column and can empty the
-  // map while the switch reads aria-checked="true".
-  // Rendered by TASK 5 — the footer control is the next commit, not this one.
+  // map while the switch reads aria-checked="true". So while it is ON the
+  // switch stays, hiding nothing, until the reviewer turns it off — and only
+  // then is it allowed to go.
   const canHideEmptyColumns = emptyColumns.size > 0 || hideEmptyColumns;
 
   const invalidCount = useMemo(() => {
@@ -1129,7 +1130,7 @@ export function GeminaVerification(props: GeminaVerificationProps): React.JSX.El
             // Gated HERE, not in the form: the rule is computed unconditionally
             // so the switch knows whether it has anything to offer, while the
             // form is handed the shared "nothing is empty" instance until the
-            // reviewer engages it. (Task 4 is what makes the form act on it.)
+            // reviewer engages it.
             emptyColumns={hideEmptyColumns ? emptyColumns : NO_EMPTY_COLUMNS}
             plannedTables={plannedTables}
             onAddRow={handleAddRow}
@@ -1204,6 +1205,30 @@ export function GeminaVerification(props: GeminaVerificationProps): React.JSX.El
                 </span>
               )}
             </>
+          )}
+          {/* The SECOND view mode, and deliberately shaped like the first: same
+              role, same class, same off-by-default contract, and — like the
+              first — omitted when it has nothing to offer.
+              No count beside it. `Showing X of Y` counts review UNITS, and a
+              column is not one; the per-table note in the section header is
+              where the absence is stated (§D2), because that is where it is
+              noticed. It also has to name the EXTRACTION rather than the
+              screen: with the confidence filter also on, a column populated
+              only in a hidden row stays visible and reads blank, so "empty in
+              what you are looking at" would be false exactly there.
+              This is the footer's FIFTH item. `.gemina-verification__footer`
+              is `flex-wrap: wrap` and that wrap was a fix — four items
+              overflowed at 320 under RTL and clipped Submit. */}
+          {canHideEmptyColumns && (
+            <button
+              type="button"
+              role="switch"
+              aria-checked={hideEmptyColumns}
+              className="gemina-verification__review-filter"
+              onClick={() => setHideEmptyColumns((on) => !on)}
+            >
+              Hide empty columns
+            </button>
           )}
           <button
             type="button"

@@ -33,12 +33,13 @@ vi.mock('@gemina/sdk', () => ({ GeminaClient: { withSessionToken } }));
 /**
  * Two TRANSPARENT recording seams for the empty-columns wiring (plan Task 3).
  *
- * Task 3 is state only — the switch that flips `hideEmptyColumns` arrives in
- * Task 5 and the column filtering in Task 4 — so nothing it computes reaches
- * the screen yet. The alternative to a seam would be inventing a UI to test
- * against, which would then have to be deleted; these two wrappers instead
- * observe what the component ALREADY hands its collaborators: the props the
- * form is rendered with, and the input the rule is computed from.
+ * The switch and the column filtering both ship now, so most of what follows
+ * is asserted through the screen. These seams survive because two things the
+ * wiring must get right are invisible there: the form is handed the SHARED
+ * "nothing is empty" instance rather than a fresh Map (identity, which the
+ * section memos depend on), and the rule is fed the RENDERED tables, the live
+ * touched-ever set and the read-only pair errors (its inputs, which no
+ * on-screen state distinguishes from a rule that happened to agree).
  *
  * Both delegate to the real implementation and re-export everything else
  * untouched (`withEmptyMutableTables` and `NO_EMPTY_COLUMNS` in particular —
@@ -130,6 +131,24 @@ function flushMicrotasks(): Promise<void> {
       await Promise.resolve();
     }
   });
+}
+
+/**
+ * Minimal submit plumbing, mirroring verification-submit.test.tsx.
+ *
+ * Duplicated rather than shared because mocking is per-file and this file owns
+ * the two empty-columns recording seams; the payload-identity test below needs
+ * a real PUT to inspect, and everything it needs is these four lines.
+ * `ExtractionValidationResultOutDTO` only has to be well-shaped enough for the
+ * component to reach its done state — nothing here reads the summary.
+ */
+const VALIDATION_RESULT = { createdAt: null, data: { accuracy: 1 }, errors: [] };
+
+/** Open the confirm dialog and confirm — the only submit path there is. */
+async function submitAndConfirm(): Promise<void> {
+  fireEvent.click(screen.getByRole('button', { name: 'Submit' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Confirm submission' }));
+  await flushMicrotasks();
 }
 
 afterEach(() => {
@@ -832,10 +851,12 @@ describe('GeminaVerification — stacked layout (root width observer)', () => {
 });
 
 /**
- * "Hide empty columns" — Task 3: the state, the reset and the memo that feeds
- * them. The switch itself is Task 5 and the column filtering is Task 4, so
- * everything here is asserted through the two recording seams at the top of
- * this file rather than through the screen.
+ * "Hide empty columns" at the component level: the state, the reset, what the
+ * rule is fed, and the footer switch that engages it.
+ *
+ * The first half asserts through the two recording seams at the top of this
+ * file — what the component hands its collaborators is not observable on
+ * screen. The second half presses the switch and reads the grid.
  */
 describe('GeminaVerification — empty columns (state, reset, and what the rule is fed)', () => {
   /** The synthetic wide table, with row 1 half-filling the unit-size pair. */
@@ -913,8 +934,8 @@ describe('GeminaVerification — empty columns (state, reset, and what the rule 
     const barcode = await screen.findByLabelText<HTMLInputElement>('Line Items row 1 — Barcode');
     const before = emptyColumnsCalls.length;
     fireEvent.change(barcode, { target: { value: '7290000000001' } });
-    // The memo re-runs as the reviewer types — that is what makes a column
-    // stay visible under the cursor once Task 5 can turn the filter on.
+    // The memo re-runs as the reviewer types — that is what keeps a column
+    // they have touched from unmounting under their cursor.
     expect(emptyColumnsCalls.length).toBeGreaterThan(before);
     expect(lastEmptyColumnsCall().touched).toEqual([BARCODE_KEY]);
 
@@ -980,15 +1001,231 @@ describe('GeminaVerification — empty columns (state, reset, and what the rule 
   });
 
   /**
-   * The six tests the plan names for this task all press the switch, and the
-   * switch is Task 5. They are pinned here by name — with the state they need
-   * already built and reset — rather than rewritten into something weaker that
-   * would pass whatever Task 5 does.
+   * ---- the switch itself -------------------------------------------------
+   *
+   * The viewer toolbar's Magnifier and the confidence filter are BOTH
+   * role="switch", so every query below goes by accessible name — and the name
+   * is constant across the toggle on purpose (a name that moved with the state
+   * would be re-announced on every focus).
    */
-  it.todo('offers no empty-columns switch when every column is populated — needs Task 5');
-  it.todo('offers the switch when a table has an all-blank column — needs Task 5');
-  it.todo('hides the columns only after the switch is pressed — needs Task 5');
-  it.todo('resets the switch when the extraction id changes — needs Task 5');
-  it.todo('keeps the switch mounted while engaged, even when nothing qualifies — needs Task 5');
-  it.todo('leaves the submitted payload identical whether the filter is on or off — needs Task 5');
+  const SWITCH_NAME = 'Hide empty columns';
+
+  it('offers no empty-columns switch when every column is populated', async () => {
+    // Four columns, both rows filled: nothing qualifies, so a switch would be
+    // a control that does nothing — the same standard the confidence filter's
+    // `canFilter` sets, and the same one the eye button sets when a field has
+    // no coordinates.
+    getDocumentExtraction.mockResolvedValueOnce(extraction({
+      values: {
+        line_items: [
+          { description: 'Widget', quantity: 2, unit_price: 4.5, line_total: 9 },
+          { description: 'Gadget', quantity: 1, unit_price: 21, line_total: 21 },
+        ],
+      },
+    }));
+    renderVerification();
+
+    await screen.findByRole('table');
+    expect(screen.queryByRole('switch', { name: SWITCH_NAME })).toBeNull();
+    // Not vacuous, and not an absent-table false pass: the rule ran over a
+    // rendered four-column table and found nothing to hide, so the missing
+    // switch is `canHideEmptyColumns` and not a fixture that never got there.
+    expect(lastEmptyColumnsCall().result).toBe(NO_EMPTY_COLUMNS);
+    expect(screen.getByText('Line Total')).toBeTruthy();
+  });
+
+  it('offers the switch when a table has an all-blank column', async () => {
+    getDocumentExtraction.mockResolvedValueOnce(wideTableExtraction());
+    renderVerification();
+
+    await screen.findByLabelText('Line Items row 1 — Description');
+    const toggle = screen.getByRole('switch', { name: SWITCH_NAME });
+    // OFF by default and engaged explicitly — the same contract the confidence
+    // filter has. A filter that arrived already on would look like data loss.
+    expect(toggle.getAttribute('aria-checked')).toBe('false');
+    expect(toggle.textContent).toBe(SWITCH_NAME);
+    expect(screen.getByText('Barcode')).toBeTruthy();
+  });
+
+  it('hides the columns only after the switch is pressed', async () => {
+    getDocumentExtraction.mockResolvedValueOnce(wideTableExtraction());
+    renderVerification();
+
+    await screen.findByLabelText('Line Items row 1 — Description');
+    expect(screen.getByLabelText('Line Items row 1 — Barcode')).toBeTruthy();
+
+    fireEvent.click(screen.getByRole('switch', { name: SWITCH_NAME }));
+
+    expect(
+      screen.getByRole('switch', { name: SWITCH_NAME }).getAttribute('aria-checked'),
+    ).toBe('true');
+    // Header AND cells — a <thead>-only filter would leave the grid sheared.
+    expect(screen.queryByText('Barcode')).toBeNull();
+    expect(screen.queryByLabelText('Line Items row 1 — Barcode')).toBeNull();
+    // The 8 populated columns stay, values intact…
+    expect(
+      screen.getByLabelText<HTMLInputElement>('Line Items row 1 — Description').value,
+    ).toBe('Widget housing, matte');
+    // …including the one populated on a SINGLE row of four, which is the
+    // 276-nulls-in-populated-columns case F15 measured in production.
+    expect(
+      screen.getByLabelText<HTMLInputElement>('Line Items row 2 — Discount Percentage').value,
+    ).toBe('10');
+    // The gate is the PROP, not just the switch's own state: off hands the
+    // form the shared sentinel, on hands it the computed map.
+    expect(lastFormProps().emptyColumns).not.toBe(NO_EMPTY_COLUMNS);
+
+    fireEvent.click(screen.getByRole('switch', { name: SWITCH_NAME }));
+    expect(screen.getByLabelText('Line Items row 1 — Barcode')).toBeTruthy();
+    expect(lastFormProps().emptyColumns).toBe(NO_EMPTY_COLUMNS);
+  });
+
+  it('resets the switch when the extraction id changes', async () => {
+    getDocumentExtraction.mockResolvedValue(wideTableExtraction());
+    const { rerender, tokenManager } = renderVerification();
+
+    await screen.findByLabelText('Line Items row 1 — Description');
+    fireEvent.click(screen.getByRole('switch', { name: SWITCH_NAME }));
+    expect(screen.queryByLabelText('Line Items row 1 — Barcode')).toBeNull();
+
+    rerender(<GeminaVerification extractionId="ext-2" tokenManager={tokenManager} />);
+    await flushMicrotasks();
+    await screen.findByLabelText('Line Items row 1 — Description');
+
+    // A view mode belongs to ONE extraction: carried across, it would hide
+    // columns of a document the reviewer has not looked at yet — and the two
+    // documents need not have the same columns blank at all.
+    expect(
+      screen.getByRole('switch', { name: SWITCH_NAME }).getAttribute('aria-checked'),
+    ).toBe('false');
+    expect(screen.getByLabelText('Line Items row 1 — Barcode')).toBeTruthy();
+  });
+
+  it('keeps the switch mounted while engaged, even when nothing qualifies', async () => {
+    // One extracted row, so removing it empties the row plan — the only way
+    // to drive the rule to "nothing qualifies" from a table that qualified,
+    // since every column it could report is by then off screen.
+    getDocumentExtraction.mockResolvedValueOnce(wideTableExtraction({ rows: 1 }));
+    renderVerification();
+
+    await screen.findByLabelText('Line Items row 1 — Description');
+    fireEvent.click(screen.getByRole('switch', { name: SWITCH_NAME }));
+    expect(screen.queryByText('Barcode')).toBeNull();
+
+    // §D1 end to end: row editing stays ON while columns are hidden. (The
+    // confidence filter disables it because hiding rows renumbers them; rows
+    // keep their identity here, so that rationale does not transfer.)
+    fireEvent.click(screen.getByRole('button', { name: 'Remove line 1' }));
+
+    // F9's gate now bites — no extracted row is left, so the table hides
+    // nothing and the map is empty…
+    expect(lastEmptyColumnsCall().result).toBe(NO_EMPTY_COLUMNS);
+    expect(screen.getByText('Barcode')).toBeTruthy();
+    // …and the switch must NOT unmount under the reviewer while it reads on.
+    // This is the ONLY test that exercises `canHideEmptyColumns`'s
+    // `|| hideEmptyColumns` clause: without it the switch vanishes here with
+    // the state stranded ON and no control left to turn it off.
+    const toggle = screen.getByRole('switch', { name: SWITCH_NAME });
+    expect(toggle.getAttribute('aria-checked')).toBe('true');
+
+    // Turned off with nothing left to offer, it is noise again and goes.
+    fireEvent.click(toggle);
+    expect(screen.queryByRole('switch', { name: SWITCH_NAME })).toBeNull();
+  });
+
+  /** Submit the wide fixture once, filter on or off, and hand back the exact
+   *  body that went on the wire. */
+  async function submitWideBody(filter: boolean): Promise<Record<string, unknown>> {
+    getDocumentExtraction.mockResolvedValueOnce(wideTableExtraction());
+    renderVerification();
+    await screen.findByLabelText('Line Items row 1 — Description');
+    if (filter) {
+      fireEvent.click(screen.getByRole('switch', { name: SWITCH_NAME }));
+      expect(screen.queryByLabelText('Line Items row 1 — Barcode')).toBeNull();
+    }
+    validateDocumentExtraction.mockResolvedValueOnce(VALIDATION_RESULT);
+    await submitAndConfirm();
+    return validateDocumentExtraction.mock.calls[0]![0].extractionValidationInDTO;
+  }
+
+  it('leaves the submitted payload identical whether the filter is on or off', async () => {
+    const unfiltered = await submitWideBody(false);
+    cleanup();
+    getDocumentExtraction.mockReset();
+    validateDocumentExtraction.mockReset();
+    const filtered = await submitWideBody(true);
+
+    // F1, the safety property the whole feature rests on: `composeSubmission`
+    // walks bindings and edits, never the DOM. Whole-body equality rather than
+    // a key count — unresolved untouched bindings are omitted either way, so a
+    // count would pass even if the wrong keys went.
+    expect(filtered).toEqual(unfiltered);
+    // …and not equality-by-absence: a HIDDEN column's cell is in the body.
+    const data = (filtered as { data: Record<string, unknown> }).data;
+    const barcodeKey = 'label:line_0_barcode|ptr:/line_items/0/barcode';
+    expect(barcodeKey in data).toBe(true);
+    expect(data[barcodeKey]).toBeNull();
+  });
+
+  it('offers the switch in read-only mode', async () => {
+    // §D5: it is a view mode, and reading an already-validated extraction is
+    // exactly when 11 blank columns of 19 hurt most.
+    const view = wideTableExtraction();
+    (view.meta as Record<string, unknown>).validated = true;
+    getDocumentExtraction.mockResolvedValueOnce(view);
+    renderVerification();
+
+    await screen.findByText('Already verified — showing the original extraction.');
+    expect(screen.getByText('Barcode')).toBeTruthy();
+
+    fireEvent.click(screen.getByRole('switch', { name: SWITCH_NAME }));
+
+    expect(screen.queryByText('Barcode')).toBeNull();
+    expect(screen.getByText('Description')).toBeTruthy();
+    // A VIEW changed, not the record: Submit was and stays permanently off.
+    expect(
+      (screen.getByRole('button', { name: 'Submit' }) as HTMLButtonElement).disabled,
+    ).toBe(true);
+  });
+
+  /**
+   * The wide fixture plus (a) a row-level score, so the CONFIDENCE filter is
+   * offered alongside this one, and (b) one schema key with no value behind
+   * it, so there is a "Not detected" field to look for.
+   */
+  function scoredWideExtraction(): Record<string, unknown> {
+    const view = wideTableExtraction();
+    const values = view.values as Record<string, unknown>;
+    for (const row of values.line_items as Array<Record<string, unknown>>) {
+      row.confidence = 'high';
+    }
+    const feedback = (view.meta as { validationFeedback: { validationSchema: string[] } })
+      .validationFeedback;
+    feedback.validationSchema.push('label:po_number|ptr:/po_number');
+    return view;
+  }
+
+  it('leaves the "Not detected" section visible and editable under either filter', async () => {
+    getDocumentExtraction.mockResolvedValueOnce(scoredWideExtraction());
+    renderVerification();
+
+    // Unmatched bindings are review units the reviewer FILLS IN. They carry no
+    // confidence, so the confidence filter can never hide them; they belong to
+    // no table, so the column filter has nothing to say about them. Either
+    // filter reaching them would take away the one section whose whole purpose
+    // is data that is missing.
+    const po = await screen.findByLabelText<HTMLInputElement>('po_number');
+    expect(po.value).toBe('');
+
+    for (const name of ['Hide high-confidence fields', SWITCH_NAME]) {
+      fireEvent.click(screen.getByRole('switch', { name }));
+      const stillThere = screen.getByLabelText<HTMLInputElement>('po_number');
+      expect(stillThere.readOnly).toBe(false);
+      fireEvent.change(stillThere, { target: { value: `PO-${name.length}` } });
+      expect(screen.getByLabelText<HTMLInputElement>('po_number').value).toBe(`PO-${name.length}`);
+    }
+
+    // Both on at once, and the section itself is still on screen.
+    expect(screen.getByRole('region', { name: 'Not detected' })).toBeTruthy();
+  });
 });

@@ -1301,6 +1301,95 @@ describe('VerificationForm: empty columns', () => {
     expect(screen.getByLabelText<HTMLInputElement>('Taxes row 1 — Amount').value).toBe('44.03');
   });
 
+  /**
+   * The §D2 note. It goes on each table rather than into the footer's
+   * "Showing X of Y", which counts review UNITS — fields and rows. A column is
+   * not a unit, and folding it in would make one number mean two things.
+   *
+   * The note reads `.gemina-verification__filter-note`, shared with the row-
+   * editing note, so read it by TEXT: the class alone would not distinguish
+   * the two, and both can be on a header at once.
+   */
+  function filterNotes(section: HTMLElement): string[] {
+    return [...section.querySelectorAll('.gemina-verification__filter-note')]
+      .map((node) => node.textContent ?? '');
+  }
+
+  it('states the hidden-column count on each affected table', () => {
+    const props = fixtureProps();
+    const emptyColumns = computeEmptyColumns({
+      tables: props.classified.tables,
+      plannedTables: props.plannedTables!,
+      rowMutableTables: props.rowMutableTables!,
+      bindingIndex: props.bindingIndex,
+      touchedEver: new Set<string>(),
+      pairErrors: new Map<string, string>(),
+    });
+    render(<VerificationForm {...props} emptyColumns={emptyColumns} />);
+
+    // Per table, and the two numbers differ — one note copied to both headers,
+    // or a single count summed across tables, reads the same on one table and
+    // wrong here. Plural and singular in the same render, because "1 empty
+    // columns hidden" is the kind of thing that ships.
+    expect(filterNotes(screen.getByRole('region', { name: 'Line Items' })))
+      .toEqual(['11 empty columns hidden']);
+    expect(filterNotes(screen.getByRole('region', { name: 'Taxes' })))
+      .toEqual(['1 empty column hidden']);
+  });
+
+  it('states nothing on a table with no hidden columns', () => {
+    // The same two-table world, with only the NEIGHBOUR filtered. A note
+    // rendered unconditionally would say "0 empty columns hidden" on a full
+    // table — a report of an absence that is not there.
+    render(
+      <VerificationForm
+        {...fixtureProps()}
+        emptyColumns={new Map([['/taxes', new Set(['base'])]])}
+      />,
+    );
+
+    expect(filterNotes(screen.getByRole('region', { name: 'Line Items' }))).toEqual([]);
+    expect(filterNotes(screen.getByRole('region', { name: 'Taxes' })))
+      .toEqual(['1 empty column hidden']);
+  });
+
+  it('counts the columns actually dropped, not the size of the host’s set', () => {
+    // `emptyColumns` is a PUBLIC prop. A host may hand over a name that is not
+    // a column of this table at all — a stale set, or one keyed in the wrong
+    // casing — and then `hiddenColumns.size` and `columns.length -
+    // visibleColumns.length` disagree. Only the subtraction can be right: it
+    // counts what left the grid. The rule's own output can never trigger this,
+    // so nothing but this test stands between the two.
+    render(
+      <VerificationForm
+        {...tableProps(VALUES)}
+        emptyColumns={new Map([[POINTER, new Set(['discount', 'no_such_column'])]])}
+      />,
+    );
+    const section = screen.getByRole('region', { name: 'Line Items' });
+
+    expect(dataHeaders(section)).toEqual(['Description', 'Quantity', 'Item Code']);
+    expect(filterNotes(section)).toEqual(['1 empty column hidden']);
+  });
+
+  it('keeps row add/remove available while columns are hidden', () => {
+    // §D1. The confidence filter turns row editing OFF because hiding rows
+    // renumbers them, so "insert below line 3" stops meaning anything. Rows
+    // keep their identity under THIS filter, so that rationale does not
+    // transfer and the controls stay — along with the note explaining their
+    // absence, which must not appear when they are not absent.
+    render(<VerificationForm {...tableProps(VALUES, { emptyColumns: hideDiscount() })} />);
+    const section = screen.getByRole('region', { name: 'Line Items' });
+
+    expect(within(section).getByRole('button', { name: 'Insert line below line 1' })).toBeTruthy();
+    expect(within(section).getByRole('button', { name: 'Remove line 1' })).toBeTruthy();
+    expect(within(section).getByRole('button', { name: 'Remove line 2' })).toBeTruthy();
+    expect(within(section).getByRole('button', { name: /add line/i })).toBeTruthy();
+    expect(filterNotes(section)).toEqual(['1 empty column hidden']);
+    // The column really is hidden while all of that is true.
+    expect(screen.queryByLabelText('Line Items row 1 — Discount')).toBeNull();
+  });
+
   // The optional-prop contract the row props already have: a host — or a test
   // — rendering the form directly need not know this filter exists.
   it('renders unchanged when emptyColumns is omitted', () => {

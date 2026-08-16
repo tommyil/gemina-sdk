@@ -920,6 +920,13 @@ function TableSection(props: {
     () => (mask.includes('1') ? columns.filter((_column, index) => mask[index] !== '1') : columns),
     [columns, mask],
   );
+  // What actually left the grid — NOT `hiddenColumns.size`. `emptyColumns` is
+  // a public prop, so a host may name a column this table does not have (a
+  // stale set, or one keyed in the wrong casing), and then the two disagree
+  // and only the subtraction is true to the screen. The rule's own output can
+  // never diverge — both sides call `tableColumns` with the same inputs — so
+  // in the app the wrong one would be right forever.
+  const hiddenColumnCount = columns.length - visibleColumns.length;
 
   // Full-row scans — memoized so keystroke re-renders don't re-walk every cell.
   const hasCoords = React.useMemo(
@@ -989,6 +996,28 @@ function TableSection(props: {
             themselves — a disabled button carries no reachable tooltip. */}
         {shared.filterOn && mutable !== undefined && !shared.readOnly ? (
           <span className="gemina-verification__filter-note">Row editing is off while filtering</span>
+        ) : null}
+        {/* §D2: the empty-column count belongs to the TABLE, not to the
+            footer. `Showing X of Y` down there counts review units — fields
+            and rows — and a column is not one, so folding them together would
+            make one number mean two things.
+            Only on a table that lost something: rendered unconditionally it
+            would report "0 empty columns hidden" on a full table, which is an
+            absence that is not there.
+            "Empty" means empty in the EXTRACTION, never "empty in what you
+            are looking at" — this rule walks the whole row plan, including
+            rows the confidence filter is hiding, so with both filters on a
+            column populated only in a hidden row stays visible and reads
+            blank. Copy that claimed the screen would be false exactly there.
+            And row editing stays ON under this filter (§D1), which leaves one
+            consequence for the copy to carry: a reviewer who adds a line
+            cannot reach its hidden cells until they switch back. That belongs
+            HERE, beside the absence, and not on a tooltip attached to a
+            control that is still present and still works. */}
+        {hiddenColumnCount > 0 ? (
+          <span className="gemina-verification__filter-note">
+            {`${hiddenColumnCount} empty ${hiddenColumnCount === 1 ? 'column' : 'columns'} hidden`}
+          </span>
         ) : null}
         {table.overallConfidence ? (
           <span className="gemina-verification__overall-confidence">

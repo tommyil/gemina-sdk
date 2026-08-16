@@ -24,6 +24,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { GeminaVerification } from '../../src/verification/index';
 import { GeminaTokenManager } from '../../src/token-manager';
 import { extraction, httpError } from './helpers';
+import { wideTableExtraction } from './empty-columns.fixture';
 
 const { getDocumentExtraction, validateDocumentExtraction, withSessionToken } = vi.hoisted(() => {
   const getDocumentExtraction = vi.fn();
@@ -224,6 +225,36 @@ describe('review filter accessibility', () => {
     expect(count).not.toBeNull();
     expect(count!.getAttribute('aria-live')).toBe('polite');
     expect(count!.textContent).toMatch(/^Showing \d+ of \d+$/);
+  });
+
+  // The SECOND filter. Its accessible name has the same job and the same
+  // hazard: three role="switch" controls now share this widget (Magnifier,
+  // the confidence filter, this one), so the name is the only thing that
+  // distinguishes them — to a screen reader exactly as much as to this test.
+  const EMPTY_COLUMNS_NAME = 'Hide empty columns';
+
+  it('exposes the empty-columns control as a switch with a stable accessible name', async () => {
+    getDocumentExtraction.mockResolvedValueOnce(wideTableExtraction());
+    renderVerification();
+
+    const toggle = await screen.findByRole('switch', { name: EMPTY_COLUMNS_NAME });
+    expect(toggle.getAttribute('aria-checked')).toBe('false');
+
+    fireEvent.click(toggle);
+    // The name must NOT move with the state — only aria-checked does. A label
+    // that flipped to "Show empty columns" would be re-announced every time
+    // the control took focus, and would no longer name the mode it is in.
+    const same = screen.getByRole('switch', { name: EMPTY_COLUMNS_NAME });
+    expect(same.getAttribute('aria-checked')).toBe('true');
+    // Visible label equals the accessible name (WCAG 2.5.3) — so a speech
+    // user can say what they read.
+    expect(same.textContent).toBe(EMPTY_COLUMNS_NAME);
+
+    // ...and it is a DIFFERENT control from the other switches on screen: the
+    // magnifier is unaffected, which a name collision would not survive.
+    expect(
+      screen.getByRole('switch', { name: 'Magnifier' }).getAttribute('aria-checked'),
+    ).toBe('false');
   });
 
   // Row controls disappearing while filtering is pinned in form.test.tsx,
