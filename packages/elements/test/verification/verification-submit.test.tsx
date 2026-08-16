@@ -738,6 +738,61 @@ describe('the review filter does not touch the payload', () => {
   // field cannot drop it. Asserted as byte equality of the whole body rather
   // than a key count: composeSubmission omits unresolved untouched bindings,
   // so a count would pass even if the wrong fields went.
+  /** A scored table, so filtering has rows to hide as well as a header. */
+  async function submitTableBody(filter: boolean): Promise<any> {
+    // Four columns: the classifier renders a NARROW array as entity cards and
+    // only a wide one as a table, and this test is about table identities.
+    const COLS = ['description', 'unit_of_measure', 'quantity', 'item_code'];
+    getDocumentExtraction.mockResolvedValueOnce(extraction({
+      meta: {
+        processingStatus: 'success',
+        validated: false,
+        purgedAt: null,
+        validationFeedback: {
+          validationSchema: COLS.flatMap((c) => [
+            `label:line_0_${c}|ptr:/line_items/0/${c}`,
+            `label:line_1_${c}|ptr:/line_items/1/${c}`,
+          ]),
+        },
+      },
+      values: {
+        line_items: [
+          { description: 'A', unit_of_measure: 'UNIT', quantity: 1, item_code: 'X', confidence: 'high' },
+          { description: 'B', unit_of_measure: 'BOX', quantity: 2, item_code: 'Y', confidence: 'medium' },
+        ],
+      },
+    }));
+    renderVerification();
+    await screen.findByRole('table');
+    if (filter) {
+      fireEvent.click(screen.getByRole('switch', { name: FILTER_NAME }));
+      // The high-confidence ROW is now off-screen — one data row left.
+      expect(screen.getAllByRole('row')).toHaveLength(2); // header + row 2
+    }
+    validateDocumentExtraction.mockResolvedValueOnce(VALIDATION_RESULT);
+    await submitAndConfirm();
+    return validateDocumentExtraction.mock.calls[0]![0].extractionValidationInDTO;
+  }
+
+  // Table identities differ from header ones — edit key, submit key and
+  // extracted binding are three different things under a row plan — so a
+  // hidden ROW needs its own proof, not just a hidden header.
+  it('submits a hidden ROW\u2019s cells unchanged', async () => {
+    const unfiltered = await submitTableBody(false);
+    cleanup();
+    getDocumentExtraction.mockReset();
+    validateDocumentExtraction.mockReset();
+    const filtered = await submitTableBody(true);
+
+    expect(filtered).toEqual(unfiltered);
+    // The hidden row's cells are genuinely present, not equal-by-absence.
+    const keys = Object.keys((filtered as { data: Record<string, unknown> }).data);
+    expect(keys).toEqual(expect.arrayContaining([
+      'label:line_0_description|ptr:/line_items/0/description',
+      'label:line_0_quantity|ptr:/line_items/0/quantity',
+    ]));
+  });
+
   it('submits a byte-identical body whether or not fields are hidden', async () => {
     const unfiltered = await submitBody(false);
     cleanup();

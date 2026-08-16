@@ -796,6 +796,9 @@ export function GeminaVerification(props: GeminaVerificationProps): React.JSX.El
     [classified, rendered, plannedTables, unmatched],
   );
   const visibleUnits = totalUnits - hidden.fields.size - hidden.rows.size;
+  // Only while filtering, and only when there was something to begin with:
+  // a genuinely empty extraction is a different state with its own copy.
+  const allClear = filterOn && totalUnits > 0 && visibleUnits === 0;
 
   const invalidCount = useMemo(() => {
     // Row-level errors count even with no edits at all: the extraction itself
@@ -1028,6 +1031,14 @@ export function GeminaVerification(props: GeminaVerificationProps): React.JSX.El
               onImageExpired={handleImageExpired}
             />
           )}
+          {/* Everything scored high and the reviewer asked to see only what
+              needs attention — so the form would be empty. An empty form is
+              indistinguishable from a broken one, so say which it is. */}
+          {allClear ? (
+            <p className="gemina-verification__all-scored" role="status">
+              {`Nothing needs review — all ${totalUnits} fields scored high.`}
+            </p>
+          ) : (
           <VerificationForm
             classified={classified}
             unmatched={unmatched}
@@ -1044,6 +1055,7 @@ export function GeminaVerification(props: GeminaVerificationProps): React.JSX.El
             onAddRow={handleAddRow}
             onRemoveRow={handleRemoveRow}
           />
+          )}
         </div>
         {reviewPhase.name === 'submit-error' && (
           <div

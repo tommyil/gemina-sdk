@@ -27,6 +27,7 @@
 import { ROW_META_KEY } from './classify';
 import type { ClassifiedData } from './classify';
 import type { FieldBinding } from './bindings';
+import { matchesTablePointer } from './row-cells';
 import type { CellView, PlannedRow } from './row-cells';
 
 export type ConfidenceLike = { level: string; reasons: string[] } | null | undefined;
@@ -111,8 +112,24 @@ function forEachRowUnit(
     return meta?.confidence ?? null;
   };
 
+  // `plannedTables` is keyed by the SERVER-declared pointer, which need not
+  // match the payload's spelling — a server `/line_items` can classify as
+  // `/lineItems`. TableSection resolves this with matchesTablePointer before
+  // looking the plan up (form.tsx), and so must this: an exact lookup silently
+  // falls through to the unplanned branch, generating `/lineItems/0` keys
+  // while the rendered rows are keyed `/line_items#row-0`. Nothing would ever
+  // hide, and no error would be raised.
+  const planFor = (tablePointer: string): PlannedRow[] | undefined => {
+    const exact = plannedTables.get(tablePointer);
+    if (exact !== undefined) return exact;
+    for (const [serverPointer, planned] of plannedTables) {
+      if (matchesTablePointer(serverPointer, tablePointer)) return planned;
+    }
+    return undefined;
+  };
+
   for (const table of tables) {
-    const planned = plannedTables.get(table.pointer);
+    const planned = planFor(table.pointer);
     if (planned) {
       for (const row of planned) {
         // An added row was never extracted, so it has no confidence and is not

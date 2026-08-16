@@ -526,11 +526,18 @@ function EntitySection(props: {
   const { entity, shared } = props;
   // Drop a card only when ALL of its cells are hidden — a card with one
   // remaining medium-confidence field is still worth reviewing.
+  // The ORIGINAL index travels with each surviving card. Renumbering after a
+  // filter would relabel "Supplier 2" as "Supplier 1" — in the visible header
+  // AND in the aria-label, telling a screen-reader user they are editing a
+  // different entity than they are. Same reason the table keeps plan positions.
   const visibleItems = entity.items
-    .map((item) => Object.fromEntries(
-      Object.entries(item).filter(([, cellValue]) => !shared.hidden.fields.has(cellValue.pointer)),
-    ))
-    .filter((item) => Object.keys(item).length > 0);
+    .map((item, index) => ({
+      index,
+      cells: Object.fromEntries(
+        Object.entries(item).filter(([, cellValue]) => !shared.hidden.fields.has(cellValue.pointer)),
+      ),
+    }))
+    .filter(({ cells }) => Object.keys(cells).length > 0);
   const label = formatLabel(entity.key);
   // The console's naive strip-trailing-s, ported verbatim ("Suppliers" →
   // "Supplier"; yes, "Parties" → "Partie" — console parity over grammar).
@@ -538,22 +545,26 @@ function EntitySection(props: {
   return (
     <section className="gemina-verification__section" aria-label={label}>
       <div className="gemina-verification__section-header">
-        {label} ({visibleItems.length})
+        {/* The true count, not the filtered one: the heading says how many
+            entities the document has, and the filter never changes that. */}
+        {label} ({entity.items.length})
       </div>
       <div className="gemina-verification__section-body">
-        {visibleItems.map((item, itemIndex) => (
-          <div key={itemIndex} className="gemina-verification__card">
+        {visibleItems.map(({ index, cells }) => (
+          // Keyed by the original index, never the filtered position, or React
+          // reuses a hidden card's DOM (and its focus) for its successor.
+          <div key={index} className="gemina-verification__card">
             <div className="gemina-verification__card-header">
-              {singular} {itemIndex + 1}
+              {singular} {index + 1}
             </div>
             <dl className="gemina-verification__dl">
-              {Object.entries(item).map(([fieldKey, cell]) => (
+              {Object.entries(cells).map(([fieldKey, cell]) => (
                 <FieldPair
                   key={fieldKey}
                   label={formatLabel(fieldKey)}
                   // Card context: two "Supplier" cards both announcing a bare
                   // "Name" would be ambiguous to a screen reader.
-                  ariaLabel={`${singular} ${itemIndex + 1} — ${formatLabel(fieldKey)}`}
+                  ariaLabel={`${singular} ${index + 1} — ${formatLabel(fieldKey)}`}
                   cell={cell}
                   shared={shared}
                 />
@@ -905,6 +916,13 @@ function TableSection(props: {
         <span>
           {label} ({rowCount} rows{needsReview > 0 ? ` · ${needsReview} need review` : ''})
         </span>
+        {/* Row controls vanish while filtering (insert-below is meaningless
+            when the neighbour is hidden). Their absence has to be explained
+            where it is noticed, and it cannot be explained on the controls
+            themselves — a disabled button carries no reachable tooltip. */}
+        {shared.filterOn && mutable !== undefined && !shared.readOnly ? (
+          <span className="gemina-verification__filter-note">Row editing is off while filtering</span>
+        ) : null}
         {table.overallConfidence ? (
           <span className="gemina-verification__overall-confidence">
             <span>Overall confidence</span>

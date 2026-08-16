@@ -353,3 +353,47 @@ describe('an UNPLANNED table honours edits too', () => {
     expect(rows.size).toBe(0);
   });
 });
+
+describe('server and payload pointer spellings differ', () => {
+  // plannedTables is keyed by the SERVER pointer (`/line_items`) while the
+  // classifier may produce the payload's (`/lineItems`). TableSection bridges
+  // that with matchesTablePointer before looking the plan up, so this must
+  // too — an exact lookup falls silently through to the unplanned branch and
+  // emits `/lineItems/0` keys while the rendered rows are `/line_items#row-0`.
+  // Nothing would ever hide, and nothing would report an error.
+  const camelTable = {
+    key: 'lineItems', pointer: '/lineItems', columns: ['rate'], overallConfidence: null,
+    rows: [taxRow('high'), taxRow('high')],
+  } as any;
+  const snakePlan = new Map([['/line_items', [
+    { entry: { id: '/line_items#row-0', source: 0 }, cells: [] },
+    { entry: { id: '/line_items#row-1', source: 1 }, cells: [] },
+  ] as any]]);
+
+  it('hides using the PLAN ids, not synthesised payload-pointer keys', () => {
+    const data = classified({ tables: [camelTable] });
+    const { rows } = run({ classified: data, tables: [camelTable], plannedTables: snakePlan });
+    expect([...rows].sort()).toEqual(['/line_items#row-0', '/line_items#row-1']);
+  });
+
+  it('counts the planned rows, so added and removed rows are reflected', () => {
+    const data = classified({ tables: [camelTable] });
+    const shortPlan = new Map([['/line_items', [
+      { entry: { id: '/line_items#row-0', source: 0 }, cells: [] },
+    ] as any]]);
+    // One row removed: the plan has 1, the extracted array still has 2.
+    expect(countUnits(data, [camelTable], shortPlan, new Set())).toBe(1);
+  });
+
+  it('still honours an edit made to a row of that table', () => {
+    const data = classified({ tables: [camelTable] });
+    const { rows } = run({
+      classified: data,
+      tables: [camelTable],
+      plannedTables: snakePlan,
+      cellViews: [cellView('cell:/line_items#row-0|col:rate', '/line_items#row-0')],
+      edits: new Map([['cell:/line_items#row-0|col:rate', '19']]),
+    });
+    expect([...rows]).toEqual(['/line_items#row-1']);
+  });
+});

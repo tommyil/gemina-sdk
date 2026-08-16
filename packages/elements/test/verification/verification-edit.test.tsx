@@ -363,6 +363,26 @@ describe('GeminaVerification: review filter', () => {
     expect(screen.queryByRole('switch', { name: FILTER_NAME })).toBeNull();
   });
 
+  // The plan's global all-clear: filtering everything away would otherwise
+  // leave a blank form, which is indistinguishable from a broken one.
+  it('says so when the filter hides everything', async () => {
+    getDocumentExtraction.mockResolvedValue(extraction({
+      meta: {
+        processingStatus: 'success',
+        validated: false,
+        purgedAt: null,
+        validationFeedback: { validationSchema: ['label:supplier_name|ptr:/supplier_name/value'] },
+      },
+      values: { supplierName: { value: 'Acme Ltd', confidence: 'high' } },
+    }));
+    renderVerification();
+    const toggle = await screen.findByRole('switch', { name: FILTER_NAME });
+    fireEvent.click(toggle);
+    expect(screen.getByText('Nothing needs review — all 1 fields scored high.')).toBeTruthy();
+    // …and the toggle is still there so the reviewer can get back.
+    expect(screen.getByRole('switch', { name: FILTER_NAME })).toBeTruthy();
+  });
+
   // §F11 — the same mounted component must not open the next extraction
   // already filtered; that reads as fields having gone missing.
   it('resets when a new extraction loads', async () => {

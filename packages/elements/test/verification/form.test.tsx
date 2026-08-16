@@ -778,6 +778,37 @@ describe('VerificationForm: review filter', () => {
     expect((inputs[0] as HTMLInputElement).value).toBe('beta');
   });
 
+  // Renumbering after a filter relabels the survivors: with card 1 hidden,
+  // card 2 would announce itself as "Supplier 1" — in the heading and, worse,
+  // in the aria-label a screen-reader user relies on to know which entity
+  // they are editing.
+  it('keeps original entity numbering when an earlier card is hidden', () => {
+    const values = {
+      suppliers: [
+        { name: 'First Co' },
+        { name: 'Second Co' },
+      ],
+    };
+    const bindings = buildBindings(
+      ['label:Supplier 1 Name|ptr:/suppliers/0/name', 'label:Supplier 2 Name|ptr:/suppliers/1/name'],
+      values,
+    );
+    render(<VerificationForm {...formProps({
+      classified: classifyData(values),
+      bindingIndex: indexBindingsByFieldPointer(bindings),
+      unmatched: [],
+      filterOn: true,
+      hidden: { fields: new Set(['/suppliers/0/name']), rows: new Set<string>() },
+    })} />);
+
+    // The surviving card is the SECOND one and must still say so.
+    expect(screen.getByText('Supplier 2')).toBeTruthy();
+    expect(screen.queryByText('Supplier 1')).toBeNull();
+    expect(screen.getByRole('textbox', { name: 'Supplier 2 — Name' })).toBeTruthy();
+    // The heading reports how many entities exist, which the filter never changes.
+    expect(screen.getByText('Suppliers (2)')).toBeTruthy();
+  });
+
   it('keeps an entity card that still has one visible cell', () => {
     renderForm({ filterOn: true, hidden: hide(['/suppliers/0/name']) });
     // The card survives because its other cell is untouched by the filter.
@@ -896,6 +927,19 @@ describe('VerificationForm: row-mutable tables', () => {
     expect(screen.queryByText(/All \d+ rows scored high/)).toBeNull();
     expect(screen.getByRole('table')).toBeTruthy();
     expect(screen.getAllByRole('row')).toHaveLength(2); // header + the added row
+  });
+
+  // The controls' absence has to be explained where it is noticed. It cannot
+  // be explained ON them: Tip binds hover/focus handlers to its child and a
+  // disabled button dispatches neither, so a tooltip there is unreachable.
+  it('explains in the section header why row editing is unavailable', () => {
+    renderTable(['A', 'B'], { filterOn: true });
+    expect(screen.getByText('Row editing is off while filtering')).toBeTruthy();
+  });
+
+  it('shows no such note when the filter is off', () => {
+    renderTable(['A', 'B']);
+    expect(screen.queryByText('Row editing is off while filtering')).toBeNull();
   });
 
   it('reports the removal to the parent with the SERVER pointer and the position', () => {

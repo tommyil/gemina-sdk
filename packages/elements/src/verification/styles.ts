@@ -598,6 +598,10 @@ const VERIFICATION_CSS = `
   font-size: 12px;
   color: var(--gemina-verification-muted);
 }
+.gemina-verification__filter-note {
+  font-size: 12px;
+  color: var(--gemina-verification-muted);
+}
 .gemina-verification__all-scored {
   margin: 0;
   padding: 12px;
