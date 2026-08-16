@@ -382,12 +382,28 @@ Submitting asks for confirmation first — *"Submit these values? This is final
 — they can be submitted once and can't be changed."* — then reports back
 `N confirmed · M corrected`.
 
-### Confidence and the review filter
+### Review filters
+
+The footer carries two of them. Both are **view modes, off by default**, both
+reset whenever the component loads a different extraction, and **neither one
+changes what gets submitted** — a hidden field, and a hidden column, are
+submitted exactly as they would have been on screen. They are also independent
+of each other: turning one on never changes what the other hides.
+
+What it takes to *get* each switch is different, and it is the first thing to
+check when one of them isn't there:
+
+| Switch | Appears when |
+|---|---|
+| **Hide high-confidence fields** | The extraction carries confidence scores — i.e. it was uploaded with **`evaluation` enabled** |
+| **Hide empty columns** | Some table has at least one hideable column — blank in every row, by the rules below. No upload option is involved; nothing has to be enabled |
+
+#### Hide high-confidence fields
 
 **Prerequisite:** run the extraction with **`evaluation` enabled** (the upload
 option of that name in every Gemina SDK). Without it there are no scores, and
-everything in this section is silently absent — no dots, no switch. That is by
-design, but it is the first thing to check if you expected them.
+everything in this subsection is silently absent — no dots, no switch. That is
+by design, but it is the first thing to check if you expected them.
 
 With scores present, each field and each table row carries a colored
 confidence dot, always paired with a text label and a tooltip listing the
@@ -397,10 +413,6 @@ summaries rather than review units, so the filter never hides them. A switch
 appears in the footer:
 
 > **Hide high-confidence fields** — `Showing 12 of 47`
-
-It's a **view mode, off by default**, and it resets whenever the component
-loads a different extraction. It never changes what gets submitted: a hidden
-field is submitted exactly as it would have been on screen.
 
 What it hides, precisely:
 
@@ -420,6 +432,65 @@ The count next to the switch is the safety rail: a filtered form that looks
 unfiltered is how a reviewer concludes data went missing. A table with nothing
 left shows `All 169 rows scored high`; when the whole form is clear, it says
 `Nothing needs review — all 47 fields scored high.`
+
+#### Hide empty columns
+
+**No prerequisite.** This one needs nothing enabled at upload — it reads the
+extraction the component already has. It does need something to hide: the
+switch appears only when some table has a column that is blank in every row,
+and once you turn it on it stays put until you turn it off again.
+
+It exists because a line-items table declares the columns its document *type*
+can have, not the ones your document used. Across the invoice extractions we
+measured, every line-items table declared 19 columns and left between 5 and 16
+of them blank in every single row — so on the largest tables we sampled, the
+reviewer scrolls a 19-column grid sideways to check 8 values. With the switch
+on, that table reads as 8 columns. This is the normal state of the data, not an
+edge case.
+
+> **Hide empty columns**
+
+Tables only — the **Details** section and entity cards are untouched, and no
+count sits beside the switch (`Showing X of Y` counts review *units*, and a
+column is not one). Each table that lost something says so in its own header
+instead:
+
+> `11 columns hidden — blank in every row`
+
+What hides, precisely:
+
+| Rule | Why |
+|---|---|
+| A column hides only when **every** cell in it is blank | One populated cell is a value the reviewer has to see. A column that is mostly blank stays |
+| A cell you typed into keeps its column — even if you cleared it back to blank | Otherwise the column would unmount under the cursor of the person filling it in |
+| A column holding a validation error never hides | It blocks Submit; hiding it strands the reviewer with a form that won't send and nothing on screen to fix. (Dropped in the already-verified read-only view, where nothing can be submitted anyway) |
+| A table with no extracted rows hides nothing | An empty table is one you're still filling in, and every column of it is blank by definition |
+| A table never hides **all** of its columns | The document-eye button, the confidence dot and *Remove line* are cells of the row; a table with no columns left would lose them too |
+
+"Blank in every row" means every row of that table as it stands right now:
+rows you added count, rows you removed don't, and rows the confidence filter is
+hiding still count. So the set of hidden columns **moves while you work**, and
+it moves in both directions. A cell you type into keeps its own column for the
+rest of the session, whatever you leave in it — but an edit can move a
+*different* column. Fill in a `unit_size` whose `unit_size_uom` partner is
+blank throughout, and the error that raises on the partner brings that column
+straight back; the cell blocking **Submit** is never one you can't see. Undo
+that edit, or remove the row that carried it, and the partner is blank,
+untouched and unerrored once more — so it hides again, in front of you. A
+column populated only in a row you remove goes the same way.
+
+**Row editing stays available while columns are hidden** — the opposite of the
+confidence filter, which disables it. That filter hides *rows*, so the numbers
+on screen stop being the numbers being edited; hiding columns leaves every row
+where it was. The accepted cost is that a line you add now has no input for the
+columns that are hidden, so the table says so beside *Add line*:
+
+> `New lines can only fill the visible columns — turn off “Hide empty columns”
+> to reach the rest.`
+
+The switch is offered in the read-only view of an already-verified extraction
+too. Reading someone else's completed review is exactly when column noise costs
+the most.
 
 ### Editing table rows
 
