@@ -19,7 +19,7 @@
  *   calm `role="status"` — the done state is `role="status"` too (asserted in
  *   verification-submit.test.tsx where the submit harness lives).
  */
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { GeminaVerification } from '../../src/verification/index';
 import { GeminaTokenManager } from '../../src/token-manager';
@@ -191,4 +191,45 @@ describe('GeminaVerification a11y — edge-state announcement severity', () => {
     expect(state.textContent).toContain(copy);
     expect(screen.queryByRole('status')).toBeNull();
   });
+});
+
+describe('review filter accessibility', () => {
+  // The viewer toolbar's Magnifier is also role="switch", so a STABLE
+  // accessible name is what makes either control findable — by AT and by test.
+  const FILTER_NAME = 'Hide high-confidence fields';
+
+  it('is a switch with a constant name whose aria-checked tracks state', async () => {
+    getDocumentExtraction.mockResolvedValueOnce(richExtraction());
+    renderVerification();
+
+    const toggle = await screen.findByRole('switch', { name: FILTER_NAME });
+    expect(toggle.getAttribute('aria-checked')).toBe('false');
+    fireEvent.click(toggle);
+    // The NAME must not move with the state — only aria-checked does. The
+    // visible label still equals the accessible name (WCAG 2.5.3).
+    const same = screen.getByRole('switch', { name: FILTER_NAME });
+    expect(same.getAttribute('aria-checked')).toBe('true');
+    expect(same.textContent).toBe(FILTER_NAME);
+  });
+
+  it('announces the count politely, and only while filtering', async () => {
+    getDocumentExtraction.mockResolvedValueOnce(richExtraction());
+    const { container } = renderVerification();
+
+    const toggle = await screen.findByRole('switch', { name: FILTER_NAME });
+    expect(container.querySelector('.gemina-verification__filter-count')).toBeNull();
+
+    fireEvent.click(toggle);
+    const count = container.querySelector('.gemina-verification__filter-count');
+    expect(count).not.toBeNull();
+    expect(count!.getAttribute('aria-live')).toBe('polite');
+    expect(count!.textContent).toMatch(/^Showing \d+ of \d+$/);
+  });
+
+  // Row controls disappearing while filtering is pinned in form.test.tsx,
+  // where a row-mutable fixture already exists. It belongs there rather than
+  // here: §F9's point is that a DISABLED control could carry no accessible
+  // explanation (Tip binds hover/focus handlers to its child, and a disabled
+  // button dispatches neither), so the fix was to remove them — which leaves
+  // nothing for an a11y sweep to assert about.
 });

@@ -715,3 +715,38 @@ describe('GeminaVerification — row alignment on the wire', () => {
     expect('rowSources' in body).toBe(false); // no row was added or removed
   });
 });
+
+describe('the review filter does not touch the payload', () => {
+  const FILTER_NAME = 'Hide high-confidence fields';
+
+  /** Submit once and hand back the exact body that went on the wire. */
+  async function submitBody(filter: boolean): Promise<unknown> {
+    getDocumentExtraction.mockResolvedValueOnce(extraction());
+    renderVerification();
+    await screen.findByLabelText<HTMLInputElement>('Supplier Name');
+    if (filter) {
+      fireEvent.click(screen.getByRole('switch', { name: FILTER_NAME }));
+      // The high-confidence field is now off-screen.
+      expect(screen.queryByLabelText('Supplier Name')).toBeNull();
+    }
+    validateDocumentExtraction.mockResolvedValueOnce(VALIDATION_RESULT);
+    await submitAndConfirm();
+    return validateDocumentExtraction.mock.calls[0]![0].extractionValidationInDTO;
+  }
+
+  // composeSubmission walks bindings and edits, never the DOM — so hiding a
+  // field cannot drop it. Asserted as byte equality of the whole body rather
+  // than a key count: composeSubmission omits unresolved untouched bindings,
+  // so a count would pass even if the wrong fields went.
+  it('submits a byte-identical body whether or not fields are hidden', async () => {
+    const unfiltered = await submitBody(false);
+    cleanup();
+    getDocumentExtraction.mockReset();
+    validateDocumentExtraction.mockReset();
+    const filtered = await submitBody(true);
+
+    expect(filtered).toEqual(unfiltered);
+    // And the hidden field is genuinely IN there, not merely equal-by-absence.
+    expect(JSON.stringify(filtered)).toContain('supplier_name');
+  });
+});
