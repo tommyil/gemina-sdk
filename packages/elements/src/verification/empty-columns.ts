@@ -56,10 +56,10 @@
 
 import { toInputString } from './bindings';
 import type { FieldBinding } from './bindings';
-import type { ClassifiedCell, ClassifiedData } from './classify';
+import type { ClassifiedData } from './classify';
 import type { RowMutableTable } from './field-types';
 import { planForTable } from './review-filter';
-import { resolveRowCell, tableColumns } from './row-cells';
+import { resolveRowCell, tableColumns, tableRows } from './row-cells';
 import type { PlannedRow, ResolvedCell } from './row-cells';
 
 /** Rendered table pointer -> the columns of it that may be hidden. */
@@ -105,6 +105,10 @@ function qualifies(
   if (editKey !== undefined && (touchedEver.has(editKey) || pairErrors.has(editKey))) {
     return false;
   }
+  // Constraint 2, at its site: the binding WINS wherever there is one. Only a
+  // cell with no binding at all renders from the classified value, and reading
+  // `classified.value` first would call a planned cell populated while the
+  // input beside it sits empty — the synthetic-NOT_FOUND case.
   const value = cell.binding === undefined ? cell.classified?.value : cell.binding.extracted;
   return toInputString(value).trim() === '';
 }
@@ -131,25 +135,16 @@ export function computeEmptyColumns(input: EmptyColumnsInput): EmptyColumns {
     // `planForTable` because the plan is keyed by the SERVER pointer while this
     // table carries the payload's spelling — an exact lookup silently falls
     // through to the unplanned branch and walks removed rows.
-    const planned = planForTable(plannedTables, table.pointer);
-    const rows: Array<{
-      row: Record<string, ClassifiedCell> | undefined;
-      planned: PlannedRow | undefined;
-    }> =
-      planned === undefined
-        ? table.rows.map((row) => ({ row, planned: undefined }))
-        // An added row has no extracted counterpart, so it is reachable only
-        // through the plan and its `row` is undefined by construction.
-        : planned.map((entry) => ({
-          row: entry.entry.source === null ? undefined : table.rows[entry.entry.source],
-          planned: entry,
-        }));
+    //
+    // `tableRows` is the SAME derivation TableSection renders from, not a copy
+    // of it: this rule may only ever call a column blank over rows the reviewer
+    // is actually being shown.
+    const rows = tableRows(table, planForTable(plannedTables, table.pointer));
 
-    // Constraint 4: EXTRACTED rows, not rows.
-    const anyExtracted = planned === undefined
-      ? table.rows.length > 0
-      : planned.some((entry) => entry.entry.source !== null);
-    if (!anyExtracted) {
+    // Constraint 4: EXTRACTED rows, not rows. A row with no classified data
+    // behind it is one the reviewer added — for an unplanned table that is
+    // none of them, so this reads as "has rows" there.
+    if (!rows.some((row) => row.row !== undefined)) {
       continue;
     }
 
@@ -165,8 +160,13 @@ export function computeEmptyColumns(input: EmptyColumnsInput): EmptyColumns {
       }
     }
 
+    // Nothing to record: a table with no empty column contributes no entry, so
+    // `emptyColumns.get(pointer)` is undefined rather than an empty Set.
+    if (hidden.size === 0) {
+      continue;
+    }
     // Constraint 5: a table that would lose every data column keeps them all.
-    if (hidden.size === 0 || hidden.size === columns.length) {
+    if (hidden.size === columns.length) {
       continue;
     }
     // Keyed by the RENDERED pointer — the one TableSection holds — so the

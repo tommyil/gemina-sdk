@@ -229,10 +229,13 @@ export interface WideTableFixtureOptions {
   rows?: number;
   /** Payload key becomes `lineItems` while the declaration stays `/line_items` (F3). */
   camelTablePointer?: boolean;
-  /** Add a payload-only column the validationSchema does not cover (F4). */
+  /**
+   * Add a payload-only column the validationSchema does not cover (F4).
+   * ALWAYS populated: on a row-mutable table the planner mints a NOT_FOUND
+   * binding either way, so a blank variant of this option could distinguish
+   * nothing (see the caution above).
+   */
   unboundColumn?: boolean;
-  /** Blank that payload-only column too — F4's "must still hide" case. */
-  unboundColumnBlank?: boolean;
   /** Include the `/taxes` table beside `/line_items` (default false). */
   withTaxes?: boolean;
   /**
@@ -258,7 +261,7 @@ function buildRow(
   if (options.unboundColumn) {
     // Payload-only: no declared column, so no validationSchema entry and no
     // binding — the cell renders through TableRowView's `classified` branch.
-    row.grossLinePrice = options.unboundColumnBlank ? null : 9.99;
+    row.grossLinePrice = 9.99;
   }
   // Row-level meta as the wire carries it with `evaluation` off.
   row.confidence = null;

@@ -220,6 +220,52 @@ export function declaredTableColumns(
   return columnsForTable(mutable, classified?.columns ?? []);
 }
 
+/** One rendered table row: the extracted data behind it, and its plan entry. */
+export interface TableRowRef {
+  /** The classified row — undefined for a row the reviewer added. */
+  row: Record<string, ClassifiedCell> | undefined;
+  /** Present ONLY for a row-mutable table. */
+  planned: PlannedRow | undefined;
+  /**
+   * Index in the UNFILTERED collection: the plan position where there is a
+   * plan, else the extracted index. It travels with the row because
+   * onAddRow/onRemoveRow take a plan POSITION — renumbering after a filter
+   * would target the wrong row.
+   */
+  position: number;
+}
+
+/**
+ * Which rows a table renders, in order — the plan's where there is one, the
+ * extracted array's where there is not.
+ *
+ * Shared rather than re-derived, for the same reason `tableColumns` is. The
+ * mapping is three lines and looks too small to bother sharing, which is
+ * exactly why it had been written out three times. Its failure mode is silent
+ * in both directions: a rule that walks MORE rows than the form renders reads
+ * values the reviewer cannot see, and one that walks FEWER calls a column
+ * blank over rows it never looked at — which, for the empty-column filter,
+ * makes a populated column vanish with no error anywhere.
+ *
+ * The row KEY (`entry.id` / `unplannedRowKey`) is deliberately NOT here: it
+ * belongs to the review filter, which owns both spellings, and importing it
+ * would make this module depend on a consumer.
+ */
+export function tableRows(
+  table: { rows: ReadonlyArray<Record<string, ClassifiedCell>> },
+  planned: readonly PlannedRow[] | undefined,
+): TableRowRef[] {
+  if (planned === undefined) {
+    return table.rows.map((row, position) => ({ row, planned: undefined, position }));
+  }
+  return planned.map((plannedRow, position) => ({
+    // An added row was never extracted, so it exists only in the plan.
+    row: plannedRow.entry.source === null ? undefined : table.rows[plannedRow.entry.source],
+    planned: plannedRow,
+    position,
+  }));
+}
+
 /** One rendered table cell: what paints, and under which key it is edited. */
 export interface ResolvedCell {
   /** The classified leaf behind this column, if the payload carries one. */

@@ -38,7 +38,7 @@ import type { ClassifiedCell, ClassifiedData, ClassifiedField } from './classify
 import { ROW_META_KEY, formatLabel, formatValue } from './classify';
 import { ISO_4217_CODES, cellSchemaKey, validateInput } from './field-types';
 import type { RowMutableTable, ValidationFieldDescriptor } from './field-types';
-import { matchesTablePointer, resolveRowCell, tableColumns } from './row-cells';
+import { matchesTablePointer, resolveRowCell, tableColumns, tableRows } from './row-cells';
 import type { PlannedCell, PlannedRow } from './row-cells';
 import { cellEditKey } from './row-plan';
 import { NOTHING_HIDDEN, unplannedRowKey } from './review-filter';
@@ -866,7 +866,11 @@ function TableSection(props: {
     }
     return map;
   }, [mutable]);
-  const rowCount = planned ? planned.length : table.rows.length;
+  // The rows this table renders, from the ONE shared derivation (row-cells.ts)
+  // — the empty-column rule walks the same list, and a second copy here is how
+  // it would come to hide a column over rows this grid never showed.
+  const rows = React.useMemo(() => tableRows(table, planned), [table, planned]);
+  const rowCount = rows.length;
   // `ConfidenceModel` is a closed high|medium|low, so the scale is total: a row
   // with no confidence at all is not "needing review", it is unmeasured.
   const needsReview = React.useMemo(
@@ -879,28 +883,20 @@ function TableSection(props: {
   const showControls = planned !== undefined && mutable !== undefined && !shared.readOnly
     && !shared.filterOn;
 
-  // The review filter, applied to whichever collection actually renders. A
-  // planned row is addressed by `entry.id` — already table-scoped by
-  // initialRowPlan — and an unplanned one by its row pointer, which is exactly
-  // what CellView.rowKey uses in each case.
-  // `position` is the row's index in the UNFILTERED plan and travels with it:
-  // onAddRow/onRemoveRow take a plan position, so renumbering after a filter
-  // would target the wrong row. (Controls are hidden while filtering anyway —
-  // this keeps the two facts independent rather than relying on that.)
-  const visiblePlanned = planned
-    ?.map((plannedRow, position) => ({ plannedRow, position }))
-    .filter(({ plannedRow }) => !shared.hidden.rows.has(plannedRow.entry.id));
-  // Empty rather than null when a plan exists: the two are mutually exclusive
-  // by construction, and an always-array keeps the render below free of
-  // non-null assertions that only restate that fact.
-  const visibleRowIndices = planned
-    ? []
-    : table.rows.map((_row, index) => index)
-      .filter((index) => !shared.hidden.rows.has(unplannedRowKey(table.pointer, index)));
-  const visibleCount = visiblePlanned ? visiblePlanned.length : visibleRowIndices.length;
+  // The review filter, applied to the rows that actually render. A planned row
+  // is addressed by `entry.id` — already table-scoped by initialRowPlan — and
+  // an unplanned one by its row pointer, which is exactly what CellView.rowKey
+  // uses in each case. The two spellings live in review-filter.ts, which is why
+  // the shared traversal does not carry the key.
+  const visibleRows = rows.filter(({ planned: plannedRow, position }) => !shared.hidden.rows.has(
+    plannedRow ? plannedRow.entry.id : unplannedRowKey(table.pointer, position),
+  ));
   // Never an empty <tbody>: say why the rows are gone, or a filtered table
   // reads as a table that lost its data.
-  const allHidden = visibleCount === 0 && rowCount > 0;
+  const allHidden = visibleRows.length === 0 && rowCount > 0;
+  // Meaningful only WITH a plan: without one there is no row to add or remove,
+  // and TableRowView gates its controls on the pair.
+  const tablePointer = planned ? mutable!.pointer : undefined;
 
   return (
     <section className="gemina-verification__section" aria-label={label}>
@@ -943,36 +939,23 @@ function TableSection(props: {
             </tr>
           </thead>
           <tbody>
-            {visiblePlanned
-              ? visiblePlanned.map(({ plannedRow, position }) => (
-                <TableRow
-                  // Keyed by ROW ID, not position: a position key would make
-                  // React reuse a deleted row's DOM (and its focus) for its
-                  // successor.
-                  key={plannedRow.entry.id}
-                  row={plannedRow.entry.source === null ? undefined : table.rows[plannedRow.entry.source]}
-                  rowIndex={position}
-                  columns={columns}
-                  tableLabel={label}
-                  hasCoords={hasCoords}
-                  hasRowConfidence={hasRowConfidence}
-                  shared={shared}
-                  planned={plannedRow}
-                  tablePointer={mutable!.pointer}
-                />
-              ))
-              : visibleRowIndices.map((rowIndex) => (
-                <TableRow
-                  key={rowIndex}
-                  row={table.rows[rowIndex]}
-                  rowIndex={rowIndex}
-                  columns={columns}
-                  tableLabel={label}
-                  hasCoords={hasCoords}
-                  hasRowConfidence={hasRowConfidence}
-                  shared={shared}
-                />
-              ))}
+            {visibleRows.map(({ row, planned: plannedRow, position }) => (
+              <TableRow
+                // Keyed by ROW ID wherever there is one, not by position: a
+                // position key would make React reuse a deleted row's DOM (and
+                // its focus) for its successor.
+                key={plannedRow ? plannedRow.entry.id : position}
+                row={row}
+                rowIndex={position}
+                columns={columns}
+                tableLabel={label}
+                hasCoords={hasCoords}
+                hasRowConfidence={hasRowConfidence}
+                shared={shared}
+                planned={plannedRow}
+                tablePointer={tablePointer}
+              />
+            ))}
           </tbody>
         </table>
       </div>

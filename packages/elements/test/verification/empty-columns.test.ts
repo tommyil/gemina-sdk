@@ -142,6 +142,35 @@ describe('computeEmptyColumns — blankness', () => {
     expect(sorted(empty.get(LINE_ITEMS))).not.toContain('description');
   });
 
+  /**
+   * The fixture is faithful to F15 — every real blank is a bare `null` — which
+   * is exactly what makes it unable to pin the blankness PREDICATE. These two
+   * do: the rule claims `toInputString(v).trim() === ''` is what the three
+   * render paths bottom out in, and both cases below render an empty input on
+   * screen while a null check (or a `.trim()`-less one) would call them filled
+   * and keep a column of blanks in view.
+   */
+  function withBarcode(value: unknown) {
+    const view = wideTableExtraction();
+    const rows = (view.values as { line_items: Array<Record<string, unknown>> }).line_items;
+    rows[0]!.barcode = value; // `barcode` is otherwise blank in all four rows
+    return run(buildWorld(view)).get(LINE_ITEMS);
+  }
+
+  it('hides a column whose only non-null cell is an empty string', () => {
+    expect(withBarcode('')?.has('barcode')).toBe(true);
+  });
+
+  it('hides a column whose only non-null cell is whitespace', () => {
+    expect(withBarcode('   ')?.has('barcode')).toBe(true);
+  });
+
+  it('keeps that same column once the cell holds a real value', () => {
+    // The control the two above need: it is the CONTENT deciding this, not the
+    // fixture quietly failing to reach that cell.
+    expect(withBarcode('BC-9')?.has('barcode')).toBe(false);
+  });
+
   it('returns the shared NO_EMPTY_COLUMNS when nothing is empty', () => {
     // Every blank column touched in one row disqualifies all of them.
     const world = fixtureWorld();
