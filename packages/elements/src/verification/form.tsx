@@ -41,7 +41,7 @@ import type { RowMutableTable, ValidationFieldDescriptor } from './field-types';
 import { displayColumns, matchesTablePointer } from './row-cells';
 import type { PlannedCell, PlannedRow } from './row-cells';
 import { cellEditKey } from './row-plan';
-import { NOTHING_HIDDEN } from './review-filter';
+import { NOTHING_HIDDEN, unplannedRowKey } from './review-filter';
 import type { HiddenSets } from './review-filter';
 import type { RowPlanEntry } from './row-plan';
 import { NOT_FOUND, parseSchemaKey, snakeToCamel } from './pointer';
@@ -452,14 +452,20 @@ function HeaderSection(props: {
   shared: SectionShared;
 }): React.JSX.Element | null {
   const { headers, simpleLists, shared } = props;
-  if (headers.length === 0 && simpleLists.length === 0) {
+  // The review filter hides what already scored high. Applied here rather than
+  // at the call site so simple lists get the same treatment as headers.
+  const visibleHeaders = headers.filter((field) => !shared.hidden.fields.has(field.pointer));
+  const visibleLists = simpleLists
+    .map((list) => ({ ...list, items: list.items.filter((item) => !shared.hidden.fields.has(item.pointer)) }))
+    .filter((list) => list.items.length > 0);
+  if (visibleHeaders.length === 0 && visibleLists.length === 0) {
     return null;
   }
   return (
     <section className="gemina-verification__section" aria-label="Details">
       <div className="gemina-verification__section-header">Details</div>
       <dl className="gemina-verification__dl">
-        {headers.map((field) => (
+        {visibleHeaders.map((field) => (
           <FieldPair
             key={field.pointer}
             label={formatLabel(field.key)}
@@ -468,7 +474,7 @@ function HeaderSection(props: {
             shared={shared}
           />
         ))}
-        {simpleLists.map((list) => (
+        {visibleLists.map((list) => (
           <React.Fragment key={list.pointer}>
             <dt className="gemina-verification__dt">
               <span>{formatLabel(list.key)}</span>
@@ -518,6 +524,13 @@ function EntitySection(props: {
   shared: SectionShared;
 }): React.JSX.Element {
   const { entity, shared } = props;
+  // Drop a card only when ALL of its cells are hidden — a card with one
+  // remaining medium-confidence field is still worth reviewing.
+  const visibleItems = entity.items
+    .map((item) => Object.fromEntries(
+      Object.entries(item).filter(([, cellValue]) => !shared.hidden.fields.has(cellValue.pointer)),
+    ))
+    .filter((item) => Object.keys(item).length > 0);
   const label = formatLabel(entity.key);
   // The console's naive strip-trailing-s, ported verbatim ("Suppliers" →
   // "Supplier"; yes, "Parties" → "Partie" — console parity over grammar).
@@ -525,10 +538,10 @@ function EntitySection(props: {
   return (
     <section className="gemina-verification__section" aria-label={label}>
       <div className="gemina-verification__section-header">
-        {label} ({entity.items.length})
+        {label} ({visibleItems.length})
       </div>
       <div className="gemina-verification__section-body">
-        {entity.items.map((item, itemIndex) => (
+        {visibleItems.map((item, itemIndex) => (
           <div key={itemIndex} className="gemina-verification__card">
             <div className="gemina-verification__card-header">
               {singular} {itemIndex + 1}
@@ -862,6 +875,27 @@ function TableSection(props: {
   );
   const showControls = planned !== undefined && mutable !== undefined && !shared.readOnly
     && !shared.filterOn;
+
+  // The review filter, applied to whichever collection actually renders. A
+  // planned row is addressed by `entry.id` — already table-scoped by
+  // initialRowPlan — and an unplanned one by its row pointer, which is exactly
+  // what CellView.rowKey uses in each case.
+  // `position` is the row's index in the UNFILTERED plan and travels with it:
+  // onAddRow/onRemoveRow take a plan position, so renumbering after a filter
+  // would target the wrong row. (Controls are hidden while filtering anyway —
+  // this keeps the two facts independent rather than relying on that.)
+  const visiblePlanned = planned
+    ?.map((plannedRow, position) => ({ plannedRow, position }))
+    .filter(({ plannedRow }) => !shared.hidden.rows.has(plannedRow.entry.id));
+  const visibleRowIndices = planned
+    ? null
+    : table.rows.map((_row, index) => index)
+      .filter((index) => !shared.hidden.rows.has(unplannedRowKey(table.pointer, index)));
+  const visibleCount = visiblePlanned ? visiblePlanned.length : visibleRowIndices!.length;
+  // Never an empty <tbody>: say why the rows are gone, or a filtered table
+  // reads as a table that lost its data.
+  const allHidden = visibleCount === 0 && rowCount > 0;
+
   return (
     <section className="gemina-verification__section" aria-label={label}>
       <div className="gemina-verification__section-header">
@@ -875,6 +909,9 @@ function TableSection(props: {
           </span>
         ) : null}
       </div>
+      {allHidden ? (
+        <p className="gemina-verification__all-scored">All {rowCount} rows scored high</p>
+      ) : (
       <div className="gemina-verification__table-wrap">
         <table className="gemina-verification__table">
           <thead>
@@ -893,8 +930,8 @@ function TableSection(props: {
             </tr>
           </thead>
           <tbody>
-            {planned
-              ? planned.map((plannedRow, position) => (
+            {visiblePlanned
+              ? visiblePlanned.map(({ plannedRow, position }) => (
                 <TableRow
                   // Keyed by ROW ID, not position: a position key would make
                   // React reuse a deleted row's DOM (and its focus) for its
@@ -911,10 +948,10 @@ function TableSection(props: {
                   tablePointer={mutable!.pointer}
                 />
               ))
-              : table.rows.map((row, rowIndex) => (
+              : visibleRowIndices!.map((rowIndex) => (
                 <TableRow
                   key={rowIndex}
-                  row={row}
+                  row={table.rows[rowIndex]}
                   rowIndex={rowIndex}
                   columns={columns}
                   tableLabel={label}
@@ -926,6 +963,7 @@ function TableSection(props: {
           </tbody>
         </table>
       </div>
+      )}
       {showControls ? (
         <div className="gemina-verification__table-footer">
           <button

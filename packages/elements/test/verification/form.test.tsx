@@ -741,6 +741,50 @@ describe('FieldInput — typed controls', () => {
 
 // --- Row editing (Phase 7) ---------------------------------------------------
 
+describe('VerificationForm: review filter', () => {
+  const hide = (fields: string[] = [], rows: string[] = []) => ({
+    fields: new Set(fields),
+    rows: new Set(rows),
+  });
+
+  it('hides a header the filter marked, keeps the rest', () => {
+    renderForm({ filterOn: true, hidden: hide(['/supplier_name']) });
+    const details = screen.getByRole('region', { name: 'Details' });
+    expect(within(details).queryByText('Supplier Name')).toBeNull();
+    expect(within(details).getByText('Total')).not.toBeNull();
+  });
+
+  it('hides nothing when the filter is off', () => {
+    renderForm({ filterOn: false, hidden: hide([]) });
+    expect(screen.getByRole('region', { name: 'Details' })).not.toBeNull();
+    expect(within(screen.getByRole('region', { name: 'Details' })).getByText('Supplier Name')).not.toBeNull();
+  });
+
+  it('drops a simple-list item without dropping its siblings', () => {
+    const values = { tags: ['alpha', 'beta'] };
+    const bindings = buildBindings(
+      ['label:Tag 1|ptr:/tags/0', 'label:Tag 2|ptr:/tags/1'],
+      values,
+    );
+    render(<VerificationForm {...formProps({
+      classified: classifyData(values),
+      bindingIndex: indexBindingsByFieldPointer(bindings),
+      unmatched: [],
+      filterOn: true,
+      hidden: hide(['/tags/0']),
+    })} />);
+    const inputs = screen.getAllByRole('textbox');
+    expect(inputs).toHaveLength(1);
+    expect((inputs[0] as HTMLInputElement).value).toBe('beta');
+  });
+
+  it('keeps an entity card that still has one visible cell', () => {
+    renderForm({ filterOn: true, hidden: hide(['/suppliers/0/name']) });
+    // The card survives because its other cell is untouched by the filter.
+    expect(screen.queryByRole('region', { name: 'Suppliers' })).not.toBeNull();
+  });
+});
+
 describe('VerificationForm: row-mutable tables', () => {
   const TEMPLATE = 'label:line_{index}_{field}|ptr:/line_items/{index}/{field}';
   // FOUR columns minimum: `isTableArray` requires >3 non-meta fields, so a
@@ -814,6 +858,44 @@ describe('VerificationForm: row-mutable tables', () => {
     rerenderWith({ filterOn: true });
     expect(screen.queryByRole('button', { name: 'Insert line below line 1' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Remove line 1' })).toBeNull();
+  });
+
+  it('replaces a fully-hidden table with a summary instead of an empty grid', () => {
+    // renderTable builds its plan with initialRowPlan(n) — unscoped — so the
+    // ids are `#row-0`, `#row-1`. Hidden rows are keyed by entry.id verbatim.
+    const rowIds = initialRowPlan(2).map((entry) => entry.id);
+    renderTable(['A', 'B'], {
+      filterOn: true,
+      hidden: { fields: new Set<string>(), rows: new Set(rowIds) },
+    });
+    expect(screen.getByText('All 2 rows scored high')).toBeTruthy();
+    expect(screen.queryByRole('table')).toBeNull();
+  });
+
+  // §R2 — an added row is NOT in table.rows, so a filter written over that
+  // collection would hide the reviewer's own new row behind the summary.
+  it('keeps an added row visible when every extracted row is hidden', () => {
+    const values = { line_items: [{ description: 'A', unit_of_measure: 'UNIT', quantity: 1, item_code: 'X' }] };
+    const bindings = buildBindings(
+      COLS.map((c) => `label:line_0_${c}|ptr:/line_items/0/${c}`),
+      values,
+    );
+    const plan = insertRowAfter(initialRowPlan(1), 0);
+    const planned = new Map([[MUTABLE.pointer, planTableCells(
+      MUTABLE, plan, COLS, new Map(bindings.map((b) => [b.key.raw, b])),
+    )]]);
+    render(<VerificationForm {...formProps({
+      classified: classifyData(values),
+      bindingIndex: indexBindingsByFieldPointer(bindings),
+      rowMutableTables: [MUTABLE],
+      plannedTables: planned,
+      filterOn: true,
+      // Only the EXTRACTED row is hidden; the added row has no confidence.
+      hidden: { fields: new Set<string>(), rows: new Set([plan[0]!.id]) },
+    })} />);
+    expect(screen.queryByText(/All \d+ rows scored high/)).toBeNull();
+    expect(screen.getByRole('table')).toBeTruthy();
+    expect(screen.getAllByRole('row')).toHaveLength(2); // header + the added row
   });
 
   it('reports the removal to the parent with the SERVER pointer and the position', () => {
