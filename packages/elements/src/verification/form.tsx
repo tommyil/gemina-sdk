@@ -880,6 +880,10 @@ function TableSection(props: {
 }): React.JSX.Element {
   const { table, shared } = props;
   const label = formatLabel(table.key);
+  // Per SECTION, not per form: every table renders its own *Add line* and its
+  // own note, and one shared id would make every button describe the first
+  // table's note.
+  const addLineNoteId = React.useId();
 
   // Row editing is offered ONLY where the server declared it. Any wide array
   // of objects looks like a table to the classifier — custom_template's do —
@@ -1004,16 +1008,23 @@ function TableSection(props: {
             Only on a table that lost something: rendered unconditionally it
             would report "0 columns hidden" on a full table, which is an
             absence that is not there.
-            THE COPY CLAIMS THE EXTRACTION, NOT THE SCREEN, and the trailing
-            clause is the whole reason it is worded that way: this rule walks
-            the whole row plan, including rows the confidence filter is
-            hiding, so with both filters on a column populated only in a
-            hidden row stays visible and reads blank in every row on screen.
-            "N empty columns" unqualified invites the reviewer to check that
-            against what they can see, where it is false exactly there;
-            "empty in this extraction" is true in both states and carries the
-            warning that matters — a column the model missed reads empty here
-            even when the document has ink in it.
+            THE TRAILING CLAUSE IS TRUE BY CONSTRUCTION, WHICH IS THE WHOLE
+            REASON IT IS WORDED THIS WAY. "Blank in every row" is what the
+            rule actually decided: every cell of that column, over the current
+            row plan, was blank, untouched and unerrored. It survives every
+            state the two filters and row editing can produce, because the
+            plan rows are a superset of the rows on screen — a column blank in
+            all of them is blank in any subset the reviewer can see.
+            The wordings it replaces both fail somewhere. "N empty columns",
+            unqualified, invites a check against the grid, and with the
+            confidence filter also on a column populated ONLY in a hidden row
+            stays visible and reads blank there. "Empty in this extraction" is
+            false the moment a row is REMOVED: the plan drops it, so a column
+            populated only in that row qualifies — the extraction and the plan
+            diverge, and the note would assert of a populated column that
+            nothing was ever extracted into it.
+            "Extraction" is also our noun, not the reviewer's, and this widget
+            renders inside somebody else's application.
             The count is the note's ONE job. §D1's consequence — a reviewer
             who adds a line cannot reach its hidden cells — is a different
             statement, and it is made in the table footer beside *Add line*,
@@ -1035,7 +1046,7 @@ function TableSection(props: {
         {hiddenColumnCount > 0 && !allHidden ? (
           <span className="gemina-verification__filter-note">
             {`${hiddenColumnCount} ${hiddenColumnCount === 1 ? 'column' : 'columns'} hidden`
-              + ' — empty in this extraction'}
+              + ' — blank in every row'}
           </span>
         ) : null}
         {table.overallConfidence ? (
@@ -1099,6 +1110,14 @@ function TableSection(props: {
             type="button"
             className="gemina-verification__add-row"
             onClick={() => shared.onAddRow(mutable!.pointer, rowCount - 1)}
+            // The note below is this button's description, not just text near
+            // it: a reviewer who tabs here hears "Add line" and nothing else,
+            // which is the same failure a tooltip would have — the limit found
+            // only after the line exists. `aria-describedby` puts it in the
+            // announcement. Undefined when the note is not rendered: an id
+            // pointing at nothing is silently dropped by some AT and reported
+            // as a broken reference by others.
+            aria-describedby={hiddenColumnCount > 0 ? addLineNoteId : undefined}
           >
             Add line
           </button>
@@ -1111,8 +1130,10 @@ function TableSection(props: {
               it. Not a tooltip on that button either: the button works, and a
               hover-only explanation is found by the reviewer only after they
               have already pressed it and typed into the wrong grid.
-              It names the switch rather than pointing vaguely at the footer:
-              the control keeps one name everywhere it is spoken about.
+              It names the switch, in quotes, rather than pointing vaguely at
+              the footer: the control keeps one name everywhere it is spoken
+              about, and unquoted the sentence garden-paths — "turn off Hide
+              empty columns" parses as an instruction to hide something.
               Gated on `showControls`, which already carries the rest of the
               conditions — no plan or no row-mutable declaration means no line
               to add, read-only means no editing (§D5), and the confidence
@@ -1120,9 +1141,9 @@ function TableSection(props: {
               is no button for this to qualify. `hiddenColumnCount > 0` is what
               makes it appear only when something is actually out of reach. */}
           {hiddenColumnCount > 0 ? (
-            <span className="gemina-verification__filter-note">
+            <span className="gemina-verification__filter-note" id={addLineNoteId}>
               {'New lines can only fill the visible columns'
-                + ' — turn off Hide empty columns to reach the rest.'}
+                + ' — turn off “Hide empty columns” to reach the rest.'}
             </span>
           ) : null}
         </div>

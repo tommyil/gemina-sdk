@@ -145,10 +145,21 @@ describe('verification styles', () => {
     expect(css).toMatch(/\.gemina-verification__progress\s*\{[^}]*unicode-bidi:\s*plaintext/);
   });
 
-  /* Task 7's browser pass, as four assertions. Each one is a rule that was
+  /* Task 7's browser pass, as six assertions. Each one is a rule that was
    * MEASURED to be needed, not a preference: probed in chromium and firefox at
    * 1440/1280/780/390/320, LTR and RTL, with both review filters on
-   * (scripts/visual/probe-empty-columns.mjs in the console repo). */
+   * (scripts/visual/probe-empty-columns.mjs in the console repo).
+   *
+   * Every selector here is anchored to a RULE START (`^`, multiline). Without
+   * the anchor, `.gemina-verification__filter-note\s*\{` also matches the
+   * second occurrence inside `.gemina-verification__filter-note +
+   * .gemina-verification__filter-note {` — so moving `font-weight: 400` out of
+   * the base rule and into the sibling rule left this file green while the
+   * defect came back: the FIRST note in a header has no preceding sibling and
+   * inherits the header's 600 again. */
+  const rule = (selector: string, declaration: string): RegExp =>
+    new RegExp(`^${selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*\\{[^}]*${declaration}`, 'm');
+
   it('wraps the section header and keeps its notes quiet and LTR', async () => {
     const { ensureVerificationStylesInjected } = await import('../../src/verification/styles');
     ensureVerificationStylesInjected();
@@ -159,24 +170,29 @@ describe('verification styles', () => {
     // pushed 36px (chromium) / 48px (firefox) past the header edge and
     // clipped, both directions — the same failure the footer's wrap fixed in
     // v0.13.1, on the row the fix never reached.
-    expect(css).toMatch(/\.gemina-verification__section-header\s*\{[^}]*flex-wrap:\s*wrap/);
+    expect(css).toMatch(rule('.gemina-verification__section-header', 'flex-wrap:\\s*wrap'));
     // The header sets font-weight 600 for its LABEL. Without an explicit
     // weight the notes inherit it and a muted report becomes the boldest thing
     // in the row after the label — the opposite of what its own styling
     // comment says it is for.
-    expect(css).toMatch(/\.gemina-verification__filter-note\s*\{[^}]*font-weight:\s*400/);
-    // "1 column hidden — empty in this extraction" rendered as "empty 1 column
-    // hidden" at 320 RTL before this: the RTL paragraph direction reorders a
-    // leading number run. Same for the footer's "Showing 6 of 11".
-    expect(css).toMatch(/\.gemina-verification__filter-note\s*\{[^}]*unicode-bidi:\s*plaintext/);
-    expect(css).toMatch(/\.gemina-verification__filter-count\s*\{[^}]*unicode-bidi:\s*plaintext/);
+    expect(css).toMatch(rule('.gemina-verification__filter-note', 'font-weight:\\s*400'));
+    // "1 empty column hidden" rendered as "empty 1 column hidden" at 320 RTL
+    // before this: the RTL paragraph direction reorders a leading number run.
+    // Same for the footer's "Showing 6 of 11".
+    expect(css).toMatch(rule('.gemina-verification__filter-note', 'unicode-bidi:\\s*plaintext'));
+    expect(css).toMatch(rule('.gemina-verification__filter-count', 'unicode-bidi:\\s*plaintext'));
     // Two adjacent notes are separated by a hairline rather than a character:
     // plaintext resolves the note's own content LTR, so a ::before lands on
     // the side AWAY from the sibling under RTL. A logical border resolves
     // against `direction`, which plaintext does not touch.
-    expect(css).toMatch(
-      /\.gemina-verification__filter-note \+ \.gemina-verification__filter-note\s*\{[^}]*border-inline-start/,
-    );
+    expect(css).toMatch(rule(
+      '.gemina-verification__filter-note + .gemina-verification__filter-note',
+      'border-inline-start',
+    ));
+    // The §D1 note joins *Add line* on this row and needs its own line at 390
+    // and below. Its siblings in this rule (padding) are asserted elsewhere;
+    // the wrap is what keeps the note off the button.
+    expect(css).toMatch(rule('.gemina-verification__table-footer', 'flex-wrap:\\s*wrap'));
   });
 
   it('keeps viewer chrome sticky, field eyes inline, and table actions padded', async () => {

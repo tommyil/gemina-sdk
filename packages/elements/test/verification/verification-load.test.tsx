@@ -1175,7 +1175,7 @@ describe('GeminaVerification — empty columns (state, reset, and what the rule 
 
     fireEvent.click(screen.getByRole('switch', { name: SWITCH_NAME }));
     // Non-vacuity: with the grid on screen the note IS there, and says 11.
-    expect(screen.getByText('11 columns hidden — empty in this extraction')).toBeTruthy();
+    expect(screen.getByText('11 columns hidden — blank in every row')).toBeTruthy();
 
     fireEvent.click(screen.getByRole('switch', { name: 'Hide high-confidence fields' }));
 

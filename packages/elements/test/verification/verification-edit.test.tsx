@@ -422,7 +422,7 @@ function bodyRowCount(): number {
 }
 
 /**
- * The per-table "N columns hidden — empty in this extraction" notes.
+ * The per-table "N columns hidden — blank in every row" notes.
  *
  * Filtered by text rather than read wholesale: the same class also renders
  * "Row editing is off while filtering", which the CONFIDENCE filter puts in
@@ -477,7 +477,7 @@ describe('GeminaVerification: the two review filters together', () => {
     fireEvent.click(screen.getByRole('switch', { name: COLUMNS_SWITCH }));
     const columnsAlone = dataHeaders();
     expect(columnsAlone).toEqual(POPULATED_HEADERS);
-    expect(columnNotes()).toEqual(['11 columns hidden — empty in this extraction']);
+    expect(columnNotes()).toEqual(['11 columns hidden — blank in every row']);
     expect(bodyRowCount()).toBe(4);
 
     // The other filter now removes ROWS underneath it — including the only row
@@ -491,7 +491,7 @@ describe('GeminaVerification: the two review filters together', () => {
     // gets no `HiddenSets`, and the memo that runs it does not depend on
     // anything `filterOn` changes — that dependency list IS this property.
     expect(dataHeaders()).toEqual(columnsAlone);
-    expect(columnNotes()).toEqual(['11 columns hidden — empty in this extraction']);
+    expect(columnNotes()).toEqual(['11 columns hidden — blank in every row']);
 
     // Engaged in the OTHER order, on the same screen: with the confidence
     // filter already on, turning the column filter off and back on lands on the
@@ -515,8 +515,8 @@ describe('GeminaVerification: the two review filters together', () => {
     // THE ACCEPTED COST, pinned so nobody "fixes" it into a bug. `discount_
     // percentage` is populated on row 2 and nowhere else, and row 2 is one of
     // the two the confidence filter just took away. The column therefore stays
-    // — it is not empty in the EXTRACTION — and reads blank in every row that
-    // is actually on screen.
+    // — it is not blank over the ROW PLAN, which is what the rule walks — and
+    // reads blank in every row that is actually on screen.
     expect(dataHeaders()).toContain('Discount Percentage');
     // Its only value is genuinely off screen, so this is not a false-positive
     // pass from a row that quietly stayed.
@@ -528,11 +528,59 @@ describe('GeminaVerification: the two review filters together', () => {
       ).toBe('');
     }
 
-    // And the count says 11, not 12 — the note claims the extraction, so it
-    // must not start counting a column blank merely because the other filter
-    // hid the row that fills it. This number is what a rule threading
-    // `HiddenSets` through would move, silently and plausibly.
-    expect(columnNotes()).toEqual(['11 columns hidden — empty in this extraction']);
+    // And the count says 11, not 12 — hiding a ROW must not make its column
+    // qualify. This number is what a rule threading `HiddenSets` through would
+    // move, silently and plausibly.
+    expect(columnNotes()).toEqual(['11 columns hidden — blank in every row']);
+  });
+
+  /* REMOVING a row is the other way the two "rows" can diverge, and it is the
+   * one that decided the note's copy.
+   *
+   * A removed row leaves the plan, so a column populated only in it becomes
+   * genuinely empty over everything the rule walks — 11 -> 12, with
+   * `discount_percentage` among them, in both orderings. The extraction still
+   * holds that 10. So a note reading "empty in this extraction" would assert,
+   * of a column the extraction populated, that nothing was extracted into it;
+   * "blank in every row" stays true, because the rows it can mean — plan rows,
+   * screen rows — no longer include the one that was removed.
+   *
+   * Sparse population is not a contrived case: F15 counted 276 nulls sitting
+   * in columns that were populated elsewhere. */
+  it('counts a column whose only populated row was removed — remove, then filter', async () => {
+    getDocumentExtraction.mockResolvedValueOnce(wideTableExtraction());
+    renderVerification();
+    await screen.findByLabelText('Line Items row 1 — Description');
+    expect(
+      screen.getByLabelText<HTMLInputElement>('Line Items row 2 — Discount Percentage').value,
+    ).toBe('10');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Remove line 2' }));
+    fireEvent.click(screen.getByRole('switch', { name: COLUMNS_SWITCH }));
+
+    expect(dataHeaders()).not.toContain('Discount Percentage');
+    expect(columnNotes()).toEqual(['12 columns hidden — blank in every row']);
+    // The claim holds against what is on screen: no row of this grid carries a
+    // value in any hidden column, which is all the note says.
+    expect(bodyRowCount()).toBe(3);
+  });
+
+  it('counts it the other way round too — filter, then remove, and it goes live', async () => {
+    getDocumentExtraction.mockResolvedValueOnce(wideTableExtraction());
+    renderVerification();
+    await screen.findByLabelText('Line Items row 1 — Description');
+
+    fireEvent.click(screen.getByRole('switch', { name: COLUMNS_SWITCH }));
+    expect(columnNotes()).toEqual(['11 columns hidden — blank in every row']);
+    expect(dataHeaders()).toContain('Discount Percentage');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Remove line 2' }));
+
+    // The column unmounts under the reviewer — same class as the pair-error
+    // unmount above, decided the same way, and here the count moving 11 -> 12
+    // is the visible cause.
+    expect(dataHeaders()).not.toContain('Discount Percentage');
+    expect(columnNotes()).toEqual(['12 columns hidden — blank in every row']);
   });
 });
 
@@ -554,7 +602,7 @@ describe('GeminaVerification: hide empty columns while editing', () => {
     // `unit_size` and `unit_size_uom` are blank TOGETHER in all four rows —
     // the shape 23 of 29 real tables had — so both qualify and both go.
     fireEvent.click(screen.getByRole('switch', { name: COLUMNS_SWITCH }));
-    expect(columnNotes()).toEqual(['11 columns hidden — empty in this extraction']);
+    expect(columnNotes()).toEqual(['11 columns hidden — blank in every row']);
     expect(dataHeaders()).not.toContain('Unit Size');
     expect(dataHeaders()).not.toContain('Unit Size Uom');
 
@@ -579,7 +627,7 @@ describe('GeminaVerification: hide empty columns while editing', () => {
     // pair-error clause alone. Hiding the blank half would remove exactly the
     // cell blocking Submit while the footer says a field needs attention: an
     // unresolvable dead end with no visible cause.
-    expect(columnNotes()).toEqual(['9 columns hidden — empty in this extraction']);
+    expect(columnNotes()).toEqual(['9 columns hidden — blank in every row']);
     expect(dataHeaders()).toContain('Unit Size');
     expect(dataHeaders()).toContain('Unit Size Uom');
     expect(screen.getByLabelText('Line Items row 1 — Unit Size Uom')).toBeTruthy();
@@ -620,7 +668,7 @@ describe('GeminaVerification: hide empty columns while editing', () => {
     const unitSize = screen.getByLabelText<HTMLInputElement>('Line Items row 1 — Unit Size');
     fireEvent.change(unitSize, { target: { value: '5' } });
     fireEvent.click(screen.getByRole('switch', { name: COLUMNS_SWITCH }));
-    expect(columnNotes()).toEqual(['9 columns hidden — empty in this extraction']);
+    expect(columnNotes()).toEqual(['9 columns hidden — blank in every row']);
     expect(dataHeaders()).toContain('Unit Size Uom');
 
     const held = screen.getByLabelText<HTMLInputElement>('Line Items row 1 — Unit Size');
@@ -630,7 +678,7 @@ describe('GeminaVerification: hide empty columns while editing', () => {
     // The partner column is gone, live, with the switch untouched.
     expect(dataHeaders()).not.toContain('Unit Size Uom');
     expect(screen.queryByLabelText('Line Items row 1 — Unit Size Uom')).toBeNull();
-    expect(columnNotes()).toEqual(['10 columns hidden — empty in this extraction']);
+    expect(columnNotes()).toEqual(['10 columns hidden — blank in every row']);
     expect(screen.queryAllByText(UNIT_PAIR_MESSAGE)).toHaveLength(0);
 
     // …and NOT under the cursor. The cell the reviewer is in was typed into,
@@ -663,7 +711,7 @@ describe('GeminaVerification: hide empty columns while editing', () => {
     // land on exactly the same answer.
     expect(dataHeaders()).toEqual(filtered);
     expect(screen.queryByLabelText('Line Items row 1 — Barcode')).toBeNull();
-    expect(columnNotes()).toEqual(['11 columns hidden — empty in this extraction']);
+    expect(columnNotes()).toEqual(['11 columns hidden — blank in every row']);
 
     // …and it costs ONE row render, not four. While the switch is on,
     // `emptyColumns` is derived from `edits`, so a fresh Map holding fresh Sets
@@ -735,7 +783,7 @@ describe('GeminaVerification: hide empty columns while editing', () => {
     fireEvent.click(screen.getByRole('switch', { name: COLUMNS_SWITCH }));
     // Ten of eleven: `barcode` survived the filter because it was touched. Its
     // extracted value is still null, so nothing about the DATA keeps it here.
-    expect(columnNotes()).toEqual(['10 columns hidden — empty in this extraction']);
+    expect(columnNotes()).toEqual(['10 columns hidden — blank in every row']);
     const barcode = screen.getByLabelText<HTMLInputElement>('Line Items row 1 — Barcode');
     barcode.focus();
     expect(document.activeElement).toBe(barcode);
@@ -755,6 +803,6 @@ describe('GeminaVerification: hide empty columns while editing', () => {
     // out.
     expect(screen.getByLabelText('Line Items row 1 — Barcode')).toBe(barcode);
     expect(document.activeElement).toBe(barcode);
-    expect(columnNotes()).toEqual(['10 columns hidden — empty in this extraction']);
+    expect(columnNotes()).toEqual(['10 columns hidden — blank in every row']);
   });
 });

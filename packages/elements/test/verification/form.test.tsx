@@ -1341,15 +1341,17 @@ describe('VerificationForm: empty columns', () => {
     // wrong here. Plural and singular in the same render, because "1 columns
     // hidden" is the kind of thing that ships.
     //
-    // The trailing clause is load-bearing, not decoration: the rule walks the
-    // whole row plan, so a column populated ONLY in a confidence-hidden row
-    // stays on screen reading blank. "N empty columns" unqualified invites the
-    // reviewer to check the claim against the grid, where it is false exactly
-    // there; "empty in this extraction" is true in both states.
+    // The trailing clause is load-bearing, not decoration, and it is the ONE
+    // claim that survives every state: the columns counted here are blank
+    // across the whole row plan, and the plan rows are a superset of the rows
+    // on screen. "N empty columns" unqualified invites a check against the
+    // grid, where the confidence filter can make it read false; "empty in this
+    // extraction" is false the moment a row is REMOVED, because the plan drops
+    // that row and a column populated only in it then qualifies.
     expect(filterNotes(screen.getByRole('region', { name: 'Line Items' })))
-      .toEqual(['11 columns hidden — empty in this extraction']);
+      .toEqual(['11 columns hidden — blank in every row']);
     expect(filterNotes(screen.getByRole('region', { name: 'Taxes' })))
-      .toEqual(['1 column hidden — empty in this extraction']);
+      .toEqual(['1 column hidden — blank in every row']);
   });
 
   it('states nothing on a table with no hidden columns', () => {
@@ -1365,7 +1367,7 @@ describe('VerificationForm: empty columns', () => {
 
     expect(filterNotes(screen.getByRole('region', { name: 'Line Items' }))).toEqual([]);
     expect(filterNotes(screen.getByRole('region', { name: 'Taxes' })))
-      .toEqual(['1 column hidden — empty in this extraction']);
+      .toEqual(['1 column hidden — blank in every row']);
   });
 
   it('counts the columns actually dropped, not the size of the host’s set', () => {
@@ -1384,7 +1386,7 @@ describe('VerificationForm: empty columns', () => {
     const section = screen.getByRole('region', { name: 'Line Items' });
 
     expect(dataHeaders(section)).toEqual(['Description', 'Quantity', 'Item Code']);
-    expect(filterNotes(section)).toEqual(['1 column hidden — empty in this extraction']);
+    expect(filterNotes(section)).toEqual(['1 column hidden — blank in every row']);
   });
 
   it('keeps row add/remove available while columns are hidden', () => {
@@ -1400,7 +1402,7 @@ describe('VerificationForm: empty columns', () => {
     expect(within(section).getByRole('button', { name: 'Remove line 1' })).toBeTruthy();
     expect(within(section).getByRole('button', { name: 'Remove line 2' })).toBeTruthy();
     expect(within(section).getByRole('button', { name: /add line/i })).toBeTruthy();
-    expect(filterNotes(section)).toEqual(['1 column hidden — empty in this extraction']);
+    expect(filterNotes(section)).toEqual(['1 column hidden — blank in every row']);
     // The column really is hidden while all of that is true.
     expect(screen.queryByLabelText('Line Items row 1 — Discount')).toBeNull();
   });
@@ -1419,10 +1421,10 @@ describe('VerificationForm: empty columns', () => {
 
     expect(addLineNotes(section)).toEqual([
       'New lines can only fill the visible columns'
-        + ' — turn off Hide empty columns to reach the rest.',
+        + ' — turn off “Hide empty columns” to reach the rest.',
     ]);
     // The header's note keeps its one job: the count, and nothing about rows.
-    expect(filterNotes(section)).toEqual(['1 column hidden — empty in this extraction']);
+    expect(filterNotes(section)).toEqual(['1 column hidden — blank in every row']);
     // The way out names the switch it names in the footer — an action keeps
     // one name everywhere it is spoken about — and it is a SENTENCE, not a
     // second control: a per-table button flipping the one global switch would
@@ -1451,7 +1453,7 @@ describe('VerificationForm: empty columns', () => {
 
     expect(within(section).queryByRole('button', { name: /add line/i })).toBeNull();
     expect(addLineNotes(section)).toEqual([]);
-    expect(filterNotes(section)).toEqual(['1 column hidden — empty in this extraction']);
+    expect(filterNotes(section)).toEqual(['1 column hidden — blank in every row']);
   });
 
   // The optional-prop contract the row props already have: a host — or a test

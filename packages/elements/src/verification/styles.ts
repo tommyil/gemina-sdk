@@ -613,12 +613,19 @@ const VERIFICATION_CSS = `
      direction on its own first strong character. */
   unicode-bidi: plaintext;
 }
-/* The per-section notes both filters write into the section header. Muted and
-   unemphatic on purpose — they report an absence, they are not findings.
-   Explicitly 400: the header sets font-weight: 600 for its LABEL, and
-   without this the notes inherit it and become the boldest thing in the row
-   after the label itself. The header's three weights are the hierarchy —
-   600 label, 500 confidence readout, 400 notes. */
+/* One class, THREE statements — two in the section header and one below the
+   grid. The confidence filter's "row editing is off while filtering" (a
+   constraint), the column filter's "N columns hidden" (a report), and the note
+   beside *Add line* saying a new line cannot reach the hidden columns (an
+   instruction). Muted and unemphatic on purpose in all three roles: none of
+   them is a finding about the document, and the instruction is a limit the
+   reviewer meets rarely, not a warning.
+   Explicitly 400 for the two in the header: it sets font-weight: 600 for its
+   LABEL, and without this they inherit it and become the boldest thing in the
+   row after the label itself. The header's three weights are the hierarchy —
+   600 label, 500 confidence readout, 400 notes. (The table footer inherits
+   400 anyway; stating it keeps all three instances identical wherever they
+   are read.) */
 .gemina-verification__filter-note {
   font-size: 12px;
   font-weight: 400;

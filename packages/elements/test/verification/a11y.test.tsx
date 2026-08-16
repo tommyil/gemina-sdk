@@ -257,6 +257,39 @@ describe('review filter accessibility', () => {
     ).toBe('false');
   });
 
+  /* The §D1 note is *Add line*'s DESCRIPTION, not decoration beside it.
+   *
+   * A reviewer who tabs to that button while columns are hidden otherwise
+   * hears "Add line" and nothing else, presses it, and finds the limit only
+   * after the row exists — the same failure that ruled out a tooltip. The
+   * association is what makes the sentence reachable without sight, so it is
+   * asserted here rather than left to the text-presence tests in
+   * form.test.tsx. */
+  it('describes Add line with the limit that applies while columns are hidden', async () => {
+    getDocumentExtraction.mockResolvedValueOnce(wideTableExtraction());
+    renderVerification();
+    const addLine = await screen.findByRole('button', { name: 'Add line' });
+
+    // Nothing hidden yet: no description, and no dangling id either — a
+    // reference to an element that is not there is worse than none.
+    expect(addLine.getAttribute('aria-describedby')).toBeNull();
+
+    fireEvent.click(screen.getByRole('switch', { name: EMPTY_COLUMNS_NAME }));
+    const described = screen.getByRole('button', { name: 'Add line' });
+    const describedBy = described.getAttribute('aria-describedby');
+    expect(describedBy).toBeTruthy();
+    expect(document.getElementById(describedBy!)?.textContent).toBe(
+      'New lines can only fill the visible columns'
+        + ' — turn off “Hide empty columns” to reach the rest.',
+    );
+
+    // And it comes back off with the switch: the limit does not exist when
+    // every column is reachable, so neither does its description.
+    fireEvent.click(screen.getByRole('switch', { name: EMPTY_COLUMNS_NAME }));
+    expect(screen.getByRole('button', { name: 'Add line' }).getAttribute('aria-describedby'))
+      .toBeNull();
+  });
+
   // Row controls disappearing while filtering is pinned in form.test.tsx,
   // where a row-mutable fixture already exists. It belongs there rather than
   // here: §F9's point is that a DISABLED control could carry no accessible
