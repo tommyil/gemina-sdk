@@ -564,6 +564,41 @@ const VERIFICATION_CSS = `
   cursor: pointer;
 }
 .gemina-verification__submit:disabled { opacity: 0.5; cursor: default; }
+/* The review filter is a VIEW MODE, not an action, so it stays quiet: an
+   outline control in the muted color, next to the one loud thing in the
+   footer. Turning it on fills it from the same accent token — the state has
+   to be unmistakable, because the form is hiding content while it is on. */
+.gemina-verification__review-filter {
+  font: inherit;
+  font-size: 12px;
+  padding: 4px 12px;
+  border-radius: var(--gemina-verification-radius);
+  border: 1px solid var(--gemina-verification-border);
+  background: transparent;
+  color: var(--gemina-verification-muted);
+  cursor: pointer;
+}
+.gemina-verification__review-filter:hover {
+  color: var(--gemina-verification-accent);
+  border-color: var(--gemina-verification-accent);
+}
+.gemina-verification__review-filter[aria-checked='true'] {
+  background: var(--gemina-verification-accent);
+  border-color: var(--gemina-verification-accent);
+  color: var(--gemina-verification-accent-fg);
+}
+/* Stands in for a table's grid when every row of it scored high. Muted and
+   unemphatic on purpose — it reports an absence, it is not a finding. */
+.gemina-verification__filter-count {
+  font-size: 12px;
+  color: var(--gemina-verification-muted);
+}
+.gemina-verification__all-scored {
+  margin: 0;
+  padding: 12px;
+  color: var(--gemina-verification-muted);
+  font-size: 13px;
+}
 .gemina-verification__retry {
   font: inherit;
   font-size: 12px;

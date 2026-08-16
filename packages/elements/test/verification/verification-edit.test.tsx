@@ -304,3 +304,78 @@ describe('GeminaVerification — table row render isolation (probe)', () => {
     expect(probe.rowRenders).toBe(1);
   });
 });
+
+// The viewer toolbar's Magnifier is ALSO role="switch", so every query here
+// disambiguates by accessible name.
+const FILTER_NAME = 'Hide high-confidence fields';
+
+describe('GeminaVerification: review filter', () => {
+  // The default fixture scores supplierName `high` and leaves totalAmount and
+  // po_number unscored — so the switch is offered, and turning it on hides
+  // exactly one of the three review units.
+  it('is offered, off, when the extraction carries field confidence', async () => {
+    getDocumentExtraction.mockResolvedValue(extraction());
+    renderVerification();
+    const toggle = await screen.findByRole('switch', { name: FILTER_NAME });
+    expect(toggle.getAttribute('aria-checked')).toBe('false');
+    expect(document.querySelector('.gemina-verification__filter-count')).toBeNull();
+    expect(screen.getByRole('textbox', { name: 'Supplier Name' })).toBeTruthy();
+  });
+
+  it('hides the high-confidence field and reports the count', async () => {
+    getDocumentExtraction.mockResolvedValue(extraction());
+    renderVerification();
+    const toggle = await screen.findByRole('switch', { name: FILTER_NAME });
+    fireEvent.click(toggle);
+    expect(toggle.getAttribute('aria-checked')).toBe('true');
+    expect(screen.queryByRole('textbox', { name: 'Supplier Name' })).toBeNull();
+    const count = document.querySelector('.gemina-verification__filter-count')!;
+    expect(count.textContent).toBe('Showing 2 of 3');
+    expect(count.getAttribute('aria-live')).toBe('polite');
+    // …and turning it back off restores the field.
+    fireEvent.click(toggle);
+    expect(screen.getByRole('textbox', { name: 'Supplier Name' })).toBeTruthy();
+  });
+
+  // An affordance that cannot do anything is noise — same reasoning as the
+  // eye button disappearing when a field has no coordinates.
+  it('is absent entirely when nothing carries confidence', async () => {
+    getDocumentExtraction.mockResolvedValue(extraction({
+      values: { supplierName: { value: 'Acme Ltd' }, totalAmount: { value: 1500 } },
+    }));
+    renderVerification();
+    await screen.findByRole('textbox', { name: 'Supplier Name' });
+    expect(screen.queryByRole('switch', { name: FILTER_NAME })).toBeNull();
+  });
+
+  // §F10 — overall confidence is not a review unit and cannot be hidden, so a
+  // switch offered on its account would do nothing at all.
+  it('is absent when ONLY overall confidence is present', async () => {
+    getDocumentExtraction.mockResolvedValue(extraction({
+      values: {
+        overallConfidence: 'high',
+        supplierName: { value: 'Acme Ltd' },
+        totalAmount: { value: 1500 },
+      },
+    }));
+    renderVerification();
+    await screen.findByRole('textbox', { name: 'Supplier Name' });
+    expect(screen.queryByRole('switch', { name: FILTER_NAME })).toBeNull();
+  });
+
+  // §F11 — the same mounted component must not open the next extraction
+  // already filtered; that reads as fields having gone missing.
+  it('resets when a new extraction loads', async () => {
+    getDocumentExtraction.mockResolvedValue(extraction());
+    const { rerender, tokenManager } = renderVerification();
+    const toggle = await screen.findByRole('switch', { name: FILTER_NAME });
+    fireEvent.click(toggle);
+    expect(screen.queryByRole('textbox', { name: 'Supplier Name' })).toBeNull();
+
+    rerender(<GeminaVerification extractionId="ext-2" tokenManager={tokenManager} />);
+    await waitFor(() => {
+      expect(screen.getByRole('textbox', { name: 'Supplier Name' })).toBeTruthy();
+    });
+    expect(screen.getByRole('switch', { name: FILTER_NAME }).getAttribute('aria-checked')).toBe('false');
+  });
+});

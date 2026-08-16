@@ -46,6 +46,10 @@ import {
 import type { RowPlanEntry } from './row-plan';
 import { classifyData, ROW_META_KEY } from './classify';
 import { VerificationForm } from './form';
+import { withEmptyMutableTables } from './form';
+import {
+  computeHidden, countUnits, hasAnyConfidence, NOTHING_HIDDEN,
+} from './review-filter';
 import { ensureVerificationStylesInjected } from './styles';
 import type {
   GeminaVerificationProps,
@@ -224,6 +228,10 @@ export function GeminaVerification(props: GeminaVerificationProps): React.JSX.El
   const [flashRects, setFlashRects] = useState<RelativeRect[] | null>(null);
   // One-column layout, driven by the ROOT's own width (see the observer below).
   const [stacked, setStacked] = useState(false);
+  // The review filter hides fields and rows that already scored `high`.
+  // OFF by default: this component ships to every embedder, so an unfiltered
+  // form is the default everywhere, and the state is never persisted.
+  const [filterOn, setFilterOn] = useState(false);
 
   const rootRef = useRef<HTMLDivElement | null>(null);
   const mountedRef = useRef(false);
@@ -349,6 +357,10 @@ export function GeminaVerification(props: GeminaVerificationProps): React.JSX.El
       // extractionId change, Retry, AND the Task-17 409-refetch (all of which
       // route through load()).
       setEdits(NO_EDITS);
+      // The filter is a view mode on THIS extraction, so it resets with the
+      // slate. Without this, the same mounted component opens the next
+      // extraction already filtered, which reads as missing fields.
+      setFilterOn(false);
       setRowPlans(seedRowPlans(readRowMutableTables(view.meta.validationFeedback?.rowMutableTables), view.values));
       const url = view.document.imageUrl;
       setImageUrl(typeof url === 'string' && url.length > 0 ? url : null);
@@ -739,6 +751,36 @@ export function GeminaVerification(props: GeminaVerificationProps): React.JSX.El
    */
   const pairErrors = useMemo(() => unitSizePairErrors(cellViews, edits), [cellViews, edits]);
 
+  // --- review filter -------------------------------------------------------
+  // The SAME suppression the form applies, computed from the SAME helper, so
+  // the two can never disagree about which promoted headers exist. A pointer
+  // counted here but skipped there (or vice versa) makes "Showing X of Y" lie.
+  const suppressed = useMemo(
+    () => withEmptyMutableTables(classified, loaded?.rowMutableTables ?? []).suppressed,
+    [classified, loaded?.rowMutableTables],
+  );
+  // Offering the switch on an unscored extraction would be a control that
+  // does nothing. Overall confidence does not count — it is not a review unit
+  // and cannot be hidden.
+  const canFilter = useMemo(() => hasAnyConfidence(classified), [classified]);
+  const hidden = useMemo(
+    () => (filterOn && canFilter
+      ? computeHidden({
+        classified, plannedTables, cellViews, bindingIndex, edits, pairErrors, suppressed,
+      })
+      : NOTHING_HIDDEN),
+    [filterOn, canFilter, classified, plannedTables, cellViews, bindingIndex, edits, pairErrors, suppressed],
+  );
+  // `unmatched` bindings render as the "Not detected" section — editable
+  // fields the reviewer can fill in — so they are review units too. They carry
+  // no confidence and are therefore never hidden, which is why they add to
+  // both totals equally. Leaving them out made the count contradict the screen.
+  const totalUnits = useMemo(
+    () => countUnits(classified, plannedTables, suppressed) + unmatched.length,
+    [classified, plannedTables, suppressed, unmatched],
+  );
+  const visibleUnits = totalUnits - hidden.fields.size - hidden.rows.size;
+
   const invalidCount = useMemo(() => {
     // Row-level errors count even with no edits at all: the extraction itself
     // can arrive with one half of the pair filled.
@@ -980,6 +1022,8 @@ export function GeminaVerification(props: GeminaVerificationProps): React.JSX.El
             onFlash={handleFlash}
             pairErrors={pairErrors}
             rowMutableTables={loaded?.rowMutableTables}
+            hidden={hidden}
+            filterOn={filterOn}
             plannedTables={plannedTables}
             onAddRow={handleAddRow}
             onRemoveRow={handleRemoveRow}
@@ -1022,6 +1066,36 @@ export function GeminaVerification(props: GeminaVerificationProps): React.JSX.El
                 {`${submission.confirmed} confirmed · ${submission.corrected} corrected`}
               </div>
             )
+          )}
+          {/* A VIEW MODE, so role=switch rather than a button that "does" something.
+              Omitted entirely when nothing is scored — the same treatment the
+              eye button gets when a field has no coordinates, and the reason
+              is the same: an affordance that cannot do anything is noise.
+              The count is the safety rail. A filtered form that looks
+              unfiltered is how a reviewer concludes data went missing, so the
+              live region announces the change to anyone not watching it. */}
+          {canFilter && (
+            <>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={filterOn}
+                className="gemina-verification__review-filter"
+                onClick={() => setFilterOn((on) => !on)}
+              >
+                Hide high-confidence fields
+              </button>
+              {/* The count sits OUTSIDE the switch on purpose. Inside, it would
+                  change the control's accessible NAME on every toggle and be
+                  re-announced whenever the button took focus; outside, the name
+                  stays constant, the visible label still matches it (WCAG
+                  2.5.3), and the live region announces only what changed. */}
+              {filterOn && (
+                <span className="gemina-verification__filter-count" aria-live="polite">
+                  {`Showing ${visibleUnits} of ${totalUnits}`}
+                </span>
+              )}
+            </>
           )}
           <button
             type="button"

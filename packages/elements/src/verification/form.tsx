@@ -777,7 +777,7 @@ const TableRow = React.memo(TableRowView, areRowPropsEqual);
  * console and proven. The header the empty array produced is suppressed, or it
  * would render twice — once as "Line Items: []" and once as the table.
  */
-function withEmptyMutableTables(
+export function withEmptyMutableTables(
   classified: ClassifiedData,
   tables: readonly RowMutableTable[],
 ): { tables: ClassifiedData['tables']; suppressed: ReadonlySet<string> } {
