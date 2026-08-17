@@ -147,10 +147,14 @@ export function computeEmptyColumns(input: EmptyColumnsInput): EmptyColumns {
     // they are walked anyway.
     const rows = tableRows(table, planForTable(plannedTables, table.pointer));
 
-    // Constraint 4: EXTRACTED rows, not rows. A row with no classified data
-    // behind it is one the reviewer added — for an unplanned table that is
-    // none of them, so this reads as "has rows" there.
-    if (!rows.some((row) => row.row !== undefined)) {
+    // Constraint 4: EXTRACTED rows, not rows. Asked of the plan's own `added`
+    // flag rather than inferred from "no classified data behind it": those two
+    // differ for a row whose source does not resolve, and that row IS an
+    // extracted one — one whose data went missing. Treating it as added would
+    // let a plan regression silently re-open every column of the table to
+    // hiding, which is the shape of failure this gate exists to prevent.
+    // On an unplanned table nothing is added, so this reads as "has rows".
+    if (!rows.some((row) => !row.added)) {
       continue;
     }
 

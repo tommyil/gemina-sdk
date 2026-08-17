@@ -148,11 +148,17 @@ function forEachRowUnit(
     // otherwise) are this module's own addressing scheme, and pushing them into
     // row-cells.ts would make the shared derivation import a consumer.
     for (const ref of tableRows(table, planForTable(plannedTables, table.pointer))) {
-      // `ref.row` is undefined exactly for a row the reviewer ADDED: it was
-      // never extracted, so it has no confidence and is not in `table.rows` at
-      // all. On an unplanned table every row is extracted, so this reads false
+      // The plan's own statement, not `ref.row === undefined`. A row the
+      // reviewer ADDED was never extracted, so it has no confidence and can
+      // never hide; a row whose source fails to resolve is an extracted row
+      // whose data is missing, and calling that one "added" would answer a
+      // question about the reviewer with a fact about a lookup. It changes no
+      // outcome here today — such a row carries no confidence either, so the
+      // `isHighConfidence` check below excludes it anyway — and it is read
+      // this way so the two concepts cannot re-merge by accident. On an
+      // unplanned table every row is extracted, so this reads false
       // throughout, which is what it did before.
-      const added = ref.row === undefined;
+      const added = ref.added;
       const rowKey = ref.planned ? ref.planned.entry.id : unplannedRowKey(table.pointer, ref.position);
       visit(rowKey, confidenceOf(ref.row), added);
     }

@@ -222,8 +222,33 @@ export function declaredTableColumns(
 
 /** One rendered table row: the extracted data behind it, and its plan entry. */
 export interface TableRowRef {
-  /** The classified row — undefined for a row the reviewer added. */
+  /**
+   * The classified row, or undefined where there is none to show.
+   *
+   * TWO different situations produce undefined and they must not be confused:
+   * a row the reviewer ADDED (which never had extracted data), and a plan
+   * entry whose `source` does not resolve against `table.rows` (which claims
+   * extracted data that could not be found). Ask `added` for the first;
+   * undefined alone answers only "is there anything to paint".
+   */
   row: Record<string, ClassifiedCell> | undefined;
+  /**
+   * True for a row the reviewer added — i.e. one with no extracted row behind
+   * it BY CONSTRUCTION (`entry.source === null`), which is a different claim
+   * from `row === undefined`.
+   *
+   * Carried explicitly because both consumers used to infer it from that
+   * undefined, which silently reads "couldn't resolve" as "was added": a plan
+   * regression pointing an entry at a row that isn't there would render a
+   * blank row and change what the empty-column filter is allowed to hide,
+   * with no error anywhere. Throwing is not the alternative — this is a render
+   * path, and an exception here takes the host's page down — so the two facts
+   * are simply kept distinct, and an unresolvable source reads as "extracted
+   * but missing", which is at least not a lie.
+   *
+   * Always false on an unplanned table: every row there is an extracted one.
+   */
+  added: boolean;
   /** Present ONLY for a row-mutable table. */
   planned: PlannedRow | undefined;
   /**
@@ -256,14 +281,26 @@ export function tableRows(
   planned: readonly PlannedRow[] | undefined,
 ): TableRowRef[] {
   if (planned === undefined) {
-    return table.rows.map((row, position) => ({ row, planned: undefined, position }));
+    return table.rows.map((row, position) => ({
+      row, added: false, planned: undefined, position,
+    }));
   }
-  return planned.map((plannedRow, position) => ({
-    // An added row was never extracted, so it exists only in the plan.
-    row: plannedRow.entry.source === null ? undefined : table.rows[plannedRow.entry.source],
-    planned: plannedRow,
-    position,
-  }));
+  return planned.map((plannedRow, position) => {
+    // The plan's OWN statement about the row, taken once and carried, rather
+    // than re-inferred downstream from whether the lookup below found
+    // anything. The two disagree exactly when a source points outside
+    // `table.rows` — no supported action produces that today, since row plans
+    // are generated internally, and this is what keeps a future regression
+    // from silently converting it into "the reviewer added a row".
+    const { source } = plannedRow.entry;
+    return {
+      // An added row was never extracted, so it exists only in the plan.
+      row: source === null ? undefined : table.rows[source],
+      added: source === null,
+      planned: plannedRow,
+      position,
+    };
+  });
 }
 
 /** One rendered table cell: what paints, and under which key it is edited. */

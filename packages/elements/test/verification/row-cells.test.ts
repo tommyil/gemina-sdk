@@ -361,4 +361,31 @@ describe('tableRows', () => {
   it('yields nothing at all for a promoted zero-row table', () => {
     expect(tableRows({ rows: [] }, [])).toEqual([]);
   });
+
+  it('marks exactly the ADDED rows added, and no others', () => {
+    // `added` is the plan's own statement — `entry.source === null` — and it
+    // is what both consumers ask instead of inferring from `row === undefined`.
+    const { refs } = walk(['A', 'B'], (plan) => insertRowAfter(plan, 0, 'added-3'));
+    expect(refs.map((ref) => ref.added)).toEqual([false, true, false]);
+  });
+
+  it('calls a row whose source does not resolve EXTRACTED, not added', () => {
+    // The whole point of carrying the flag. No supported action produces an
+    // out-of-range source — row plans are generated internally — but if one
+    // ever did, `row === undefined` would report it as a row the reviewer
+    // added: a lookup failure answering a question about the reviewer. It is
+    // an extracted row whose data is missing, which is at least not a lie, and
+    // it stays one all the way to the two consumers.
+    const refs = tableRows(classifiedTable(['A']), [
+      { entry: { id: 'ghost', source: 7 }, cells: [] },
+    ]);
+    expect(refs[0]?.row).toBeUndefined();
+    expect(refs[0]?.added).toBe(false);
+  });
+
+  it('marks no row of an unplanned table added', () => {
+    // Every row there came out of the extraction; there is no plan to add to.
+    expect(tableRows(classifiedTable(['A', 'B']), undefined).map((ref) => ref.added))
+      .toEqual([false, false]);
+  });
 });

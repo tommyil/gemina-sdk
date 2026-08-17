@@ -295,6 +295,25 @@ describe('computeEmptyColumns — F9', () => {
     const touchedEver = new Set([cellEditKey(addedId, 'description')]);
     expect(run(world, { touchedEver })).toBe(NO_EMPTY_COLUMNS);
   });
+
+  it('counts a row whose source does not resolve as EXTRACTED', () => {
+    // The gate asks the PLAN whether a row was added, not whether its data
+    // could be found. Those two answers differ only for an unresolvable source
+    // — nothing supported produces one today — and conflating them turns a
+    // plan regression into a table that silently stops qualifying at all,
+    // rather than one that renders a blank row.
+    //
+    // `touchedEver` on one column is what makes this discriminating: without
+    // it every one of the 19 columns is blank here, §D4 drops the table, and
+    // the two behaviours agree by coincidence.
+    const ghostId = `${LINE_ITEMS}#ghost`;
+    const world = fixtureWorld({}, () => [{ id: ghostId, source: 99 }]);
+    const touchedEver = new Set([cellEditKey(ghostId, 'description')]);
+    const empty = run(world, { touchedEver });
+
+    expect(sorted(empty.get(LINE_ITEMS)))
+      .toEqual(LINE_ITEM_COLUMNS.filter((column) => column !== 'description').sort());
+  });
 });
 
 // --- F4: walk what renders, not the bindings --------------------------------
