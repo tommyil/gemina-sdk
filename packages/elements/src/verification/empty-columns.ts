@@ -50,8 +50,12 @@
  *    filter is hiding. If it were not, the visible column set would shift every
  *    time the other switch toggled. The accepted cost is that a column
  *    populated only in a confidence-hidden row stays visible and reads blank —
- *    which is why the copy must claim the columns were empty in the
- *    EXTRACTION, never "in what you are looking at".
+ *    which is why the copy may not claim the columns are empty "in what you are
+ *    looking at". Nor may it claim they were empty in the EXTRACTION: the plan
+ *    drops rows the reviewer removed, so a column the extraction populated on a
+ *    since-removed row qualifies here. What is true in every state is exactly
+ *    what this function computes — blank in every row of the plan — and that is
+ *    what the note says.
  */
 
 import { toInputString } from './bindings';
@@ -137,8 +141,10 @@ export function computeEmptyColumns(input: EmptyColumnsInput): EmptyColumns {
     // through to the unplanned branch and walks removed rows.
     //
     // `tableRows` is the SAME derivation TableSection renders from, not a copy
-    // of it: this rule may only ever call a column blank over rows the reviewer
-    // is actually being shown.
+    // of it, so the rule and the grid can never disagree about which rows a
+    // table has. Note this is the row PLAN, not what is on screen: per
+    // constraint 6 the confidence filter may be hiding some of these rows, and
+    // they are walked anyway.
     const rows = tableRows(table, planForTable(plannedTables, table.pointer));
 
     // Constraint 4: EXTRACTED rows, not rows. A row with no classified data
