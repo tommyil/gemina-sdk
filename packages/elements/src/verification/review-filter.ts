@@ -27,7 +27,7 @@
 import { ROW_META_KEY } from './classify';
 import type { ClassifiedData } from './classify';
 import type { FieldBinding } from './bindings';
-import { matchesTablePointer } from './row-cells';
+import { matchesTablePointer, tableRows } from './row-cells';
 import type { CellView, PlannedRow } from './row-cells';
 
 export type ConfidenceLike = { level: string; reasons: string[] } | null | undefined;
@@ -141,20 +141,21 @@ function forEachRowUnit(
   };
 
   for (const table of tables) {
-    const planned = planForTable(plannedTables, table.pointer);
-    if (planned) {
-      for (const row of planned) {
-        // An added row was never extracted, so it has no confidence and is not
-        // in `table.rows` at all — it can only be reached through the plan.
-        // Narrowed via a local so the extracted branch needs no assertion.
-        const { source } = row.entry;
-        visit(row.entry.id, source === null ? null : confidenceOf(table.rows[source]), source === null);
-      }
-      continue;
+    // `tableRows` is the one derivation of "which rows does this table have" —
+    // shared with TableSection and with the empty-columns rule, so none of the
+    // three can drift about which row sits at which position. Only the KEY is
+    // local: its two spellings (`entry.id` for a planned row, `unplannedRowKey`
+    // otherwise) are this module's own addressing scheme, and pushing them into
+    // row-cells.ts would make the shared derivation import a consumer.
+    for (const ref of tableRows(table, planForTable(plannedTables, table.pointer))) {
+      // `ref.row` is undefined exactly for a row the reviewer ADDED: it was
+      // never extracted, so it has no confidence and is not in `table.rows` at
+      // all. On an unplanned table every row is extracted, so this reads false
+      // throughout, which is what it did before.
+      const added = ref.row === undefined;
+      const rowKey = ref.planned ? ref.planned.entry.id : unplannedRowKey(table.pointer, ref.position);
+      visit(rowKey, confidenceOf(ref.row), added);
     }
-    table.rows.forEach((row, index) => {
-      visit(unplannedRowKey(table.pointer, index), confidenceOf(row), false);
-    });
   }
 }
 
