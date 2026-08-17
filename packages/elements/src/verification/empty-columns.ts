@@ -1,5 +1,8 @@
 /**
- * "Hide empty columns": which table columns nothing was extracted into.
+ * "Hide empty columns": which table columns are blank in every row of the
+ * table's current row plan. (Not "which columns nothing was extracted into" —
+ * see constraint 6: the plan drops rows the reviewer removed, so a column the
+ * extraction populated can qualify here.)
  *
  * The second review filter, and deliberately independent of the first. A real
  * `invoice_line_items` extraction declares 19 columns and leaves 5 to 16 of
@@ -117,7 +120,17 @@ function qualifies(
   return toInputString(value).trim() === '';
 }
 
-/** The columns of every rendered table that nothing was extracted into. */
+/**
+ * The columns of every rendered table that are blank in every row of its
+ * current row plan.
+ *
+ * Say it that way, and not "the columns nothing was extracted into": the plan
+ * drops rows the reviewer REMOVED, so a column the extraction did populate —
+ * on a since-removed row — qualifies here. That is why the shipped note reads
+ * `N columns hidden — blank in every row` rather than naming the extraction,
+ * and it is the sentence a future "clarification" of this doc must not
+ * quietly walk back (form.tsx has the full argument, at the note itself).
+ */
 export function computeEmptyColumns(input: EmptyColumnsInput): EmptyColumns {
   const {
     tables, plannedTables, rowMutableTables, bindingIndex, touchedEver, pairErrors,

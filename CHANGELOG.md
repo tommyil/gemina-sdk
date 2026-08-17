@@ -12,11 +12,12 @@ Pre-1.0: minor versions carry features and may change behaviour.
 ## v0.14.0 — 2026-08-17
 
 **"Hide empty columns" in `<GeminaVerification>`.** A second switch in the
-footer, beside the confidence one, that hides the table columns nothing was
-extracted into. Every invoice line-items table we measured declares 19 columns
-and leaves 5 to 16 of them blank in every single row, so a reviewer scrolls a
-19-column grid sideways to check 8 values. With the switch on, that table reads
-as 8 columns.
+footer, beside the confidence one, that hides the table columns that are blank
+in every row — every row of that table as it stands right now, so rows you
+added count and rows you removed don't. Every line-items table we measured
+declares 19 columns and leaves 5 to 16 of them blank in every single row, so a
+reviewer scrolls a 19-column grid sideways to check 8 values. With the switch
+on, that table reads as 8 columns.
 
 Unlike the confidence filter it has **no prerequisite** — no `evaluation` at
 upload, nothing to enable; it reads the extraction the component already holds.

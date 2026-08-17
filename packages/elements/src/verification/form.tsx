@@ -341,8 +341,10 @@ interface SectionShared {
    */
   filterOn: boolean;
   /**
-   * The SECOND filter: rendered table pointer -> the columns of it nothing was
-   * extracted into. `NO_EMPTY_COLUMNS` when the switch is off.
+   * The SECOND filter: rendered table pointer -> the columns of it that are
+   * blank in every row of its current row plan (NOT "that nothing was
+   * extracted into" — a removed row leaves the plan, taking its values with
+   * it). `NO_EMPTY_COLUMNS` when the switch is off.
    *
    * Absent from `areRowPropsEqual` for the same reason `hidden` is, and it
    * matters more here: with the switch ON this is derived from `edits`, so a
@@ -389,9 +391,14 @@ export interface VerificationFormProps
   hidden?: HiddenSets;
   filterOn?: boolean;
   /**
-   * The SECOND review filter: rendered table pointer -> the columns of it
-   * nothing was extracted into. `NO_EMPTY_COLUMNS` (the shared empty map) when
-   * the switch is off, which is also what omitting it means.
+   * The SECOND review filter: rendered table pointer -> the columns of it that
+   * are blank in every row of its current row plan. `NO_EMPTY_COLUMNS` (the
+   * shared empty map) when the switch is off, which is also what omitting it
+   * means.
+   *
+   * A host may name any column it likes here; the component's own rule is the
+   * one above, and it is deliberately not "the columns nothing was extracted
+   * into" — the plan drops removed rows, so those two differ.
    *
    * Every named column leaves its table's grid — the `<th>` and the matching
    * `<td>` of every row. Nothing else changes: the payload is composed from

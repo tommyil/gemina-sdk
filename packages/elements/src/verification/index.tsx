@@ -233,7 +233,9 @@ export function GeminaVerification(props: GeminaVerificationProps): React.JSX.El
   // OFF by default: this component ships to every embedder, so an unfiltered
   // form is the default everywhere, and the state is never persisted.
   const [filterOn, setFilterOn] = useState(false);
-  // The SECOND review filter: hide table columns nothing was extracted into.
+  // The SECOND review filter: hide table columns that are blank in every row
+  // of the table's current row plan (which is not the same as "columns nothing
+  // was extracted into" — removing a row can make a populated column qualify).
   // Independent of the one above (neither moves the other's structure), and
   // OFF by default for the same reason — an unfiltered form is what every
   // embedder gets until a reviewer asks for something else.
@@ -1243,10 +1245,16 @@ export function GeminaVerification(props: GeminaVerificationProps): React.JSX.El
               No count beside it. `Showing X of Y` counts review UNITS, and a
               column is not one; the per-table note in the section header is
               where the absence is stated (§D2), because that is where it is
-              noticed. It also has to name the EXTRACTION rather than the
-              screen: with the confidence filter also on, a column populated
-              only in a hidden row stays visible and reads blank, so "empty in
-              what you are looking at" would be false exactly there.
+              noticed. That note names neither the screen NOR the extraction:
+              with the confidence filter also on, a column populated only in a
+              hidden row stays visible and reads blank, so "empty in what you
+              are looking at" is false there — and a REMOVED row leaves the
+              plan while staying in the extraction, so "empty in this
+              extraction" is false there. What is true in every state is the
+              rule's own output, which is what it says: `N columns hidden —
+              blank in every row`. The full argument is at the note itself
+              (form.tsx); it is repeated here because this is where a reader
+              decides what the count is allowed to claim.
               This is the footer's FIFTH item. `.gemina-verification__footer`
               is `flex-wrap: wrap` and that wrap was a fix — four items
               overflowed at 320 under RTL and clipped Submit. */}
