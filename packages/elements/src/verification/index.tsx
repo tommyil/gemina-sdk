@@ -283,6 +283,14 @@ export function GeminaVerification(props: GeminaVerificationProps): React.JSX.El
   // user: the submit-error Retry button, and the done state (tabIndex -1).
   const retrySubmitButtonRef = useRef<HTMLButtonElement | null>(null);
   const doneStateRef = useRef<HTMLDivElement | null>(null);
+  // The landing for the one control that can unmount from its OWN click (the
+  // empty-columns switch) when Submit is not focusable. The footer element,
+  // not a control inside it: every control there is conditional — the progress
+  // line is hidden when read-only, the confidence switch needs scores, Submit
+  // is disabled while anything is invalid — and only their container is
+  // rendered unconditionally. See the switch's onClick for why a fallback is
+  // needed at all.
+  const footerRef = useRef<HTMLDivElement | null>(null);
 
   /**
    * Enter a terminal unavailable state and notify the host. onError fires
@@ -878,8 +886,9 @@ export function GeminaVerification(props: GeminaVerificationProps): React.JSX.El
   // THE TRADE, stated because the clause is not free: it converts a stranded
   // STATE into a control that can unmount from its own click, and an element
   // that deletes itself drops focus to <body>. That is a real cost, paid down
-  // in the onClick below by moving focus to Submit before the flip rather
-  // than by weakening this guard. No other footer control has the problem —
+  // in the onClick below by moving focus before the flip — to Submit where
+  // Submit can take it, to the footer container where it cannot — rather than
+  // by weakening this guard. No other footer control has the problem —
   // `canFilter` does not read `filterOn`, so the confidence switch's mounting
   // never depends on the state its own click changes.
   const canHideEmptyColumns = emptyColumns.size > 0 || hideEmptyColumns;
@@ -1162,7 +1171,18 @@ export function GeminaVerification(props: GeminaVerificationProps): React.JSX.El
             </button>
           </div>
         )}
-        <div className="gemina-verification__footer">
+        <div
+          className="gemina-verification__footer"
+          ref={footerRef}
+          // Programmatic focus landing only (the same contract the done state
+          // has): not tab-reachable, no ring, and it changes nothing about how
+          // the footer reads to AT. It exists because the empty-columns switch
+          // can delete itself and Submit — the obvious target — is disabled
+          // whenever anything is invalid, and a disabled button cannot take
+          // focus. Landing here keeps the NEXT Tab where the reviewer was:
+          // document order resumes at the footer's own controls.
+          tabIndex={-1}
+        >
           {/* aria-live: a reviewer deep in a long form hears the count move
               as they confirm/correct without tabbing back to the footer.
               Hidden when read-only — the already-verified landing would
@@ -1244,15 +1264,37 @@ export function GeminaVerification(props: GeminaVerificationProps): React.JSX.El
                 // is to drop focus to <body>, so the next Tab restarts at the
                 // top of a form that can run to 169 rows — for exactly the
                 // keyboard and screen-reader users this switch exists to
-                // serve. So move focus first, deliberately. Submit is the
-                // target because it is the one control always rendered here,
-                // and focusing a button does not activate it. Reading
-                // `emptyColumns` from the render closure is correct: it is
-                // this render's map, the same one `canHideEmptyColumns` was
-                // computed from, so the prediction cannot disagree with the
-                // gate it is predicting.
+                // serve. So move focus first, deliberately.
+                //
+                // ALWAYS RENDERED IS NOT ALWAYS FOCUSABLE. Submit is the
+                // natural landing and it is unconditionally in the tree — but
+                // `.focus()` on a DISABLED button is a no-op, and Submit is
+                // disabled whenever anything is invalid, in the read-only
+                // view, and while a submission is in flight. That state is
+                // reachable together with this one: a pair error on an ADDED
+                // row survives the row removal that empties the map (the
+                // error is derived from the row plan, and an added row stays
+                // in it), so the reviewer can be holding an invalid form with
+                // nothing left to hide. Focusing Submit there moved focus
+                // nowhere and the drop to <body> happened anyway.
+                //
+                // Hence the fallback, and hence asking the DOM node rather
+                // than re-deriving `disabled`: the button's own property
+                // cannot drift out of step with what was rendered, while a
+                // second copy of that expression silently can.
+                //
+                // Reading `emptyColumns` from the render closure is correct:
+                // it is this render's map, the same one `canHideEmptyColumns`
+                // was computed from, so the prediction cannot disagree with
+                // the gate it is predicting.
                 if (hideEmptyColumns && emptyColumns.size === 0) {
-                  submitButtonRef.current?.focus();
+                  const submit = submitButtonRef.current;
+                  if (submit !== null && !submit.disabled) {
+                    // Focusing a button does not activate it.
+                    submit.focus();
+                  } else {
+                    footerRef.current?.focus();
+                  }
                 }
                 setHideEmptyColumns((on) => !on);
               }}

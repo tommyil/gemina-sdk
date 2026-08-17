@@ -570,6 +570,13 @@ const VERIFICATION_CSS = `
   padding-block-start: 12px;
   border-block-start: 1px solid var(--gemina-verification-border);
 }
+/* Programmatic focus landing (tabIndex -1), not an interactive control, and
+   the same treatment the done state gets: no ring. Focus arrives here only
+   when the empty-columns switch deletes itself and Submit is disabled, purely
+   so keyboard/AT users don't drop to <body>; outlining the whole footer row
+   would read as a control the reviewer had somehow activated. */
+.gemina-verification__footer:focus,
+.gemina-verification__footer:focus-visible { outline: none; }
 .gemina-verification__footer .gemina-verification__submit { margin-inline-start: auto; }
 .gemina-verification__submit {
   font: inherit;

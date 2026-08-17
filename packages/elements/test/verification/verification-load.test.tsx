@@ -1160,6 +1160,56 @@ describe('GeminaVerification — empty columns (state, reset, and what the rule 
     expect(document.activeElement).not.toBe(document.body);
   });
 
+  it('keeps focus off <body> when the switch unmounts and Submit is DISABLED', async () => {
+    // The same self-deleting click as the test above, taken on the other side
+    // of Submit's `disabled`. `.focus()` on a disabled button is a no-op, so a
+    // fallback-free move to Submit lands focus exactly where the fix was
+    // supposed to stop it landing: <body>, with the next Tab restarting at the
+    // top of a form that can run to 169 rows.
+    //
+    // The route to "invalid AND nothing qualifies" has to keep the error alive
+    // across the row removal that empties the map, which rules out raising it
+    // on the extracted row: pair errors are derived from the row PLAN, so
+    // removing that row takes its error with it and Submit re-enables. An
+    // ADDED row survives the removal — and per F9 it cannot make the table
+    // eligible either, which is exactly the pairing this state needs.
+    getDocumentExtraction.mockResolvedValueOnce(wideTableExtraction({ rows: 1 }));
+    const { container } = renderVerification();
+
+    await screen.findByLabelText('Line Items row 1 — Description');
+    fireEvent.click(screen.getByRole('button', { name: 'Add line' }));
+    // Half of the unit-size pair, on the added row: the server nulls BOTH
+    // halves when either is missing, so this is a real blocker, not a
+    // contrived one.
+    fireEvent.change(screen.getByLabelText('Line Items row 2 — Unit Size'), {
+      target: { value: '5' },
+    });
+    fireEvent.click(screen.getByRole('switch', { name: SWITCH_NAME }));
+    expect(screen.queryByText('Barcode')).toBeNull();
+
+    // F9's gate: the only EXTRACTED row goes, so the table stops qualifying
+    // and the map empties — while the added row keeps the pair error.
+    fireEvent.click(screen.getByRole('button', { name: 'Remove line 1' }));
+
+    // Non-vacuity, both halves. Without these the test would keep passing
+    // through the enabled-Submit path the moment either premise drifted.
+    expect(lastEmptyColumnsCall().result).toBe(NO_EMPTY_COLUMNS);
+    const submit = screen.getByRole('button', { name: 'Submit' }) as HTMLButtonElement;
+    expect(submit.disabled).toBe(true);
+    expect(screen.getByText('2 fields need attention')).toBeTruthy();
+
+    const toggle = screen.getByRole('switch', { name: SWITCH_NAME });
+    toggle.focus();
+    fireEvent.click(toggle);
+    expect(screen.queryByRole('switch', { name: SWITCH_NAME })).toBeNull();
+
+    // The footer itself is the fallback: it is the only ancestor of the
+    // vanished button that is unconditionally rendered, so a Tab from here
+    // resumes where the reviewer was rather than at the top of the form.
+    expect(document.activeElement).not.toBe(document.body);
+    expect(document.activeElement).toBe(container.querySelector('.gemina-verification__footer'));
+  });
+
   it('says nothing about hidden columns when the grid itself is off screen', async () => {
     // Both filters on, every row scoring high: the confidence filter replaces
     // the whole grid with "All N rows scored high", and there is then no grid
