@@ -30,6 +30,12 @@ namespace Gemina.Sdk
         Task<DocumentProcessingResultOutDTO> GetResultAsync(
             Guid correlationId,
             CancellationToken cancellationToken);
+
+        /// <summary>Adds extraction types to a stored document via <c>POST /api/v1/documents/{documentId}/extractions</c>.</summary>
+        Task<DocumentAddExtractionsOutDTO> AddExtractionsAsync(
+            Guid documentId,
+            AddExtractionsInDTO body,
+            CancellationToken cancellationToken);
     }
 
     /// <summary>
@@ -60,6 +66,7 @@ namespace Gemina.Sdk
     {
         private const string SubmitPath = "/api/v1/documents/requests";
         private const string ResultPathTemplate = "/api/v1/documents/results/{0}";
+        private const string AddExtractionsPathTemplate = "/api/v1/documents/{0}/extractions";
 
         // Mirrors the generated ApiClient's serializer settings, plus the
         // null-tolerance described on the class.
@@ -160,6 +167,74 @@ namespace Gemina.Sdk
         {
             var request = NewRequest(string.Format(ResultPathTemplate, correlationId), Method.Get);
             return ExecuteAsync(request, "GetDocumentProcessingResultByCorrelationId", cancellationToken);
+        }
+
+        /// <inheritdoc />
+        public async Task<DocumentAddExtractionsOutDTO> AddExtractionsAsync(
+            Guid documentId,
+            AddExtractionsInDTO body,
+            CancellationToken cancellationToken)
+        {
+            var request = NewRequest(string.Format(AddExtractionsPathTemplate, documentId), Method.Post);
+            // Serialize with the tolerant Newtonsoft settings so the wire names
+            // are camelCase (matching the API), independent of RestSharp's own
+            // serializer.
+            request.AddStringBody(JsonConvert.SerializeObject(body, SerializerSettings), ContentType.Json);
+
+            var clientOptions = new RestClientOptions(_configuration.BasePath)
+            {
+                ClientCertificates = _configuration.ClientCertificates,
+                Timeout = _configuration.Timeout,
+                Proxy = _configuration.Proxy,
+                UserAgent = _configuration.UserAgent,
+                UseDefaultCredentials = _configuration.UseDefaultCredentials,
+                RemoteCertificateValidationCallback = _configuration.RemoteCertificateValidationCallback,
+            };
+
+            using (var client = new RestClient(clientOptions))
+            {
+                var response = await client.ExecuteAsync(request, cancellationToken).ConfigureAwait(false);
+
+                // Pure transport failures (DNS, TLS, connect) are rethrown.
+                if (response.ErrorException != null && (int)response.StatusCode == 0)
+                {
+                    throw response.ErrorException;
+                }
+
+                var statusCode = (int)response.StatusCode;
+                if (statusCode >= 400)
+                {
+                    // The add-on POST dispatches async work; it never returns a
+                    // terminal `failed` processing result. Every 4xx/5xx here is
+                    // an endpoint rejection (404/409/410/422/402/429) — surface
+                    // it as a plain ApiException, never a GeminaProcessingException
+                    // (the generic error envelope also carries status="failed").
+                    throw new ApiException(
+                        statusCode,
+                        $"Error calling AddDocumentExtractions: {response.Content}",
+                        response.Content);
+                }
+
+                if (string.IsNullOrEmpty(response.Content))
+                {
+                    throw new GeminaException(
+                        $"Malformed server response: HTTP {statusCode} from AddDocumentExtractions with an empty body.");
+                }
+
+                // Deserialize with the null-tolerant settings: the add-on response
+                // is a document view whose data.extractions[*].meta.purgeReason is
+                // null, which the generated client's deserializer rejects (it
+                // silently returns Data == null).
+                var result = JsonConvert.DeserializeObject<DocumentAddExtractionsOutDTO>(
+                    response.Content, SerializerSettings);
+                if (result == null)
+                {
+                    throw new GeminaException(
+                        "Malformed server response: could not parse the AddDocumentExtractions response.");
+                }
+
+                return result;
+            }
         }
 
         private RestRequest NewRequest(string path, Method method)

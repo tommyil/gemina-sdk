@@ -505,13 +505,12 @@ public class GeminaClient {
                 .correction(opts.getCorrection())
                 .includeCoordinates(opts.getIncludeCoordinates());
 
-        DocumentAddExtractionsOutDTO submitted;
-        try {
-            submitted = documents().addDocumentExtractions(documentId, body);
-        } catch (ApiException e) {
-            throwIfFailedResult(e);
-            throw e;
-        }
+        // The add-on POST dispatches async work; it never returns a terminal
+        // failed processing result inline. Every ApiException here is an
+        // endpoint rejection (404/409/410/422/402/429) — propagate it unchanged
+        // rather than misreading a generic error envelope (which also carries
+        // status=failed) as a processing failure.
+        DocumentAddExtractionsOutDTO submitted = documents().addDocumentExtractions(documentId, body);
         // The add-on's pollCorrelationId is the document's owning correlation,
         // so the existing results endpoint and poll loop apply unchanged.
         return pollUntilTerminal(submitted.getPollCorrelationId(), null, opts, startNanos);

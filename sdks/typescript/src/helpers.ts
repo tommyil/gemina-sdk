@@ -566,23 +566,23 @@ export class GeminaClient {
     if (!Array.isArray(extractionTypes) || extractionTypes.length === 0) {
       throw new GeminaError('extractionTypes must be a non-empty array');
     }
-    let submitted: DocumentAddExtractionsOutDTO;
-    try {
-      submitted = await this.documents.addDocumentExtractions({
-        documentId,
-        addExtractionsInDTO: {
-          extractionTypes,
-          templateId: options.templateId,
-          modelType: options.modelType,
-          thinking: options.thinking,
-          evaluation: options.evaluation,
-          correction: options.correction,
-          includeCoordinates: options.includeCoordinates,
-        },
-      });
-    } catch (error) {
-      throw await asProcessingErrorIfFailedResult(error);
-    }
+    // The add-on POST dispatches async work; it never returns a terminal
+    // `failed` processing result inline. Every error here is an endpoint
+    // rejection (404/409/410/422/402/429) — let the ResponseError propagate
+    // unchanged rather than misreading a generic error envelope (which also
+    // carries status: "failed") as a processing failure.
+    const submitted: DocumentAddExtractionsOutDTO = await this.documents.addDocumentExtractions({
+      documentId,
+      addExtractionsInDTO: {
+        extractionTypes,
+        templateId: options.templateId,
+        modelType: options.modelType,
+        thinking: options.thinking,
+        evaluation: options.evaluation,
+        correction: options.correction,
+        includeCoordinates: options.includeCoordinates,
+      },
+    });
     // The add-on's pollCorrelationId is the document's owning correlation, so
     // the existing results endpoint and poll loop apply unchanged.
     return this.pollUntilTerminal(submitted.pollCorrelationId, options);

@@ -500,13 +500,12 @@ class GeminaClient:
             correction=correction,
             include_coordinates=include_coordinates,
         )
-        try:
-            submitted = await self.documents.add_document_extractions(
-                document_id, dto
-            )
-        except ApiException as exc:
-            _raise_if_failed_result(exc)
-            raise
+        # The add-on POST dispatches async work; it never returns a terminal
+        # `failed` processing result inline. Every ApiException here is an
+        # endpoint rejection (404/409/410/422/402/429) — propagate it unchanged
+        # rather than misreading a generic error envelope (which also carries
+        # status="failed") as a processing failure.
+        submitted = await self.documents.add_document_extractions(document_id, dto)
         return await self._poll_until_terminal(
             submitted.poll_correlation_id,
             timeout_seconds=timeout_seconds,

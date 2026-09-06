@@ -408,26 +408,16 @@ namespace Gemina.Sdk
                 templateId: options.TemplateId,
                 thinking: options.Thinking);
 
-            DocumentAddExtractionsOutDTO submitted;
-            try
-            {
-                submitted = await Documents
-                    .AddDocumentExtractionsAsync(documentId, body, cancellationToken: cancellationToken)
-                    .ConfigureAwait(false);
-            }
-            catch (ApiException ex)
-            {
-                // Terminal failed can arrive as an HTTP error whose body IS the
-                // result (contract §2.4a) — surface it as a processing failure;
-                // any other error passes through unchanged.
-                var failedResult = DocumentTransport.TryParseFailedResult(ex.ErrorContent as string);
-                if (failedResult != null)
-                {
-                    throw new GeminaProcessingException(failedResult);
-                }
-
-                throw;
-            }
+            // Route through DocumentTransport (not the generated client): the
+            // add-on response is a document view whose extraction meta carries
+            // purgeReason: null, which the generated deserializer rejects
+            // (returning Data == null). The transport also surfaces endpoint
+            // rejections (404/409/410/422/402/429) as a plain ApiException
+            // instead of misreading the error envelope as a terminal failed
+            // result — the add-on POST never returns one.
+            var submitted = await Transport
+                .AddExtractionsAsync(documentId, body, cancellationToken)
+                .ConfigureAwait(false);
 
             // The add-on's PollCorrelationId is the document's owning
             // correlation, so the existing results endpoint and poll loop apply

@@ -26,29 +26,30 @@ async def main() -> int:
         async with GeminaClient(api_key, base_url=base_url) as client:
             status = await client.retrieval.retrieval_status()
             history = await client.chat.list_chat_sessions(limit=2)
+
+            print(f"typed result: {status!r}")
+            print(f"indexedDocuments={status.indexed_documents}")
+            if status.indexed_documents is None:
+                print("FAIL: indexedDocuments missing from response", file=sys.stderr)
+                return 1
+            print(f"chatHistory count={history.count} sessions={len(history.sessions)}")
+            if not isinstance(history.count, int):
+                print("FAIL: chat history count missing from response", file=sys.stderr)
+                return 1
+
+            # Add-on round trip is opt-in: it UPLOADS a document and spends
+            # credits, so it must never run against production by accident.
+            # Enable it explicitly against a staging key that has credits:
+            #   GEMINA_SMOKE_ADD_ON=1 GEMINA_BASE_URL=https://api.staging.gemina.co \
+            #   GEMINA_API_KEY=... python smoke/smoke.py
+            # It runs inside the context manager so the client is still open.
+            if os.environ.get("GEMINA_SMOKE_ADD_ON"):
+                rc = await _add_on_scenario(client)
+                if rc != 0:
+                    return rc
     except Exception as exc:  # noqa: BLE001 - smoke test reports anything
         print(f"FAIL: {type(exc).__name__}: {exc}", file=sys.stderr)
         return 1
-
-    print(f"typed result: {status!r}")
-    print(f"indexedDocuments={status.indexed_documents}")
-    if status.indexed_documents is None:
-        print("FAIL: indexedDocuments missing from response", file=sys.stderr)
-        return 1
-    print(f"chatHistory count={history.count} sessions={len(history.sessions)}")
-    if not isinstance(history.count, int):
-        print("FAIL: chat history count missing from response", file=sys.stderr)
-        return 1
-
-    # Add-on round trip is opt-in: it UPLOADS a document and spends credits, so
-    # it must never run against production by accident. Enable it explicitly
-    # against a staging key that has credits:
-    #   GEMINA_SMOKE_ADD_ON=1 GEMINA_BASE_URL=https://api.staging.gemina.co \
-    #   GEMINA_API_KEY=... python smoke/smoke.py
-    if os.environ.get("GEMINA_SMOKE_ADD_ON"):
-        rc = await _add_on_scenario(client)
-        if rc != 0:
-            return rc
 
     print("OK")
     return 0
