@@ -25,6 +25,7 @@ from gemina.errors import GeminaError, GeminaProcessingError, GeminaTimeoutError
 from gemina.generated.api_client import ApiClient
 from gemina.generated.configuration import Configuration
 from gemina.generated.exceptions import ApiException
+from gemina.generated.models.add_extractions_in_dto import AddExtractionsInDTO
 from gemina.generated.models.chat_query_in_dto import ChatQueryInDTO
 from gemina.generated.models.chat_query_out_dto import ChatQueryOutDTO
 from gemina.generated.models.document_processing_result_out_dto import (
@@ -417,9 +418,126 @@ class GeminaClient:
                 "without a correlationId"
             )
 
+        return await self._poll_until_terminal(
+            correlation_id,
+            timeout_seconds=timeout_seconds,
+            initial_interval_seconds=initial_interval_seconds,
+            max_interval_seconds=max_interval_seconds,
+            _sleep=_sleep,
+            _random=_random,
+            last_result=result,
+        )
+
+    async def add_extractions_and_wait(
+        self,
+        document_id: Union[str, UUID],
+        extraction_types: List[UploadExtractionTypeEnum],
+        *,
+        template_id: Optional[Any] = None,
+        model_type: Optional[ModelType] = None,
+        thinking: Optional[bool] = None,
+        evaluation: Optional[bool] = None,
+        correction: Optional[bool] = None,
+        include_coordinates: Optional[bool] = None,
+        timeout_seconds: float = 300.0,
+        initial_interval_seconds: float = 2.0,
+        max_interval_seconds: float = 15.0,
+        _sleep: Any = asyncio.sleep,
+        _random: Any = random.random,
+    ) -> DocumentProcessingResultOutDTO:
+        """Add extraction types to a document Gemina already stores, then poll
+        until terminal and return the typed result -- the add-on twin of
+        ``process_document`` for a document you uploaded earlier (via
+        ``process_document``, FileTag, or an MCP tool), addressed by its id.
+
+        No file is re-uploaded: the stored document is re-extracted with the
+        new ``extraction_types``. Billing and page limits apply per added type
+        exactly as on an upload.
+
+        Args:
+            document_id: The stored document's id (from a prior upload
+                response's ``meta.document_id``, a FileTag result, or
+                ``client.documents.get_document(...)``).
+            extraction_types: Required, non-empty list of
+                ``UploadExtractionTypeEnum`` values to add.
+            template_id / model_type / thinking / evaluation / correction /
+            include_coordinates: The same per-extraction options as
+                ``process_document``; each defaults to the account setting when
+                omitted. ``template_id`` is required by (and only valid with)
+                the ``custom_template`` type.
+            timeout_seconds / initial_interval_seconds / max_interval_seconds:
+                Poll backoff knobs, identical to ``process_document``.
+
+        Returns:
+            The terminal ``DocumentProcessingResultOutDTO`` for the document
+            (``success`` / ``partial`` / ``empty``); its extractions include
+            both the pre-existing and the newly added types.
+
+        Raises:
+            GeminaProcessingError: Terminal ``failed`` status (``.result``
+                carries the full result).
+            GeminaTimeoutError: ``timeout_seconds`` exceeded; ``.correlation_id``
+                lets you resume polling via
+                ``client.documents.get_document_processing_result_by_correlation_id``.
+            GeminaError: Malformed server response.
+            ApiException: The add-on request itself was rejected -- e.g. 404
+                (unknown document), 409 (a requested type already exists), 410
+                (content purged), 422 (``custom_template`` without a
+                ``template_id``), or 402 (out of credits). Never retried.
+
+        Polling uses the response's ``poll_correlation_id`` (the document's
+        owning correlation), so a transient blip during polling is retried on
+        the same schedule as ``process_document``.
+        """
+        if not extraction_types:
+            raise ValueError("extraction_types must be a non-empty list")
+        dto = AddExtractionsInDTO(
+            extraction_types=extraction_types,
+            template_id=template_id,
+            model_type=model_type,
+            thinking=thinking,
+            evaluation=evaluation,
+            correction=correction,
+            include_coordinates=include_coordinates,
+        )
+        try:
+            submitted = await self.documents.add_document_extractions(
+                document_id, dto
+            )
+        except ApiException as exc:
+            _raise_if_failed_result(exc)
+            raise
+        return await self._poll_until_terminal(
+            submitted.poll_correlation_id,
+            timeout_seconds=timeout_seconds,
+            initial_interval_seconds=initial_interval_seconds,
+            max_interval_seconds=max_interval_seconds,
+            _sleep=_sleep,
+            _random=_random,
+        )
+
+    async def _poll_until_terminal(
+        self,
+        correlation_id: UUID,
+        *,
+        timeout_seconds: float,
+        initial_interval_seconds: float,
+        max_interval_seconds: float,
+        _sleep: Any,
+        _random: Any,
+        last_result: Optional[DocumentProcessingResultOutDTO] = None,
+    ) -> DocumentProcessingResultOutDTO:
+        """Poll ``GET /v1/documents/results/{correlation_id}`` with jittered
+        exponential backoff until a terminal status. Shared by
+        ``process_document`` and ``add_extractions_and_wait``.
+
+        ``last_result`` seeds the value carried by ``GeminaTimeoutError`` if the
+        deadline passes before the first successful poll -- the submit result
+        for ``process_document``; ``None`` for the add-on path, whose submit
+        response is a document view, not a processing result.
+        """
         deadline = _monotonic() + timeout_seconds
         interval = initial_interval_seconds
-        last_result = result
         consecutive_poll_failures = 0
         while True:
             if _monotonic() >= deadline:

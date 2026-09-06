@@ -13,6 +13,7 @@ import {
   TemplatesApi,
   ResponseStatus,
   type ChatQueryOutDTO,
+  type DocumentAddExtractionsOutDTO,
   type DocumentProcessingResultOutDTO,
   type FetchAPI,
   type HTTPHeaders,
@@ -101,6 +102,36 @@ export interface ProcessDocumentOptions {
   includeCoordinates?: boolean;
   /** End-user ID to associate with the document. */
   endUserId?: string;
+
+  // Polling knobs
+  /** Overall deadline in seconds (default 300). */
+  timeoutSeconds?: number;
+  /** First poll interval in seconds (default 2.0; grows x1.5 per attempt). */
+  initialIntervalSeconds?: number;
+  /** Poll interval cap in seconds (default 15.0). */
+  maxIntervalSeconds?: number;
+
+  // Test injection
+  /** Sleep function (seconds). Defaults to a real `setTimeout` wait. */
+  sleepFn?: (seconds: number) => Promise<void>;
+  /** Random source in [0, 1) for the jitter factor. Defaults to `Math.random`. */
+  random?: () => number;
+}
+
+/** Options for `GeminaClient.addExtractionsAndWait`. */
+export interface AddExtractionsOptions {
+  /** Template ID for `custom_template` extraction. */
+  templateId?: string;
+  /** Model type override. */
+  modelType?: ModelType;
+  /** Use the Thinking model. */
+  thinking?: boolean;
+  /** Use the Evaluation model. */
+  evaluation?: boolean;
+  /** Use the Correction model. */
+  correction?: boolean;
+  /** Include coordinates in the extraction results. */
+  includeCoordinates?: boolean;
 
   // Polling knobs
   /** Overall deadline in seconds (default 300). */
@@ -495,24 +526,73 @@ export class GeminaClient {
       );
     }
 
-    return this.pollUntilTerminal(submitted, options);
-  }
-
-  private async pollUntilTerminal(
-    submitted: DocumentProcessingResultOutDTO,
-    options: ProcessDocumentOptions,
-  ): Promise<DocumentProcessingResultOutDTO> {
     if (isTerminal(submitted.status)) {
       return finalizeTerminal(submitted);
     }
-
     const correlationId = submitted.meta?.correlationId;
     if (correlationId == null || correlationId === '') {
       throw new GeminaError(
         'Malformed server response: non-terminal submit response is missing meta.correlationId',
       );
     }
+    return this.pollUntilTerminal(correlationId, options, submitted);
+  }
 
+  /**
+   * Add extraction types to a document Gemina already stores, then poll until
+   * terminal and return the typed result — the add-on twin of
+   * `processDocument` for a document you uploaded earlier (via
+   * `processDocument`, FileTag, or an MCP tool), addressed by its id. No file
+   * is re-uploaded; the stored document is re-extracted with the new
+   * `extractionTypes`. Billing and page limits apply per added type exactly as
+   * on an upload.
+   *
+   * @param documentId      The stored document's id (from a prior upload's
+   *                        `meta.documentId`, a FileTag result, or
+   *                        `client.documents.getDocument(...)`).
+   * @param extractionTypes Non-empty list of types to add.
+   * @param options         Per-extraction options + polling knobs.
+   * @throws GeminaProcessingError on terminal `failed`.
+   * @throws GeminaTimeoutError    on the deadline; `.correlationId` resumes polling.
+   * @throws ResponseError         if the add-on request itself is rejected —
+   *   404 (unknown document), 409 (type already present), 410 (content purged),
+   *   422 (`custom_template` without `templateId`), 402 (out of credits). Not retried.
+   */
+  async addExtractionsAndWait(
+    documentId: string,
+    extractionTypes: UploadExtractionTypeEnum[],
+    options: AddExtractionsOptions = {},
+  ): Promise<DocumentProcessingResultOutDTO> {
+    if (!Array.isArray(extractionTypes) || extractionTypes.length === 0) {
+      throw new GeminaError('extractionTypes must be a non-empty array');
+    }
+    let submitted: DocumentAddExtractionsOutDTO;
+    try {
+      submitted = await this.documents.addDocumentExtractions({
+        documentId,
+        addExtractionsInDTO: {
+          extractionTypes,
+          templateId: options.templateId,
+          modelType: options.modelType,
+          thinking: options.thinking,
+          evaluation: options.evaluation,
+          correction: options.correction,
+          includeCoordinates: options.includeCoordinates,
+        },
+      });
+    } catch (error) {
+      throw await asProcessingErrorIfFailedResult(error);
+    }
+    // The add-on's pollCorrelationId is the document's owning correlation, so
+    // the existing results endpoint and poll loop apply unchanged.
+    return this.pollUntilTerminal(submitted.pollCorrelationId, options);
+  }
+
+  private async pollUntilTerminal(
+    correlationId: string,
+    options: ProcessDocumentOptions,
+    initialResult?: DocumentProcessingResultOutDTO,
+  ): Promise<DocumentProcessingResultOutDTO> {
     const timeoutSeconds = options.timeoutSeconds ?? DEFAULT_TIMEOUT_SECONDS;
     const initialIntervalSeconds = options.initialIntervalSeconds ?? DEFAULT_INITIAL_INTERVAL_SECONDS;
     const maxIntervalSeconds = options.maxIntervalSeconds ?? DEFAULT_MAX_INTERVAL_SECONDS;
@@ -522,7 +602,7 @@ export class GeminaClient {
     const startedAt = Date.now();
     let sleptSeconds = 0;
     let nominalInterval = Math.min(initialIntervalSeconds, maxIntervalSeconds);
-    let lastResult = submitted;
+    let lastResult = initialResult;
     let consecutivePollFailures = 0;
 
     // Poll loop: wait (backoff + jitter), then GET /v1/documents/results/{correlationId}.

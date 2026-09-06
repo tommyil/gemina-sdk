@@ -24,6 +24,8 @@ import co.gemina.sdk.generated.api.SubscriptionsApi;
 import co.gemina.sdk.generated.api.TemplatesApi;
 import co.gemina.sdk.generated.model.ChatQueryInDTO;
 import co.gemina.sdk.generated.model.ChatQueryOutDTO;
+import co.gemina.sdk.generated.model.AddExtractionsInDTO;
+import co.gemina.sdk.generated.model.DocumentAddExtractionsOutDTO;
 import co.gemina.sdk.generated.model.DocumentProcessingResultOutDTO;
 import co.gemina.sdk.generated.model.UploadExtractionTypeEnum;
 import co.gemina.sdk.generated.model.ResponseStatus;
@@ -431,7 +433,6 @@ public class GeminaClient {
         ProcessDocumentOptions opts = options != null ? options : ProcessDocumentOptions.defaults();
 
         long startNanos = System.nanoTime();
-        long timeoutMillis = (long) (opts.getTimeoutSeconds() * 1000.0);
         DocumentProcessingResultOutDTO result;
         try {
             result = submit(source, extractionTypes, opts);
@@ -440,29 +441,115 @@ public class GeminaClient {
             throw e;
         }
 
+        ResponseStatus status = result.getStatus();
+        if (status == ResponseStatus.FAILED) {
+            throw new GeminaProcessingException(result);
+        }
+        if (status == ResponseStatus.SUCCESS
+                || status == ResponseStatus.PARTIAL
+                || status == ResponseStatus.EMPTY) {
+            return result;
+        }
+
+        UUID correlationId = result.getMeta() != null ? result.getMeta().getCorrelationId() : null;
+        if (correlationId == null) {
+            throw new GeminaException(
+                    "Malformed server response: non-terminal result without meta.correlationId");
+        }
+        return pollUntilTerminal(correlationId, result, opts, startNanos);
+    }
+
+    /**
+     * Adds extraction types to a document Gemina already stores, then polls
+     * until terminal and returns the typed result — the add-on twin of
+     * {@link #processDocument} for a document you uploaded earlier (via
+     * {@code processDocument}, FileTag or an MCP tool), addressed by its id. No
+     * file is re-uploaded: the stored document is re-extracted with the new
+     * {@code extractionTypes}. Billing and page limits apply per added type
+     * exactly as on an upload.
+     *
+     * <p>Reuses {@link ProcessDocumentOptions}; the upload-only external-id and
+     * end-user-id options do not apply and are ignored. Terminal semantics
+     * match {@code processDocument}: {@code failed} throws
+     * {@link GeminaProcessingException} and the deadline throws
+     * {@link GeminaTimeoutException}. The add-on request itself is never retried
+     * — a rejected request (404 unknown document, 409 type already present, 410
+     * content purged, 422 {@code custom_template} without a template, 402 out of
+     * credits) surfaces as {@link ApiException}.
+     *
+     * @param documentId      the stored document's id
+     * @param extractionTypes non-empty list of types to add
+     * @param options         per-extraction and polling options, or {@code null} for defaults
+     * @return the terminal processing result (both old and new extractions)
+     * @throws ApiException if the add-on request is rejected, or polling fails transiently past the retry budget
+     */
+    public DocumentProcessingResultOutDTO addExtractionsAndWait(
+            UUID documentId,
+            List<UploadExtractionTypeEnum> extractionTypes,
+            ProcessDocumentOptions options) throws ApiException {
+        if (documentId == null) {
+            throw new IllegalArgumentException("documentId must not be null");
+        }
+        if (extractionTypes == null || extractionTypes.isEmpty()) {
+            throw new IllegalArgumentException("extractionTypes must be a non-empty list");
+        }
+        ProcessDocumentOptions opts = options != null ? options : ProcessDocumentOptions.defaults();
+
+        long startNanos = System.nanoTime();
+        AddExtractionsInDTO body = new AddExtractionsInDTO()
+                .extractionTypes(extractionTypes)
+                .templateId(opts.getTemplateId())
+                .modelType(opts.getModelType())
+                .thinking(opts.getThinking())
+                .evaluation(opts.getEvaluation())
+                .correction(opts.getCorrection())
+                .includeCoordinates(opts.getIncludeCoordinates());
+
+        DocumentAddExtractionsOutDTO submitted;
+        try {
+            submitted = documents().addDocumentExtractions(documentId, body);
+        } catch (ApiException e) {
+            throwIfFailedResult(e);
+            throw e;
+        }
+        // The add-on's pollCorrelationId is the document's owning correlation,
+        // so the existing results endpoint and poll loop apply unchanged.
+        return pollUntilTerminal(submitted.getPollCorrelationId(), null, opts, startNanos);
+    }
+
+    /**
+     * Polls {@code GET /v1/documents/results/{correlationId}} with jittered
+     * exponential backoff until a terminal status. Shared by
+     * {@link #processDocument} and {@link #addExtractionsAndWait}.
+     * {@code initialResult} seeds the value carried by
+     * {@link GeminaTimeoutException} when the deadline passes before the first
+     * successful poll — the submit result for uploads, {@code null} for the
+     * add-on path (whose submit response is a document view, not a processing
+     * result). {@code startNanos} is the caller's submit time, so the timeout
+     * covers submit + poll.
+     */
+    private DocumentProcessingResultOutDTO pollUntilTerminal(
+            UUID correlationId,
+            DocumentProcessingResultOutDTO initialResult,
+            ProcessDocumentOptions opts,
+            long startNanos) throws ApiException {
+        long timeoutMillis = (long) (opts.getTimeoutSeconds() * 1000.0);
         double intervalSeconds = opts.getInitialIntervalSeconds();
         long virtualElapsedMillis = 0; // sum of requested waits; keeps fake-Sleeper tests deterministic
         Random random = opts.getRandom();
-        UUID correlationId = null;
         int consecutivePollFailures = 0;
+        DocumentProcessingResultOutDTO result = initialResult;
 
         while (true) {
-            ResponseStatus status = result.getStatus();
-            if (status == ResponseStatus.FAILED) {
-                throw new GeminaProcessingException(result);
-            }
-            if (status == ResponseStatus.SUCCESS
-                    || status == ResponseStatus.PARTIAL
-                    || status == ResponseStatus.EMPTY) {
-                return result;
-            }
-
-            // Non-terminal (pending / in_process) — we need a correlation id to poll.
-            if (correlationId == null) {
-                correlationId = result.getMeta() != null ? result.getMeta().getCorrelationId() : null;
-                if (correlationId == null) {
-                    throw new GeminaException(
-                            "Malformed server response: non-terminal result without meta.correlationId");
+            if (result != null) {
+                ResponseStatus status = result.getStatus();
+                if (status == ResponseStatus.FAILED) {
+                    throw new GeminaProcessingException(result);
+                }
+                if (status == ResponseStatus.SUCCESS
+                        || status == ResponseStatus.PARTIAL
+                        || status == ResponseStatus.EMPTY) {
+                    return result;
                 }
             }
 
