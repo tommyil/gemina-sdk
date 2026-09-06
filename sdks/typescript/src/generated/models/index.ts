@@ -1,5 +1,6 @@
 /* tslint:disable */
 /* eslint-disable */
+export * from './AddExtractionsInDTO';
 export * from './AggregateMetaDTO';
 export * from './AggregateMetricDTO';
 export * from './AggregateRowDTO';
@@ -24,6 +25,8 @@ export * from './CreditTransactionOutDTO';
 export * from './CreditTransactionType';
 export * from './DataCenterRegionModel';
 export * from './DataRetentionPeriodModel';
+export * from './DocumentAddExtractionsMetaOutDTO';
+export * from './DocumentAddExtractionsOutDTO';
 export * from './DocumentDataOutDTO';
 export * from './DocumentFileTypeModel';
 export * from './DocumentMetaOutDTO';
