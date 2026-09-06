@@ -204,6 +204,26 @@ namespace Gemina.Sdk
                 var statusCode = (int)response.StatusCode;
                 if (statusCode >= 400)
                 {
+                    // Preserve response headers (e.g. Retry-After on 429,
+                    // correlation/tracing headers) the same way the generated
+                    // exception factory does.
+                    var headers = new Multimap<string, string>();
+                    if (response.Headers != null)
+                    {
+                        foreach (var header in response.Headers)
+                        {
+                            headers.Add(header.Name, ClientUtils.ParameterToString(header.Value));
+                        }
+                    }
+
+                    if (response.ContentHeaders != null)
+                    {
+                        foreach (var header in response.ContentHeaders)
+                        {
+                            headers.Add(header.Name, ClientUtils.ParameterToString(header.Value));
+                        }
+                    }
+
                     // The add-on POST dispatches async work; it never returns a
                     // terminal `failed` processing result. Every 4xx/5xx here is
                     // an endpoint rejection (404/409/410/422/402/429) — surface
@@ -212,7 +232,8 @@ namespace Gemina.Sdk
                     throw new ApiException(
                         statusCode,
                         $"Error calling AddDocumentExtractions: {response.Content}",
-                        response.Content);
+                        response.Content,
+                        headers);
                 }
 
                 if (string.IsNullOrEmpty(response.Content))
@@ -251,6 +272,17 @@ namespace Gemina.Sdk
             if (!string.IsNullOrEmpty(_configuration.AccessToken))
             {
                 request.AddHeader("Authorization", "Bearer " + _configuration.AccessToken);
+            }
+
+            // Configuration-level default headers (custom routing / tenant /
+            // tracing) — the generated client applies these, so the hand-rolled
+            // transport must too.
+            if (_configuration.DefaultHeaders != null)
+            {
+                foreach (var header in _configuration.DefaultHeaders)
+                {
+                    request.AddHeader(header.Key, header.Value);
+                }
             }
 
             return request;
