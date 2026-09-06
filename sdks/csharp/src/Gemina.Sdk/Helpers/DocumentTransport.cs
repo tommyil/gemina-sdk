@@ -261,28 +261,32 @@ namespace Gemina.Sdk
         private RestRequest NewRequest(string path, Method method)
         {
             var request = new RestRequest(path, method);
-            request.AddHeader("Accept", "application/json");
-
-            var apiKey = _configuration.GetApiKeyWithPrefix("X-API-Key");
-            if (!string.IsNullOrEmpty(apiKey))
-            {
-                request.AddHeader("X-API-Key", apiKey);
-            }
-
-            if (!string.IsNullOrEmpty(_configuration.AccessToken))
-            {
-                request.AddHeader("Authorization", "Bearer " + _configuration.AccessToken);
-            }
 
             // Configuration-level default headers (custom routing / tenant /
-            // tracing) — the generated client applies these, so the hand-rolled
-            // transport must too.
+            // tracing) go on FIRST; the reserved headers below then take
+            // precedence via AddOrUpdateHeader. RestSharp's AddHeader appends
+            // rather than replaces, so setting the reserved headers first and
+            // the defaults after would let a colliding default emit a duplicate
+            // (multi-value) Accept / auth header and break the request.
             if (_configuration.DefaultHeaders != null)
             {
                 foreach (var header in _configuration.DefaultHeaders)
                 {
                     request.AddHeader(header.Key, header.Value);
                 }
+            }
+
+            request.AddOrUpdateHeader("Accept", "application/json");
+
+            var apiKey = _configuration.GetApiKeyWithPrefix("X-API-Key");
+            if (!string.IsNullOrEmpty(apiKey))
+            {
+                request.AddOrUpdateHeader("X-API-Key", apiKey);
+            }
+
+            if (!string.IsNullOrEmpty(_configuration.AccessToken))
+            {
+                request.AddOrUpdateHeader("Authorization", "Bearer " + _configuration.AccessToken);
             }
 
             return request;
