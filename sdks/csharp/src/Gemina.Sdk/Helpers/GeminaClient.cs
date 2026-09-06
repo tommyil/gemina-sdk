@@ -341,7 +341,6 @@ namespace Gemina.Sdk
             }
 
             options = options ?? new ProcessDocumentOptions();
-            var timeout = TimeSpan.FromSeconds(options.TimeoutSeconds);
             var stopwatch = Stopwatch.StartNew();
 
             var result = await SubmitAsync(source, extractionTypes, options, cancellationToken).ConfigureAwait(false);
@@ -357,6 +356,96 @@ namespace Gemina.Sdk
                     "Malformed server response: non-terminal processing result without a correlationId to poll on.");
             }
 
+            return await PollUntilTerminalAsync(correlationId.Value, result, options, stopwatch, cancellationToken)
+                .ConfigureAwait(false);
+        }
+
+        /// <summary>
+        /// Adds extraction types to a document Gemina already stores, then polls
+        /// until terminal and returns the typed result — the add-on twin of
+        /// <see cref="ProcessDocumentAsync(GeminaDocumentSource, List{UploadExtractionTypeEnum}, ProcessDocumentOptions, CancellationToken)"/>
+        /// for a document you uploaded earlier (via <c>ProcessDocumentAsync</c>,
+        /// FileTag or an MCP tool), addressed by its id. No file is re-uploaded:
+        /// the stored document is re-extracted with the new
+        /// <paramref name="extractionTypes"/>. Billing and page limits apply per
+        /// added type exactly as on an upload.
+        /// </summary>
+        /// <remarks>
+        /// Reuses <see cref="ProcessDocumentOptions"/>; the upload-only
+        /// <c>ExternalId</c> and <c>EndUserId</c> options do not apply and are
+        /// ignored. Terminal semantics match <c>ProcessDocumentAsync</c>:
+        /// <c>failed</c> throws <see cref="GeminaProcessingException"/> and the
+        /// deadline throws <see cref="GeminaTimeoutException"/>. The add-on
+        /// request itself is never retried — a rejected request (404 unknown
+        /// document, 409 type already present, 410 content purged, 422
+        /// <c>custom_template</c> without a template, 429 out of credits / over quota) throws
+        /// <c>ApiException</c>.
+        /// </remarks>
+        /// <param name="documentId">The stored document's id.</param>
+        /// <param name="extractionTypes">Non-empty list of types to add.</param>
+        /// <param name="options">Per-extraction and polling options (upload-only fields ignored).</param>
+        /// <param name="cancellationToken">Cancels both the HTTP calls and the waits.</param>
+        public async Task<DocumentProcessingResultOutDTO> AddExtractionsAndWaitAsync(
+            Guid documentId,
+            List<UploadExtractionTypeEnum> extractionTypes,
+            ProcessDocumentOptions options = null,
+            CancellationToken cancellationToken = default)
+        {
+            if (extractionTypes == null || extractionTypes.Count == 0)
+            {
+                throw new ArgumentException("extractionTypes must be a non-empty list.", nameof(extractionTypes));
+            }
+
+            options = options ?? new ProcessDocumentOptions();
+            var stopwatch = Stopwatch.StartNew();
+
+            var body = new AddExtractionsInDTO(
+                correction: options.Correction,
+                evaluation: options.Evaluation,
+                extractionTypes: extractionTypes,
+                includeCoordinates: options.IncludeCoordinates,
+                modelType: options.ModelType,
+                templateId: options.TemplateId,
+                thinking: options.Thinking);
+
+            // Route through DocumentTransport (not the generated client): the
+            // add-on response is a document view whose extraction meta carries
+            // purgeReason: null, which the generated deserializer rejects
+            // (returning Data == null). The transport also surfaces endpoint
+            // rejections (404/409/410/422/429) as a plain ApiException
+            // instead of misreading the error envelope as a terminal failed
+            // result — the add-on POST never returns one.
+            var submitted = await Transport
+                .AddExtractionsAsync(documentId, body, cancellationToken)
+                .ConfigureAwait(false);
+
+            // The add-on's PollCorrelationId is the document's owning
+            // correlation, so the existing results endpoint and poll loop apply
+            // unchanged.
+            return await PollUntilTerminalAsync(submitted.PollCorrelationId, null, options, stopwatch, cancellationToken)
+                .ConfigureAwait(false);
+        }
+
+        /// <summary>
+        /// Polls <c>GET /v1/documents/results/{correlationId}</c> with jittered
+        /// exponential backoff until a terminal status. Shared by
+        /// <see cref="ProcessDocumentAsync(GeminaDocumentSource, List{UploadExtractionTypeEnum}, ProcessDocumentOptions, CancellationToken)"/>
+        /// and <see cref="AddExtractionsAndWaitAsync"/>. <paramref name="initialResult"/>
+        /// seeds the value carried by <see cref="GeminaTimeoutException"/> if the
+        /// deadline passes before the first successful poll (the submit result
+        /// for uploads; <c>null</c> for the add-on path). <paramref name="stopwatch"/>
+        /// starts the timeout clock at the caller's submit, so the deadline
+        /// covers submit + poll.
+        /// </summary>
+        private async Task<DocumentProcessingResultOutDTO> PollUntilTerminalAsync(
+            Guid correlationId,
+            DocumentProcessingResultOutDTO initialResult,
+            ProcessDocumentOptions options,
+            Stopwatch stopwatch,
+            CancellationToken cancellationToken)
+        {
+            var timeout = TimeSpan.FromSeconds(options.TimeoutSeconds);
+            var result = initialResult;
             var delay = options.Delay ?? DefaultDelayAsync;
             var random = options.Random ?? NextSharedRandom;
             var nominalIntervalSeconds = options.InitialIntervalSeconds;
@@ -366,7 +455,7 @@ namespace Gemina.Sdk
             {
                 if (stopwatch.Elapsed >= timeout)
                 {
-                    throw new GeminaTimeoutException(correlationId.Value, result, options.TimeoutSeconds);
+                    throw new GeminaTimeoutException(correlationId, result, options.TimeoutSeconds);
                 }
 
                 var jitter = 0.8 + (random() * 0.4);
@@ -377,13 +466,13 @@ namespace Gemina.Sdk
 
                 if (stopwatch.Elapsed >= timeout)
                 {
-                    throw new GeminaTimeoutException(correlationId.Value, result, options.TimeoutSeconds);
+                    throw new GeminaTimeoutException(correlationId, result, options.TimeoutSeconds);
                 }
 
                 try
                 {
                     result = await Transport
-                        .GetResultAsync(correlationId.Value, cancellationToken)
+                        .GetResultAsync(correlationId, cancellationToken)
                         .ConfigureAwait(false);
                     consecutivePollFailures = 0;
                 }

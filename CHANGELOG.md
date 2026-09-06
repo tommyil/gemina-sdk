@@ -9,6 +9,30 @@ spec snapshot it was generated from where that matters.
 
 Pre-1.0: minor versions carry features and may change behaviour.
 
+## v0.15.0 — 2026-09-06
+
+**Add extraction types to a document Gemina already stores — no re-upload.**
+Regenerated from API spec **1.7.0**, which adds the `add_document_extractions`
+operation (`POST /api/v1/documents/{documentId}/extractions`): run more
+extraction types on a document you uploaded earlier — via `process_document`,
+FileTag, or an MCP tool — addressed by its id, reusing the stored file. It is
+billed per added type exactly like an upload, and the response carries the
+document's owning `pollCorrelationId` (plus a `Location` header when the new
+extractions are still running), so you poll it exactly as after an upload. New
+generated models: `AddExtractionsInDTO`, `DocumentAddExtractionsOutDTO` and
+`DocumentAddExtractionsMetaOutDTO`.
+
+**New `add_extractions_and_wait` helper in every SDK** (`addExtractionsAndWait`
+in TypeScript, Java and PHP; `AddExtractionsAndWaitAsync` in C#) — the add-on twin of
+`process_document`: it calls the new operation and then blocks on the same
+poll-until-terminal loop the upload helper uses, returning the typed terminal
+result. It takes the same per-extraction options (`template_id`, `model_type`,
+`thinking`, `evaluation`, `correction`, `include_coordinates`) and polling
+knobs; the upload-only external-id / end-user-id options do not apply. A
+rejected add-on request is never retried and surfaces as the SDK's usual API
+error (404 unknown document, 409 a requested type already exists, 410 content
+purged, 422 `custom_template` without a template, 429 out of credits / over quota).
+
 ## v0.14.0 — 2026-08-17
 
 **"Hide empty columns" in `<GeminaVerification>`.** A second switch in the

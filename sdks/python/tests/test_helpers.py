@@ -666,3 +666,183 @@ def test_lazy_api_group_accessors(client):
         assert isinstance(group, cls)
         assert getattr(client, name) is group  # cached
         assert group.api_client is client.api_client
+
+
+# -- 6. add_extractions_and_wait (add-on twin of process_document) ------------
+
+import datetime as _dt
+
+from gemina.generated.models.add_extractions_in_dto import AddExtractionsInDTO
+from gemina.generated.models.document_add_extractions_out_dto import (
+    DocumentAddExtractionsOutDTO,
+)
+from gemina.generated.models.document_add_extractions_meta_out_dto import (
+    DocumentAddExtractionsMetaOutDTO,
+)
+from gemina.generated.models.model_type import ModelType
+
+#: Distinct from CORRELATION_ID so tests prove the helper polls the add-on's
+#: pollCorrelationId, not some other correlation.
+POLL_CORRELATION_ID = uuid.uuid4()
+DOCUMENT_ID = uuid.uuid4()
+
+
+def make_add_on_submit(
+    poll_correlation_id=POLL_CORRELATION_ID,
+    status=ResponseStatus.IN_PROCESS,
+    new_ids=None,
+):
+    """Build a real generated add-on submit response (a document view)."""
+    return DocumentAddExtractionsOutDTO(
+        status=status,
+        data=None,
+        poll_correlation_id=poll_correlation_id,
+        new_extraction_ids=[uuid.uuid4()] if new_ids is None else new_ids,
+        meta=DocumentAddExtractionsMetaOutDTO(
+            document_id=DOCUMENT_ID,
+            created_at=_dt.datetime(2026, 9, 6, tzinfo=_dt.timezone.utc),
+            content_purged_at=None,
+            correlation_id=poll_correlation_id,
+            next=f"https://api.gemina.co/api/v1/documents/results/{poll_correlation_id}",
+        ),
+    )
+
+
+class FakeAddOnDocumentsApi:
+    """Stands in for the generated DocumentApi for the add-on flow."""
+
+    def __init__(self, submit_result, poll_results=()):
+        self.submit_result = submit_result
+        self.poll_results = list(poll_results)
+        self.add_on_calls = []
+        self.poll_calls = []
+
+    async def add_document_extractions(self, document_id, dto):
+        self.add_on_calls.append((document_id, dto))
+        return self.submit_result
+
+    async def get_document_processing_result_by_correlation_id(self, correlation_id):
+        self.poll_calls.append(correlation_id)
+        item = self.poll_results.pop(0) if len(self.poll_results) > 1 else self.poll_results[0]
+        if isinstance(item, Exception):
+            raise item
+        return item
+
+
+async def test_add_extractions_and_wait_polls_pollcorrelation_to_terminal(client):
+    success = make_result(
+        ResponseStatus.SUCCESS,
+        correlation_id=POLL_CORRELATION_ID,
+        data=DocumentDataOutDTO(extractions=[]),
+    )
+    fake = FakeAddOnDocumentsApi(
+        submit_result=make_add_on_submit(),
+        poll_results=[make_result(ResponseStatus.IN_PROCESS, correlation_id=POLL_CORRELATION_ID), success],
+    )
+    install(client, fake)
+    recorder = Recorder()
+
+    result = await client.add_extractions_and_wait(
+        DOCUMENT_ID,
+        [UploadExtractionTypeEnum.INVOICE_HEADERS],
+        _sleep=recorder.sleep,
+        _random=lambda: 0.5,
+    )
+
+    assert result is success
+    # exactly one add-on request, addressed by document id
+    assert len(fake.add_on_calls) == 1
+    assert fake.add_on_calls[0][0] == DOCUMENT_ID
+    assert isinstance(fake.add_on_calls[0][1], AddExtractionsInDTO)
+    assert fake.add_on_calls[0][1].extraction_types == [
+        UploadExtractionTypeEnum.INVOICE_HEADERS
+    ]
+    # polled the add-on's pollCorrelationId (NOT the upload correlation), twice
+    assert fake.poll_calls == [POLL_CORRELATION_ID] * 2
+
+
+async def test_add_extractions_and_wait_forwards_all_options(client):
+    template_id = uuid.uuid4()
+    fake = FakeAddOnDocumentsApi(
+        submit_result=make_add_on_submit(),
+        poll_results=[make_result(ResponseStatus.SUCCESS, correlation_id=POLL_CORRELATION_ID)],
+    )
+    install(client, fake)
+
+    await client.add_extractions_and_wait(
+        DOCUMENT_ID,
+        [UploadExtractionTypeEnum.CUSTOM_TEMPLATE],
+        template_id=template_id,
+        model_type=ModelType.PRAETORIAN,
+        thinking=True,
+        evaluation=False,
+        correction=True,
+        include_coordinates=True,
+        _sleep=Recorder().sleep,
+        _random=lambda: 0.5,
+    )
+
+    dto = fake.add_on_calls[0][1]
+    assert dto.template_id == template_id
+    assert dto.model_type == ModelType.PRAETORIAN
+    assert dto.thinking is True
+    assert dto.evaluation is False
+    assert dto.correction is True
+    assert dto.include_coordinates is True
+
+
+async def test_add_extractions_and_wait_empty_types_raises(client):
+    install(client, FakeAddOnDocumentsApi(submit_result=make_add_on_submit()))
+    with pytest.raises(ValueError):
+        await client.add_extractions_and_wait(DOCUMENT_ID, [])
+
+
+async def test_add_extractions_and_wait_failed_terminal_raises(client):
+    failed = make_result(
+        ResponseStatus.FAILED,
+        correlation_id=POLL_CORRELATION_ID,
+        errors=[{"code": "unreadable"}],
+    )
+    fake = FakeAddOnDocumentsApi(
+        submit_result=make_add_on_submit(),
+        poll_results=[failed],
+    )
+    install(client, fake)
+
+    with pytest.raises(GeminaProcessingError) as excinfo:
+        await client.add_extractions_and_wait(
+            DOCUMENT_ID,
+            [UploadExtractionTypeEnum.INVOICE_HEADERS],
+            _sleep=Recorder().sleep,
+            _random=lambda: 0.5,
+        )
+    assert excinfo.value.result is failed
+
+
+async def test_add_extractions_and_wait_timeout_carries_pollcorrelation(
+    client, monkeypatch
+):
+    clock = FakeClock()
+    monkeypatch.setattr(helpers, "_monotonic", clock.monotonic)
+    in_process = make_result(ResponseStatus.IN_PROCESS, correlation_id=POLL_CORRELATION_ID)
+    fake = FakeAddOnDocumentsApi(
+        submit_result=make_add_on_submit(),
+        poll_results=[in_process],  # never terminal
+    )
+    install(client, fake)
+    recorder = Recorder(clock=clock)
+
+    with pytest.raises(GeminaTimeoutError) as excinfo:
+        await client.add_extractions_and_wait(
+            DOCUMENT_ID,
+            [UploadExtractionTypeEnum.INVOICE_HEADERS],
+            timeout_seconds=4.0,
+            _sleep=recorder.sleep,
+            _random=lambda: 0.5,
+        )
+
+    # timeout carries the add-on's pollCorrelationId (not the upload one) and
+    # the last polled result; polled twice before the deadline passed
+    assert excinfo.value.correlation_id == POLL_CORRELATION_ID
+    assert excinfo.value.last_result is in_process
+    assert fake.poll_calls == [POLL_CORRELATION_ID] * 2

@@ -748,3 +748,137 @@ describe('GeminaClient construction', () => {
     expect(client.billing).toBeDefined();
   });
 });
+
+// -- addExtractionsAndWait (add-on twin of processDocument) -------------------
+
+const POLL_CORRELATION_ID = 'poll-corr-999'; // distinct from CORRELATION_ID
+const DOCUMENT_ID = 'doc-abc';
+
+interface AddOnFakeCalls {
+  addOn: Array<{ documentId: string; addExtractionsInDTO: Record<string, unknown> }>;
+  polls: Array<{ correlationId: string }>;
+}
+
+function makeFakeAddOnDocuments(
+  pollResults: DocumentProcessingResultOutDTO[],
+  pollCorrelationId: string = POLL_CORRELATION_ID,
+): { documents: DocumentApi; calls: AddOnFakeCalls } {
+  const calls: AddOnFakeCalls = { addOn: [], polls: [] };
+  const fake = {
+    async addDocumentExtractions(params: {
+      documentId: string;
+      addExtractionsInDTO: Record<string, unknown>;
+    }) {
+      calls.addOn.push(params);
+      return {
+        status: ResponseStatus.InProcess,
+        data: null,
+        pollCorrelationId,
+        newExtractionIds: ['ext-new-1'],
+        meta: { documentId: params.documentId, createdAt: '2026-09-06T00:00:00Z', contentPurgedAt: null, correlationId: pollCorrelationId },
+      };
+    },
+    async getDocumentProcessingResultByCorrelationId(params: { correlationId: string }) {
+      calls.polls.push(params);
+      const index = Math.min(calls.polls.length - 1, pollResults.length - 1);
+      const result = pollResults[index];
+      if (result === undefined) {
+        throw new Error('fake DocumentApi: no poll results configured');
+      }
+      return result;
+    },
+  };
+  return { documents: fake as unknown as DocumentApi, calls };
+}
+
+describe('GeminaClient.addExtractionsAndWait', () => {
+  it('polls the add-on pollCorrelationId (not the upload one) to terminal', async () => {
+    const success = makeResult(ResponseStatus.Success, POLL_CORRELATION_ID);
+    const { documents, calls } = makeFakeAddOnDocuments([
+      makeResult(ResponseStatus.InProcess, POLL_CORRELATION_ID),
+      success,
+    ]);
+    const { sleepFn } = makeFakeSleep();
+
+    const result = await makeClient(documents).addExtractionsAndWait(
+      DOCUMENT_ID,
+      EXTRACTION_TYPES,
+      { sleepFn, random: () => 0.5 },
+    );
+
+    expect(result).toBe(success);
+    expect(calls.addOn).toHaveLength(1);
+    expect(calls.addOn[0]?.documentId).toBe(DOCUMENT_ID);
+    expect(calls.addOn[0]?.addExtractionsInDTO.extractionTypes).toEqual(EXTRACTION_TYPES);
+    // Polled the add-on's pollCorrelationId, twice.
+    expect(calls.polls).toEqual([
+      { correlationId: POLL_CORRELATION_ID },
+      { correlationId: POLL_CORRELATION_ID },
+    ]);
+  });
+
+  it('forwards all per-extraction options', async () => {
+    const { documents, calls } = makeFakeAddOnDocuments([
+      makeResult(ResponseStatus.Success, POLL_CORRELATION_ID),
+    ]);
+    const { sleepFn } = makeFakeSleep();
+
+    await makeClient(documents).addExtractionsAndWait(DOCUMENT_ID, ['custom_template'], {
+      templateId: 'tmpl-1',
+      modelType: 'praetorian',
+      thinking: true,
+      evaluation: false,
+      correction: true,
+      includeCoordinates: true,
+      sleepFn,
+      random: () => 0.5,
+    });
+
+    const dto = calls.addOn[0]?.addExtractionsInDTO;
+    expect(dto?.templateId).toBe('tmpl-1');
+    expect(dto?.modelType).toBe('praetorian');
+    expect(dto?.thinking).toBe(true);
+    expect(dto?.evaluation).toBe(false);
+    expect(dto?.correction).toBe(true);
+    expect(dto?.includeCoordinates).toBe(true);
+  });
+
+  it('rejects an empty extractionTypes array', async () => {
+    const { documents } = makeFakeAddOnDocuments([]);
+    await expect(
+      makeClient(documents).addExtractionsAndWait(DOCUMENT_ID, []),
+    ).rejects.toBeInstanceOf(GeminaError);
+  });
+
+  it('raises GeminaProcessingError on a terminal failed poll', async () => {
+    const failed = makeResult(ResponseStatus.Failed, POLL_CORRELATION_ID);
+    const { documents } = makeFakeAddOnDocuments([failed]);
+    const { sleepFn } = makeFakeSleep();
+    await expect(
+      makeClient(documents).addExtractionsAndWait(DOCUMENT_ID, EXTRACTION_TYPES, {
+        sleepFn,
+        random: () => 0.5,
+      }),
+    ).rejects.toBeInstanceOf(GeminaProcessingError);
+  });
+
+  it('times out carrying the add-on pollCorrelationId', async () => {
+    const { documents } = makeFakeAddOnDocuments([
+      makeResult(ResponseStatus.InProcess, POLL_CORRELATION_ID),
+    ]);
+    const { sleepFn } = makeFakeSleep();
+    await expect(
+      makeClient(documents)
+        .addExtractionsAndWait(DOCUMENT_ID, EXTRACTION_TYPES, {
+          timeoutSeconds: 4.0,
+          sleepFn,
+          random: () => 0.5,
+        })
+        .catch((e) => {
+          expect(e).toBeInstanceOf(GeminaTimeoutError);
+          expect((e as GeminaTimeoutError).correlationId).toBe(POLL_CORRELATION_ID);
+          throw e;
+        }),
+    ).rejects.toBeInstanceOf(GeminaTimeoutError);
+  });
+});
