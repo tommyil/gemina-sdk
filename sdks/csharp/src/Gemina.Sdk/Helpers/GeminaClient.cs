@@ -378,7 +378,7 @@ namespace Gemina.Sdk
         /// deadline throws <see cref="GeminaTimeoutException"/>. The add-on
         /// request itself is never retried — a rejected request (404 unknown
         /// document, 409 type already present, 410 content purged, 422
-        /// <c>custom_template</c> without a template, 402 out of credits) throws
+        /// <c>custom_template</c> without a template, 429 out of credits / over quota) throws
         /// <c>ApiException</c>.
         /// </remarks>
         /// <param name="documentId">The stored document's id.</param>
@@ -412,7 +412,7 @@ namespace Gemina.Sdk
             // add-on response is a document view whose extraction meta carries
             // purgeReason: null, which the generated deserializer rejects
             // (returning Data == null). The transport also surfaces endpoint
-            // rejections (404/409/410/422/402/429) as a plain ApiException
+            // rejections (404/409/410/422/429) as a plain ApiException
             // instead of misreading the error envelope as a terminal failed
             // result — the add-on POST never returns one.
             var submitted = await Transport

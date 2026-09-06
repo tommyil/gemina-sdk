@@ -31,7 +31,7 @@ result. It takes the same per-extraction options (`template_id`, `model_type`,
 knobs; the upload-only external-id / end-user-id options do not apply. A
 rejected add-on request is never retried and surfaces as the SDK's usual API
 error (404 unknown document, 409 a requested type already exists, 410 content
-purged, 422 `custom_template` without a template, 402 out of credits).
+purged, 422 `custom_template` without a template, 429 out of credits / over quota).
 
 ## v0.14.0 — 2026-08-17
 

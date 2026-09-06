@@ -556,7 +556,7 @@ export class GeminaClient {
    * @throws GeminaTimeoutError    on the deadline; `.correlationId` resumes polling.
    * @throws ResponseError         if the add-on request itself is rejected —
    *   404 (unknown document), 409 (type already present), 410 (content purged),
-   *   422 (`custom_template` without `templateId`), 402 (out of credits). Not retried.
+   *   422 (`custom_template` without `templateId`), 429 (out of credits / over quota). Not retried.
    */
   async addExtractionsAndWait(
     documentId: string,
@@ -568,7 +568,7 @@ export class GeminaClient {
     }
     // The add-on POST dispatches async work; it never returns a terminal
     // `failed` processing result inline. Every error here is an endpoint
-    // rejection (404/409/410/422/402/429) — let the ResponseError propagate
+    // rejection (404/409/410/422/429) — let the ResponseError propagate
     // unchanged rather than misreading a generic error envelope (which also
     // carries status: "failed") as a processing failure.
     const submitted: DocumentAddExtractionsOutDTO = await this.documents.addDocumentExtractions({

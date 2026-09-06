@@ -275,8 +275,8 @@ class GeminaClient
      * throws {@see GeminaProcessingException} and the deadline throws
      * {@see GeminaTimeoutException}. The add-on request itself is never retried —
      * a rejected request (404 unknown document, 409 type already present, 410
-     * content purged, 422 custom_template without a template, 402 out of
-     * credits) surfaces as {@see ApiException}.
+     * content purged, 422 custom_template without a template, 429 out of
+     * credits / over quota) surfaces as {@see ApiException}.
      *
      * @param string[] $extractionTypes
      * @param array<string, mixed> $options
@@ -302,7 +302,7 @@ class GeminaClient
 
         // The add-on POST dispatches async work; it never returns a terminal
         // failed processing result inline. Every ApiException here is an
-        // endpoint rejection (404/409/410/422/402/429) — propagate it unchanged
+        // endpoint rejection (404/409/410/422/429) — propagate it unchanged
         // rather than misreading a generic error envelope (which also carries
         // status=failed) as a processing failure.
         $submitted = $this->documents()->addDocumentExtractions($documentId, $dto);

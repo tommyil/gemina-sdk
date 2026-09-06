@@ -483,7 +483,7 @@ class GeminaClient:
             ApiException: The add-on request itself was rejected -- e.g. 404
                 (unknown document), 409 (a requested type already exists), 410
                 (content purged), 422 (``custom_template`` without a
-                ``template_id``), or 402 (out of credits). Never retried.
+                ``template_id``), or 429 (out of credits / over quota). Never retried.
 
         Polling uses the response's ``poll_correlation_id`` (the document's
         owning correlation), so a transient blip during polling is retried on
@@ -502,7 +502,7 @@ class GeminaClient:
         )
         # The add-on POST dispatches async work; it never returns a terminal
         # `failed` processing result inline. Every ApiException here is an
-        # endpoint rejection (404/409/410/422/402/429) — propagate it unchanged
+        # endpoint rejection (404/409/410/422/429) — propagate it unchanged
         # rather than misreading a generic error envelope (which also carries
         # status="failed") as a processing failure.
         submitted = await self.documents.add_document_extractions(document_id, dto)
