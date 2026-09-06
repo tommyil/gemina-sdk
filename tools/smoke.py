@@ -27,7 +27,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 CONFIG = REPO_ROOT / "config" / "smoke.json"
 
 # Environment forwarded into smoke programs (and Docker steps).
-FORWARDED_ENV = ("GEMINA_BASE_URL", "GEMINA_API_KEY")
+FORWARDED_ENV = ("GEMINA_BASE_URL", "GEMINA_API_KEY", "GEMINA_SMOKE_ADD_ON")
 
 
 def run_step(lang: str, step: dict, cwd: Path) -> None:
