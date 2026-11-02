@@ -9,6 +9,11 @@ spec snapshot it was generated from where that matters.
 
 Pre-1.0: minor versions carry features and may change behaviour.
 
+## Unreleased
+
+Fix Maven Central release bundling with Maven 3.10 by updating the official
+Central publishing plugin to 0.12.0. The existing v0.16.0 tag remains unchanged.
+
 ## v0.16.0 — 2026-11-02
 
 Chat can display suggested questions. Suggestions, typed messages and Enter use
