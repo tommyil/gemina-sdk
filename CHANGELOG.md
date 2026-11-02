@@ -9,6 +9,18 @@ spec snapshot it was generated from where that matters.
 
 Pre-1.0: minor versions carry features and may change behaviour.
 
+## v0.16.0 — 2026-11-02
+
+Chat can display suggested questions. Suggestions, typed messages and Enter use
+one send path. Optional `onRequestStarted`, `onAnswer` and `onRequestFailed`
+callbacks let the embedding app observe the request lifecycle without DOM hooks.
+Repeated clicks are blocked while a request is pending.
+
+Clients are regenerated from API spec **1.11.0**. This includes saved FileTag
+results and download renewal, optional FileTag upload references, handoff expiry
+metadata, built-in template identification, retrieval filter additions and the
+payment method update endpoint introduced since the previous SDK snapshot.
+
 ## v0.15.0 — 2026-09-06
 
 **Add extraction types to a document Gemina already stores — no re-upload.**

@@ -72,6 +72,7 @@ namespace Gemina.Sdk.Tests
             public string ContentType;
             public string FileName;
             public string Path;
+            public string ExternalId;
             public System.Collections.Specialized.NameValueCollection RequestHeaders;
         }
 
@@ -95,6 +96,7 @@ namespace Gemina.Sdk.Tests
                 {
                     var ctx = await listener.GetContextAsync().ConfigureAwait(false);
                     captured.Path = ctx.Request.Url.AbsolutePath;
+                    captured.ExternalId = ctx.Request.QueryString["external_id"];
                     captured.RequestHeaders = ctx.Request.Headers;
                     using (var reader = new StreamReader(ctx.Request.InputStream, Encoding.UTF8))
                     {
@@ -245,6 +247,15 @@ namespace Gemina.Sdk.Tests
 
             Assert.Equal("image/heic", captured.ContentType);
             Assert.Equal("document.heic", captured.FileName);
+        }
+
+        [Fact]
+        public async Task FileTag_PreservesTheOptionalRequestReferenceOnTheWire()
+        {
+            var captured = await CaptureAsync(c => c.FileTag.TagDocumentAsync(
+                new MemoryStream(PngBytes), externalId: "tutorial & scope"));
+            Assert.Equal("tutorial & scope", captured.ExternalId);
+            Assert.Equal("image/png", captured.ContentType);
         }
 
         [Fact]

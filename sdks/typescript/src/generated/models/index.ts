@@ -85,6 +85,7 @@ export * from './ModelType';
 export * from './NextActionOutDTO';
 export * from './NumberOfStoredDocumentsOutDTO';
 export * from './OperationType';
+export * from './PaymentMethodUpdateOutDTO';
 export * from './PeriodPresetModel';
 export * from './PlanCreditCostOutDTO';
 export * from './PlanDetailOutDTO';

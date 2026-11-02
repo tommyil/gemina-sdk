@@ -64,6 +64,14 @@ export interface GeminaChatProps {
   intro?: string;
   /** Called with the cited `documentId` when a citation chip is clicked. */
   onCitationClick?: (documentId: string) => void;
+  /** Questions shown as keyboard-accessible buttons. Uses the normal send path. */
+  suggestedQuestions?: readonly string[];
+  /** One notification per user send, including an explicit retry. No message text is passed. */
+  onRequestStarted?: () => void;
+  /** A completed server answer. Consumers must verify their own outcome rules. */
+  onAnswer?: (answer: ChatQueryOutDTO) => void;
+  /** A terminal request failure, after the normal authentication retry. */
+  onRequestFailed?: (error: unknown) => void;
   /** Extra class name(s) for the root element (e.g. to override CSS vars). */
   className?: string;
 }
@@ -486,6 +494,14 @@ const CHAT_CSS = `
   cursor: pointer;
 }
 .gemina-chat__send:disabled { opacity: 0.5; cursor: default; }
+.gemina-chat__suggestions { display: flex; flex-wrap: wrap; gap: 8px; padding: 10px; }
+.gemina-chat__suggestion {
+  font: inherit; color: inherit; text-align: start; white-space: normal;
+  border: 1px solid var(--gemina-chat-border); border-radius: var(--gemina-chat-radius);
+  background: transparent; padding: 8px 12px; min-height: 40px; cursor: pointer;
+}
+.gemina-chat__suggestion:focus-visible { outline: 2px solid var(--gemina-chat-accent); outline-offset: 2px; }
+.gemina-chat__suggestion:disabled { opacity: 0.5; cursor: default; }
 `;
 
 const STYLE_ATTR = 'data-gemina-chat';
@@ -529,12 +545,17 @@ export function GeminaChat(props: GeminaChatProps): React.JSX.Element {
     title,
     intro,
     onCitationClick,
+    suggestedQuestions,
+    onRequestStarted,
+    onAnswer,
+    onRequestFailed,
     className,
   } = props;
 
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [draft, setDraft] = useState('');
   const [busy, setBusy] = useState(false);
+  const busyRef = useRef(false);
   const nextIdRef = useRef(0);
   const mountedRef = useRef(false);
   const logRef = useRef<HTMLDivElement | null>(null);
@@ -600,53 +621,49 @@ export function GeminaChat(props: GeminaChatProps): React.JSX.Element {
 
   const performSend = useCallback(
     async (text: string) => {
+      if (busyRef.current) return;
+      busyRef.current = true;
       setBusy(true);
       try {
+        onRequestStarted?.();
         let result: ChatQueryOutDTO;
-        const hadSession = sessionIdRef.current !== undefined;
         try {
-          result = await queryWithRetry(text);
-        } catch (error) {
-          // A turn that CARRIED a session and 404s means the conversation is
-          // gone (24h idle TTL, an explicit reset, or end-user scope drift).
-          // Drop the stale id and retry once as a fresh conversation, so the
-          // expiry is transparent — the user just gets an answer, no memory.
-          if (hadSession && httpStatus(error) === 404) {
-            sessionIdRef.current = undefined;
+          const hadSession = sessionIdRef.current !== undefined;
+          try {
             result = await queryWithRetry(text);
-          } else {
-            throw error;
+          } catch (error) {
+            // A missing conversation gets one fresh-session retry.
+            if (hadSession && httpStatus(error) === 404) {
+              sessionIdRef.current = undefined;
+              result = await queryWithRetry(text);
+            } else {
+              throw error;
+            }
           }
-        }
-        if (!mountedRef.current) {
+        } catch (error) {
+          if (!mountedRef.current) return;
+          const info = await readChatError(error);
+          if (!mountedRef.current) return;
+          appendMessage(describeChatError(info, text));
+          onRequestFailed?.(error);
           return;
         }
-        // The response always returns the (possibly newly created) conversation
-        // id — store it so the next turn continues this thread.
+        if (!mountedRef.current) return;
         sessionIdRef.current = result.sessionId ?? sessionIdRef.current;
         appendMessage({
-          role: 'assistant',
-          text: result.answer,
+          role: 'assistant', text: result.answer,
           citations: normalizeCitations(result.citations),
           confident: result.confident !== false,
         });
-      } catch (error) {
-        if (!mountedRef.current) {
-          return;
-        }
-        // Reading the error body is async (fetch), so re-check mount after.
-        const info = await readChatError(error);
-        if (!mountedRef.current) {
-          return;
-        }
-        appendMessage(describeChatError(info, text));
+        // Consumer callbacks are outside the request-error catch. A consumer
+        // defect must never label an already-delivered answer as a failed turn.
+        onAnswer?.(result);
       } finally {
-        if (mountedRef.current) {
-          setBusy(false);
-        }
+        busyRef.current = false;
+        if (mountedRef.current) setBusy(false);
       }
     },
-    [queryWithRetry, appendMessage],
+    [queryWithRetry, appendMessage, onRequestStarted, onAnswer, onRequestFailed],
   );
 
   /**
@@ -677,19 +694,21 @@ export function GeminaChat(props: GeminaChatProps): React.JSX.Element {
     }
   }, [busy, tokenManager, baseUrl]);
 
-  const submitDraft = useCallback(() => {
-    const text = draft.trim();
-    if (text.length === 0 || busy) {
+  const submitText = useCallback((value: string) => {
+    const text = value.trim();
+    if (text.length === 0 || busyRef.current) {
       return;
     }
     setDraft('');
     appendMessage({ role: 'user', text });
     void performSend(text);
-  }, [draft, busy, appendMessage, performSend]);
+  }, [appendMessage, performSend]);
+
+  const submitDraft = useCallback(() => submitText(draft), [draft, submitText]);
 
   const retryMessage = useCallback(
     (failed: ErrorMessage) => {
-      if (busy || failed.retryText === undefined) {
+      if (busyRef.current || failed.retryText === undefined) {
         return;
       }
       const text = failed.retryText;
@@ -697,7 +716,7 @@ export function GeminaChat(props: GeminaChatProps): React.JSX.Element {
       setMessages((prev) => prev.filter((message) => message.id !== failed.id));
       void performSend(text);
     },
-    [busy, performSend],
+    [performSend],
   );
 
   const handleKeyDown = useCallback(
@@ -865,6 +884,14 @@ export function GeminaChat(props: GeminaChatProps): React.JSX.Element {
           </div>
         )}
       </div>
+      {suggestedQuestions && suggestedQuestions.some((q) => q.trim()) && (
+        <div className="gemina-chat__suggestions" role="group" aria-label="Suggested questions">
+          {Array.from(new Set(suggestedQuestions.map((q) => q.trim()).filter(Boolean))).map((question) => (
+            <button key={question} type="button" className="gemina-chat__suggestion"
+              disabled={busy} onClick={() => submitText(question)}>{question}</button>
+          ))}
+        </div>
+      )}
       <form className="gemina-chat__composer" onSubmit={handleSubmit}>
         <textarea
           className="gemina-chat__input"

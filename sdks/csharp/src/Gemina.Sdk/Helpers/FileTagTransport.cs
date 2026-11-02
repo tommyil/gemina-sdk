@@ -24,11 +24,13 @@ namespace Gemina.Sdk
         /// <summary>Uploads to <c>POST /api/v1/filetag</c> (multipart, API-key auth).</summary>
         Task<ApiResponse<FileTagResultOutDTO>> TagDocumentWithHttpInfoAsync(
             Stream file,
+            string externalId,
             CancellationToken cancellationToken);
 
         /// <summary>Uploads to <c>POST /api/v1/filetag/user</c> (multipart, JWT + API-key-id auth).</summary>
         Task<ApiResponse<FileTagResultOutDTO>> TagDocumentByUserWithHttpInfoAsync(
             Stream file,
+            string externalId,
             CancellationToken cancellationToken);
     }
 
@@ -101,21 +103,23 @@ namespace Gemina.Sdk
         /// <inheritdoc />
         public Task<ApiResponse<FileTagResultOutDTO>> TagDocumentWithHttpInfoAsync(
             Stream file,
+            string externalId,
             CancellationToken cancellationToken)
         {
             // The raw-key server-to-server endpoint authenticates with
             // X-API-Key only (the generated code adds no bearer here either).
-            return TagAsync(TagDocumentPath, "TagDocument", includeBearer: false, file: file, cancellationToken: cancellationToken);
+            return TagAsync(TagDocumentPath, "TagDocument", includeBearer: false, file: file, externalId: externalId, cancellationToken: cancellationToken);
         }
 
         /// <inheritdoc />
         public Task<ApiResponse<FileTagResultOutDTO>> TagDocumentByUserWithHttpInfoAsync(
             Stream file,
+            string externalId,
             CancellationToken cancellationToken)
         {
             // The browser-safe endpoint authenticates with the JWT bearer plus
             // the API key *id* in X-API-Key.
-            return TagAsync(TagDocumentByUserPath, "TagDocumentByUser", includeBearer: true, file: file, cancellationToken: cancellationToken);
+            return TagAsync(TagDocumentByUserPath, "TagDocumentByUser", includeBearer: true, file: file, externalId: externalId, cancellationToken: cancellationToken);
         }
 
         private Task<ApiResponse<FileTagResultOutDTO>> TagAsync(
@@ -123,6 +127,7 @@ namespace Gemina.Sdk
             string operationName,
             bool includeBearer,
             Stream file,
+            string externalId,
             CancellationToken cancellationToken)
         {
             if (file == null)
@@ -133,6 +138,7 @@ namespace Gemina.Sdk
 
             var request = NewRequest(path, includeBearer);
             request.AlwaysMultipartFormData = true;
+            if (externalId != null) request.AddQueryParameter("external_id", externalId);
 
             // A FileStream carries the real name; other streams synthesize
             // "document" + the sniffed extension inside the resolver.

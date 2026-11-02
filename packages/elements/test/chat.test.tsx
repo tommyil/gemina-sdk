@@ -514,3 +514,59 @@ describe('GeminaChat — direction handling', () => {
     expect(container.querySelector('.gemina-chat')?.getAttribute('dir')).toBe('ltr');
   });
 });
+
+describe('GeminaChat — suggestions and request lifecycle', () => {
+  it.each(['suggestion', 'send', 'enter'] as const)('%s uses one normal request and the same callbacks', async (method) => {
+    const result = answer('The supplier is Example Ltd.', { citations: ['doc-1'] });
+    chatQuery.mockResolvedValue(result);
+    const onRequestStarted = vi.fn();
+    const onAnswer = vi.fn();
+    const onRequestFailed = vi.fn();
+    renderChat({ suggestedQuestions: ['Who is the supplier?'], onRequestStarted, onAnswer, onRequestFailed });
+    if (method === 'suggestion') {
+      fireEvent.click(screen.getByRole('button', { name: 'Who is the supplier?' }));
+    } else {
+      fireEvent.change(screen.getByLabelText('Chat message'), { target: { value: 'Who is the supplier?' } });
+      if (method === 'enter') fireEvent.keyDown(screen.getByLabelText('Chat message'), { key: 'Enter' });
+      else fireEvent.click(screen.getByRole('button', { name: 'Send message' }));
+    }
+    await waitFor(() => expect(onAnswer).toHaveBeenCalledWith(result));
+    expect(chatQuery).toHaveBeenCalledTimes(1);
+    expect(chatQuery).toHaveBeenCalledWith(expect.objectContaining({
+      chatQueryInDTO: expect.objectContaining({ message: 'Who is the supplier?' }),
+    }));
+    expect(onRequestStarted).toHaveBeenCalledTimes(1);
+    expect(onRequestFailed).not.toHaveBeenCalled();
+  });
+
+  it('blocks repeated suggestion clicks while the first request is pending', async () => {
+    let resolve!: (value: ReturnType<typeof answer>) => void;
+    chatQuery.mockReturnValue(new Promise((r) => { resolve = r; }));
+    const onRequestStarted = vi.fn();
+    renderChat({ suggestedQuestions: ['What is the total?', 'What is the total?', ' '], onRequestStarted });
+    const button = screen.getByRole('button', { name: 'What is the total?' });
+    fireEvent.click(button);
+    fireEvent.click(button);
+    await waitFor(() => expect(chatQuery).toHaveBeenCalledTimes(1));
+    expect(onRequestStarted).toHaveBeenCalledTimes(1);
+    expect(button.hasAttribute('disabled')).toBe(true);
+    resolve(answer('120 USD'));
+    await waitFor(() => expect(button.hasAttribute('disabled')).toBe(false));
+  });
+
+  it('reports a terminal failure and lets an explicit retry notify a new start', async () => {
+    const error = httpError(502);
+    chatQuery.mockRejectedValueOnce(error).mockResolvedValueOnce(answer('120 USD'));
+    const onRequestStarted = vi.fn();
+    const onRequestFailed = vi.fn();
+    const onAnswer = vi.fn();
+    renderChat({ suggestedQuestions: ['What is the total?'], onRequestStarted, onRequestFailed, onAnswer });
+    fireEvent.click(screen.getByRole('button', { name: 'What is the total?' }));
+    await waitFor(() => expect(onRequestFailed).toHaveBeenCalledWith(error));
+    expect(onAnswer).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
+    await waitFor(() => expect(onAnswer).toHaveBeenCalledTimes(1));
+    expect(onRequestStarted).toHaveBeenCalledTimes(2);
+    expect(chatQuery).toHaveBeenCalledTimes(2);
+  });
+});

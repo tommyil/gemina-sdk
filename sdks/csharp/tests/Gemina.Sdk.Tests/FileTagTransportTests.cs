@@ -81,10 +81,10 @@ namespace Gemina.Sdk.Tests
         {
             var transport = new Mock<IFileTagTransport>(MockBehavior.Strict);
             transport
-                .Setup(t => t.TagDocumentWithHttpInfoAsync(It.IsAny<Stream>(), It.IsAny<CancellationToken>()))
+                .Setup(t => t.TagDocumentWithHttpInfoAsync(It.IsAny<Stream>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
                 .ReturnsAsync(canned);
             transport
-                .Setup(t => t.TagDocumentByUserWithHttpInfoAsync(It.IsAny<Stream>(), It.IsAny<CancellationToken>()))
+                .Setup(t => t.TagDocumentByUserWithHttpInfoAsync(It.IsAny<Stream>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
                 .ReturnsAsync(canned);
 
             var decorator = new FileTagApiWithTypedUploads(new Configuration { BasePath = "https://api.example.test" })

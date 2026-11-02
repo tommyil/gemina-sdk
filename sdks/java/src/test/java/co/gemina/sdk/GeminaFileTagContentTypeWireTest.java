@@ -2,6 +2,8 @@ package co.gemina.sdk;
 
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 
 import java.io.ByteArrayOutputStream;
 import java.io.File;
@@ -37,10 +39,12 @@ class GeminaFileTagContentTypeWireTest {
     @Test
     void facadeSendsImageHeicOnTheWireForHeicFile() throws Exception {
         final AtomicReference<byte[]> capturedBody = new AtomicReference<byte[]>();
+        final AtomicReference<String> query = new AtomicReference<>();
 
         HttpServer server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
         server.createContext("/", exchange -> {
             capturedBody.set(readAll(exchange.getRequestBody()));
+            query.set(exchange.getRequestURI().getRawQuery());
             // Any error answer will do — only the captured request matters.
             byte[] response = "{\"detail\":\"unsupported\"}".getBytes(StandardCharsets.UTF_8);
             exchange.getResponseHeaders().set("Content-Type", "application/json");
@@ -63,6 +67,13 @@ class GeminaFileTagContentTypeWireTest {
                 // The fake server always answers 415; the request was still sent.
             }
 
+            assertNull(query.get());
+            try {
+                client.fileTag().tagDocument(heic, "tutorial & scope");
+            } catch (ApiException expected) {
+                // The fixture answers 415 so both real requests can be inspected.
+            }
+            assertEquals("external_id=tutorial%20%26%20scope", query.get());
             byte[] body = capturedBody.get();
             assertNotNull(body, "no multipart request reached the server");
             // Multipart headers are ASCII; ISO-8859-1 decodes the binary body

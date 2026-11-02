@@ -1,3 +1,4 @@
+using System;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
@@ -124,69 +125,117 @@ namespace Gemina.Sdk
             return _inner.GetMyFiletagCreditHistoryWithHttpInfoAsync(skip, limit, operationIndex, cancellationToken);
         }
 
+        /// <inheritdoc />
+        public FileTagResultOutDTO SavedFiletagResult(Guid documentId, int operationIndex = 0)
+        {
+            return _inner.SavedFiletagResult(documentId, operationIndex);
+        }
+
+        /// <inheritdoc />
+        public ApiResponse<FileTagResultOutDTO> SavedFiletagResultWithHttpInfo(Guid documentId, int operationIndex = 0)
+        {
+            return _inner.SavedFiletagResultWithHttpInfo(documentId, operationIndex);
+        }
+
+        /// <inheritdoc />
+        public Task<FileTagResultOutDTO> SavedFiletagResultAsync(Guid documentId, int operationIndex = 0, CancellationToken cancellationToken = default)
+        {
+            return _inner.SavedFiletagResultAsync(documentId, operationIndex, cancellationToken);
+        }
+
+        /// <inheritdoc />
+        public Task<ApiResponse<FileTagResultOutDTO>> SavedFiletagResultWithHttpInfoAsync(Guid documentId, int operationIndex = 0, CancellationToken cancellationToken = default)
+        {
+            return _inner.SavedFiletagResultWithHttpInfoAsync(documentId, operationIndex, cancellationToken);
+        }
+
+        /// <inheritdoc />
+        public FileTagResultOutDTO SavedFiletagResultUser(Guid documentId, int operationIndex = 0)
+        {
+            return _inner.SavedFiletagResultUser(documentId, operationIndex);
+        }
+
+        /// <inheritdoc />
+        public ApiResponse<FileTagResultOutDTO> SavedFiletagResultUserWithHttpInfo(Guid documentId, int operationIndex = 0)
+        {
+            return _inner.SavedFiletagResultUserWithHttpInfo(documentId, operationIndex);
+        }
+
+        /// <inheritdoc />
+        public Task<FileTagResultOutDTO> SavedFiletagResultUserAsync(Guid documentId, int operationIndex = 0, CancellationToken cancellationToken = default)
+        {
+            return _inner.SavedFiletagResultUserAsync(documentId, operationIndex, cancellationToken);
+        }
+
+        /// <inheritdoc />
+        public Task<ApiResponse<FileTagResultOutDTO>> SavedFiletagResultUserWithHttpInfoAsync(Guid documentId, int operationIndex = 0, CancellationToken cancellationToken = default)
+        {
+            return _inner.SavedFiletagResultUserWithHttpInfoAsync(documentId, operationIndex, cancellationToken);
+        }
+
         // ---- Upload members: fixed multipart via FileTagTransport ----
         // operationIndex is accepted for interface parity; like the generated
         // code (which only feeds it to GetOperationServerUrl, and this API
         // defines no operation servers) it does not alter the request.
 
         /// <inheritdoc />
-        public FileTagResultOutDTO TagDocument(Stream file, int operationIndex = 0)
+        public FileTagResultOutDTO TagDocument(Stream file, string externalId = default, int operationIndex = 0)
         {
-            return TagDocumentWithHttpInfo(file, operationIndex).Data;
+            return TagDocumentWithHttpInfo(file, externalId, operationIndex).Data;
         }
 
         /// <inheritdoc />
-        public ApiResponse<FileTagResultOutDTO> TagDocumentWithHttpInfo(Stream file, int operationIndex = 0)
+        public ApiResponse<FileTagResultOutDTO> TagDocumentWithHttpInfo(Stream file, string externalId = default, int operationIndex = 0)
         {
             var response = _transport
-                .TagDocumentWithHttpInfoAsync(file, CancellationToken.None)
+                .TagDocumentWithHttpInfoAsync(file, externalId, CancellationToken.None)
                 .GetAwaiter().GetResult();
             return Checked("TagDocument", response);
         }
 
         /// <inheritdoc />
-        public async Task<FileTagResultOutDTO> TagDocumentAsync(Stream file, int operationIndex = 0, CancellationToken cancellationToken = default)
+        public async Task<FileTagResultOutDTO> TagDocumentAsync(Stream file, string externalId = default, int operationIndex = 0, CancellationToken cancellationToken = default)
         {
-            var response = await TagDocumentWithHttpInfoAsync(file, operationIndex, cancellationToken).ConfigureAwait(false);
+            var response = await TagDocumentWithHttpInfoAsync(file, externalId, operationIndex, cancellationToken).ConfigureAwait(false);
             return response.Data;
         }
 
         /// <inheritdoc />
-        public async Task<ApiResponse<FileTagResultOutDTO>> TagDocumentWithHttpInfoAsync(Stream file, int operationIndex = 0, CancellationToken cancellationToken = default)
+        public async Task<ApiResponse<FileTagResultOutDTO>> TagDocumentWithHttpInfoAsync(Stream file, string externalId = default, int operationIndex = 0, CancellationToken cancellationToken = default)
         {
             var response = await _transport
-                .TagDocumentWithHttpInfoAsync(file, cancellationToken)
+                .TagDocumentWithHttpInfoAsync(file, externalId, cancellationToken)
                 .ConfigureAwait(false);
             return Checked("TagDocument", response);
         }
 
         /// <inheritdoc />
-        public FileTagResultOutDTO TagDocumentByUser(Stream file, int operationIndex = 0)
+        public FileTagResultOutDTO TagDocumentByUser(Stream file, string externalId = default, int operationIndex = 0)
         {
-            return TagDocumentByUserWithHttpInfo(file, operationIndex).Data;
+            return TagDocumentByUserWithHttpInfo(file, externalId, operationIndex).Data;
         }
 
         /// <inheritdoc />
-        public ApiResponse<FileTagResultOutDTO> TagDocumentByUserWithHttpInfo(Stream file, int operationIndex = 0)
+        public ApiResponse<FileTagResultOutDTO> TagDocumentByUserWithHttpInfo(Stream file, string externalId = default, int operationIndex = 0)
         {
             var response = _transport
-                .TagDocumentByUserWithHttpInfoAsync(file, CancellationToken.None)
+                .TagDocumentByUserWithHttpInfoAsync(file, externalId, CancellationToken.None)
                 .GetAwaiter().GetResult();
             return Checked("TagDocumentByUser", response);
         }
 
         /// <inheritdoc />
-        public async Task<FileTagResultOutDTO> TagDocumentByUserAsync(Stream file, int operationIndex = 0, CancellationToken cancellationToken = default)
+        public async Task<FileTagResultOutDTO> TagDocumentByUserAsync(Stream file, string externalId = default, int operationIndex = 0, CancellationToken cancellationToken = default)
         {
-            var response = await TagDocumentByUserWithHttpInfoAsync(file, operationIndex, cancellationToken).ConfigureAwait(false);
+            var response = await TagDocumentByUserWithHttpInfoAsync(file, externalId, operationIndex, cancellationToken).ConfigureAwait(false);
             return response.Data;
         }
 
         /// <inheritdoc />
-        public async Task<ApiResponse<FileTagResultOutDTO>> TagDocumentByUserWithHttpInfoAsync(Stream file, int operationIndex = 0, CancellationToken cancellationToken = default)
+        public async Task<ApiResponse<FileTagResultOutDTO>> TagDocumentByUserWithHttpInfoAsync(Stream file, string externalId = default, int operationIndex = 0, CancellationToken cancellationToken = default)
         {
             var response = await _transport
-                .TagDocumentByUserWithHttpInfoAsync(file, cancellationToken)
+                .TagDocumentByUserWithHttpInfoAsync(file, externalId, cancellationToken)
                 .ConfigureAwait(false);
             return Checked("TagDocumentByUser", response);
         }

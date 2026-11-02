@@ -16,7 +16,6 @@ import co.gemina.sdk.generated.JSON;
 import co.gemina.sdk.generated.api.BillingApi;
 import co.gemina.sdk.generated.api.ChatApi;
 import co.gemina.sdk.generated.api.DocumentApi;
-import co.gemina.sdk.generated.api.FileTagApi;
 import co.gemina.sdk.generated.api.FilesApi;
 import co.gemina.sdk.generated.api.RetrievalApi;
 import co.gemina.sdk.generated.api.SessionsApi;
@@ -91,7 +90,7 @@ public class GeminaClient {
     private ChatApi chatApi;
     private TemplatesApi templatesApi;
     private FilesApi filesApi;
-    private FileTagApi fileTagApi;
+    private GeminaFileTagApi fileTagApi;
     private SessionsApi sessionsApi;
     private SubscriptionsApi subscriptionsApi;
     private BillingApi billingApi;
@@ -201,9 +200,9 @@ public class GeminaClient {
         return filesApi;
     }
 
-    public synchronized FileTagApi fileTag() {
+    public synchronized GeminaFileTagApi fileTag() {
         if (fileTagApi == null) {
-            fileTagApi = new FileTagApi(apiClient);
+            fileTagApi = new GeminaFileTagApi(apiClient);
         }
         return fileTagApi;
     }
@@ -251,7 +250,7 @@ public class GeminaClient {
         this.filesApi = filesApi;
     }
 
-    synchronized void setFileTagApi(FileTagApi fileTagApi) {
+    synchronized void setFileTagApi(GeminaFileTagApi fileTagApi) {
         this.fileTagApi = fileTagApi;
     }
 

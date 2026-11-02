@@ -164,6 +164,10 @@ import { GeminaChat } from "@gemina/elements";
 | `placeholder` | `string` | `"Ask about your documents…"` | Input placeholder. |
 | `title` | `string` | — | Header text — your brand or assistant persona (`"Acme Invoices"`, `"Gemina's AI Rep"`). When set, the header is always visible. Tint the bar with `--gemina-chat-header-bg`. |
 | `intro` | `string` | — | Plain text centered in the empty conversation area until the first message — set expectations about what the assistant can see (e.g. `"Answers come from your indexed document data."`). Newlines split it into separately spaced paragraphs. |
+| `suggestedQuestions` | `readonly string[]` | — | Clickable questions sent through the normal message handler. Disabled while a request runs. |
+| `onRequestStarted` | `() => void` | — | Runs once when a user starts a message, including an explicit retry. |
+| `onAnswer` | `(answer: ChatQueryOutDTO) => void` | — | Runs after an answer is delivered. Hosts should check their server-side workflow state before marking completion. |
+| `onRequestFailed` | `(error: unknown) => void` | — | Runs when that message fails. Internal authentication retries stay part of the same message. |
 | `onCitationClick` | `(documentId: string) => void` | — | Called when a citation chip is clicked. |
 | `className` | `string` | — | Extra class(es) on the root (handy for CSS-variable overrides). |
 
