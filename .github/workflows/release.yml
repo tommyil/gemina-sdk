@@ -1,9 +1,9 @@
 # Release: tag vX.Y.Z → verify versions match the tag → build everything →
-# publish npm through its GitHub trusted publisher and other registries when
-# their credential secrets exist. Each release records the frozen spec snapshot.
+# publish npm and NuGet through GitHub trusted publishers, and other registries
+# when their credential secrets exist. Each release records the frozen snapshot.
 #
 # Registry secrets (see docs/PUBLISHING-SETUP.md):
-#   PYPI_TOKEN, NUGET_API_KEY,
+#   PYPI_TOKEN,
 #   MAVEN_CENTRAL_USERNAME, MAVEN_CENTRAL_PASSWORD,
 #   MAVEN_GPG_PRIVATE_KEY, MAVEN_GPG_PASSPHRASE,
 #   SDK_PHP_MIRROR_SSH_KEY (private half of a write deploy key on the
@@ -14,6 +14,12 @@ name: Release
 on:
   push:
     tags: ["v*.*.*"]
+  workflow_dispatch:
+    inputs:
+      nuget_tag:
+        description: "Existing release tag to publish to NuGet only"
+        required: true
+        type: string
 
 jobs:
   verify:
@@ -22,11 +28,29 @@ jobs:
     outputs:
       version: ${{ steps.v.outputs.version }}
       spec: ${{ steps.v.outputs.spec }}
+      ref: ${{ steps.source.outputs.ref }}
     steps:
-      - uses: actions/checkout@v4
-      - id: v
+      - name: Select release source
+        id: source
+        env:
+          NUGET_TAG: ${{ inputs.nuget_tag }}
         run: |
-          VERSION="${GITHUB_REF_NAME#v}"
+          RELEASE_REF="$GITHUB_REF"
+          if [ "$GITHUB_EVENT_NAME" = workflow_dispatch ]; then
+            if [[ ! "$NUGET_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+([+-][0-9A-Za-z.-]+)?$ ]]; then
+              echo "::error::Enter an existing vMAJOR.MINOR.PATCH release tag"
+              exit 1
+            fi
+            RELEASE_REF="refs/tags/$NUGET_TAG"
+          fi
+          echo "ref=$RELEASE_REF" >> "$GITHUB_OUTPUT"
+      - uses: actions/checkout@v4
+        with: { ref: "${{ steps.source.outputs.ref }}" }
+      - id: v
+        env:
+          RELEASE_REF: ${{ steps.source.outputs.ref }}
+        run: |
+          VERSION="${RELEASE_REF#refs/tags/v}"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "spec=$(cat specs/CURRENT)" >> "$GITHUB_OUTPUT"
           fail=0
@@ -48,6 +72,7 @@ jobs:
           exit $fail
 
   npm:
+    if: github.event_name == 'push'
     needs: verify
     runs-on: ubuntu-latest
     permissions:
@@ -65,6 +90,7 @@ jobs:
           npm publish --access public
 
   npm-elements:
+    if: github.event_name == 'push'
     # After the SDK so registry state is consistent; the lockfile pins the
     # @gemina/sdk version npm ci installs, so the build never races the
     # freshly-published SDK version.
@@ -85,6 +111,7 @@ jobs:
           npm publish --access public
 
   pypi:
+    if: github.event_name == 'push'
     needs: verify
     runs-on: ubuntu-latest
     steps:
@@ -111,25 +138,32 @@ jobs:
   nuget:
     needs: verify
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
     steps:
       - uses: actions/checkout@v4
-      - name: Check credential
-        id: cred
-        run: |
-          if [ -n "${{ secrets.NUGET_API_KEY }}" ]; then echo "have=true" >> "$GITHUB_OUTPUT";
-          else echo "::warning title=NuGet publish SKIPPED::NUGET_API_KEY secret is not configured"; fi
+        with: { ref: "${{ needs.verify.outputs.ref }}" }
       - uses: actions/setup-dotnet@v4
-        if: steps.cred.outputs.have == 'true'
         with: { dotnet-version: "8.0.x" }
-      - name: Publish Gemina.Sdk
-        if: steps.cred.outputs.have == 'true'
+      - name: Build, test and pack Gemina.Sdk
         working-directory: sdks/csharp
         run: |
           dotnet build Gemina.Sdk.sln -c Release && dotnet test -c Release --no-build
           dotnet pack src/Gemina.Sdk -c Release -o out
-          dotnet nuget push "out/*.nupkg" -k "${{ secrets.NUGET_API_KEY }}" -s https://api.nuget.org/v3/index.json --skip-duplicate
+      - name: Authenticate to NuGet through GitHub
+        uses: NuGet/login@8d196754b4036150537f80ac539e15c2f1028841 # v1
+        id: nuget-login
+        with:
+          user: tommyil
+      - name: Publish Gemina.Sdk
+        working-directory: sdks/csharp
+        env:
+          NUGET_PUBLISH_KEY: ${{ steps.nuget-login.outputs.NUGET_API_KEY }}
+        run: dotnet nuget push "out/*.nupkg" --api-key "$NUGET_PUBLISH_KEY" --source https://api.nuget.org/v3/index.json --skip-duplicate
 
   maven-central:
+    if: github.event_name == 'push'
     needs: verify
     runs-on: ubuntu-latest
     steps:
@@ -160,6 +194,7 @@ jobs:
         run: mvn -B -P release deploy
 
   packagist-mirror:
+    if: github.event_name == 'push'
     # Packagist can't index a monorepo subdirectory: push a read-only subtree
     # split of sdks/php to tommyil/gemina-sdk-php; Packagist tracks that repo.
     needs: verify
@@ -192,7 +227,7 @@ jobs:
 
   github-release:
     needs: [verify, npm, npm-elements, pypi, nuget, maven-central, packagist-mirror]
-    if: always() && needs.verify.result == 'success'
+    if: always() && needs.verify.result == 'success' && github.event_name == 'push'
     runs-on: ubuntu-latest
     permissions: { contents: write }
     steps:
@@ -204,5 +239,5 @@ jobs:
             --title "Gemina SDKs $GITHUB_REF_NAME" \
             --notes "Built from frozen spec snapshot: \`${{ needs.verify.outputs.spec }}\`
 
-          Registry publish results: npm=${{ needs.npm.result }} elements=${{ needs.npm-elements.result }} pypi=${{ needs.pypi.result }} nuget=${{ needs.nuget.result }} maven=${{ needs.maven-central.result }} packagist-mirror=${{ needs.packagist-mirror.result }} (non-npm jobs may report success after skipping a missing secret; check job warnings)." \
+          Registry publish results: npm=${{ needs.npm.result }} elements=${{ needs.npm-elements.result }} pypi=${{ needs.pypi.result }} nuget=${{ needs.nuget.result }} maven=${{ needs.maven-central.result }} packagist-mirror=${{ needs.packagist-mirror.result }} (PyPI, Maven and Packagist jobs may report success after skipping a missing secret; check job warnings)." \
             specs/${{ needs.verify.outputs.spec }}

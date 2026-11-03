@@ -1,7 +1,7 @@
 # Registry Publishing Setup — Operator Checklist
 
-Account setup for publishing the Gemina SDKs. npm uses a GitHub trusted publisher;
-the other registries use the credentials below. Work top-to-bottom;
+Account setup for publishing the Gemina SDKs. npm and NuGet use GitHub trusted
+publishers; the other registries use the credentials below. Work top-to-bottom;
 **start with Maven Central** — its DNS namespace verification is the only step with
 a real waiting period.
 
@@ -51,8 +51,9 @@ GitHub's identity through npm trusted publishing, rather than `NPM_TOKEN`.
    - Allowed action: enable **Allow npm publish**. Stage-only permission does not
      authorize the workflow's direct publish command.
 4. Create both publishers immediately before the next version-tag release. A tag
-   push is this workflow's only trigger and releases the SDKs together. Complete
-   the first successful publication within npm's two-day validation window.
+   push runs the full release. Manual `nuget_tag` recovery runs only NuGet and
+   cannot validate an npm publisher. Complete the first successful npm
+   publication within npm's two-day validation window.
    Confirm both actual package versions in the registry; a GitHub release page
    alone is not proof that the publish jobs succeeded.
 5. After both trusted publications are verified, delete the unused `NPM_TOKEN`
@@ -91,13 +92,36 @@ See [npm trusted publishing](https://docs.npmjs.com/trusted-publishers/) and
 
 ## 4. NuGet (`Gemina.Sdk`)
 
-1. Sign in at <https://www.nuget.org> (Microsoft account).
-2. Avatar → **API Keys** → **Create**:
-   - Key name: `gemina-sdk-publish`
-   - Package owner: your account
-   - Scopes: **Push** → *Push new packages and package versions*
-   - Glob pattern: `Gemina.*`
-3. Record as `NUGET_API_KEY`.
+1. Sign in at <https://www.nuget.org> as `tommyil`, the package owner.
+2. Open Trusted Publishing and add a GitHub Actions policy:
+   - Package owner: `tommyil`
+   - Repository Owner: `tommyil`
+   - Repository: `gemina-sdk`
+   - Workflow File: `release.yml` (filename only)
+   - Environment: leave empty
+   - Scope: Push new packages and package versions
+   - Glob Patterns and Packages: `Gemina.Sdk`
+3. The NuGet job builds and tests first, then uses the pinned official
+   `NuGet/login` action to exchange its GitHub identity for a short-lived key.
+   No stored `NUGET_API_KEY` secret is needed. Verify the actual package version
+   and contents on nuget.org after publication.
+4. After the trusted publication is verified, retire the superseded NuGet key
+   and its unused GitHub secret/local env line. Keep other registry credentials.
+
+To recover a failed NuGet publication from an existing immutable release tag,
+run the **Release** workflow from `main` and set `nuget_tag`, for example:
+
+```bash
+gh workflow run release.yml --repo tommyil/gemina-sdk --ref main -f nuget_tag=v0.16.1
+```
+
+Recovery validates and checks out that exact tag, builds/tests/packs its C# SDK,
+and publishes only NuGet. Other registries and GitHub release creation are
+skipped. Do not move the tag or republish other packages. Verify the actual
+NuGet registry artifact before updating the existing release notes; the original
+partial workflow result remains historical evidence.
+
+See [NuGet trusted publishing](https://learn.microsoft.com/en-us/nuget/nuget-org/trusted-publishing).
 
 ## 5. Packagist (`gemina/sdk`)
 
@@ -123,7 +147,6 @@ Fill it in `KEY=VALUE` form (no quotes, no export):
 
 ```
 PYPI_TOKEN=pypi-xxx
-NUGET_API_KEY=xxx
 MAVEN_CENTRAL_USERNAME=xxx
 MAVEN_CENTRAL_PASSWORD=xxx
 PACKAGIST_USERNAME=xxx
