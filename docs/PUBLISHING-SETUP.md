@@ -61,8 +61,8 @@ GitHub's identity through npm trusted publishing, rather than `NPM_TOKEN`.
    any superseded npm automation token that is still active. Keep other registry
    credentials intact.
 
-The workflow runs on GitHub-hosted runners, grants `id-token: write` only to the
-npm jobs, and uses npm 11.21.1 on Node 22. No npm token is needed in the env file
+The workflow runs on GitHub-hosted runners, grants `id-token: write` to the npm
+and NuGet publishing jobs, and uses npm 11.21.1 on Node 22. No npm token is needed in the env file
 or GitHub secrets for these jobs.
 
 If an npm job returns 401 or 404, first check the trusted publisher's exact repo,
