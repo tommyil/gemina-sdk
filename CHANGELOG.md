@@ -9,6 +9,12 @@ spec snapshot it was generated from where that matters.
 
 Pre-1.0: minor versions carry features and may change behaviour.
 
+## Unreleased
+
+NuGet uses GitHub trusted publishing. The Release workflow can recover only the
+NuGet package from an existing immutable tag, without republishing other
+registries. Normal version tags still release all six artifacts together.
+
 ## v0.16.1 — 2026-11-03
 
 - npm tag releases use GitHub trusted publishing instead of a saved npm
