@@ -1,6 +1,7 @@
 # Registry Publishing Setup — Operator Checklist
 
-One-time account/token setup for publishing the Gemina SDKs. Work top-to-bottom;
+Account setup for publishing the Gemina SDKs. npm uses a GitHub trusted publisher;
+the other registries use the credentials below. Work top-to-bottom;
 **start with Maven Central** — its DNS namespace verification is the only step with
 a real waiting period.
 
@@ -35,19 +36,49 @@ PyPI `gemina`, NuGet `Gemina.Sdk`, Maven `co.gemina:gemina-sdk`, Packagist `gemi
 
 ## 2. npm (`@gemina/sdk`, `@gemina/elements`)
 
-1. Log in (or sign up) at <https://www.npmjs.com>.
-2. Create the org that owns the scope: avatar → **Add Organization** →
-   name `gemina` → the **free** (public packages) plan.
-   - If the name `gemina` is already taken by another user/org, stop and report back —
-     we'll pick a fallback scope together (e.g. `@gemina-ai`).
-3. Create a token: avatar → **Access Tokens** → **Generate New Token** →
-   **Granular Access Token**:
-   - Packages and scopes: **Read and write**, scope it to the `gemina` org
-     (or "All packages" if org scoping isn't offered before packages exist)
-   - Organizations: no access needed
-   - Expiry: your call (365 days is fine; we rotate at release cadence)
-   - **Bypass 2FA for automation**: enable, otherwise CI publishes will fail
-4. Record as `NPM_TOKEN` (starts with `npm_`).
+Both packages already exist under the `gemina` scope. The release workflow uses
+GitHub's identity through npm trusted publishing, rather than `NPM_TOKEN`.
+
+1. Sign in at <https://www.npmjs.com> with an account that can publish both packages.
+2. Under profile → Account, enable two-factor authentication with your own passkey
+   or security key. Keep the recovery codes in your normal password manager.
+3. Open each package's Settings → Trusted publishing and add a GitHub Actions
+   publisher with these exact values:
+   - Organization or user: `tommyil`
+   - Repository: `gemina-sdk`
+   - Workflow filename: `release.yml`
+   - Environment name: leave empty
+   - Allowed action: enable **Allow npm publish**. Stage-only permission does not
+     authorize the workflow's direct publish command.
+4. Create both publishers immediately before the next version-tag release. A tag
+   push is this workflow's only trigger and releases the SDKs together. Complete
+   the first successful publication within npm's two-day validation window.
+   Confirm both actual package versions in the registry; a GitHub release page
+   alone is not proof that the publish jobs succeeded.
+5. After both trusted publications are verified, delete the unused `NPM_TOKEN`
+   GitHub secret and remove its line from the local publishing env file. Revoke
+   any superseded npm automation token that is still active. Keep other registry
+   credentials intact.
+
+The workflow runs on GitHub-hosted runners, grants `id-token: write` only to the
+npm jobs, and uses npm 11.21.1 on Node 22. No npm token is needed in the env file
+or GitHub secrets for these jobs.
+
+If an npm job returns 401 or 404, first check the trusted publisher's exact repo,
+workflow filename, allowed publish action and validation window. A failed identity
+exchange can fall back to the placeholder token from `setup-node`, which makes
+the registry error look like a token problem. A local `npm login` does not repair
+the GitHub publisher configuration.
+
+An immutable tag created before this workflow change still contains its original
+workflow. Do not move or recreate it. A maintainer may recover its unpublished
+packages with an interactive, 2FA-authenticated `npm publish` from the exact tag:
+publish the SDK first, then elements. Verify registry artifacts against the built
+package. That does not change the historical workflow's result or count as a
+trusted-publisher validation run.
+
+See [npm trusted publishing](https://docs.npmjs.com/trusted-publishers/) and
+[npm's account 2FA setup](https://docs.npmjs.com/configuring-two-factor-authentication/).
 
 ## 3. PyPI (`gemina`)
 
@@ -91,7 +122,6 @@ touch ~/.gemina-sdk-publish.env && chmod 600 ~/.gemina-sdk-publish.env
 Fill it in `KEY=VALUE` form (no quotes, no export):
 
 ```
-NPM_TOKEN=npm_xxx
 PYPI_TOKEN=pypi-xxx
 NUGET_API_KEY=xxx
 MAVEN_CENTRAL_USERNAME=xxx

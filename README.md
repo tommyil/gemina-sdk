@@ -63,8 +63,9 @@ Node/.NET/JDK/PHP installed locally.
 ## Releasing
 
 Tag `vX.Y.Z` → GitHub Actions regenerates from the frozen spec, builds all
-packages, and publishes to every registry whose credential secret is
-configured (missing ones are skipped loudly). Each release records the spec
+packages, and publishes npm packages through the configured GitHub trusted
+publisher. Other registries use their configured credential secrets (missing
+ones are skipped loudly). Each release records the spec
 snapshot it was built from. SDK versions are semver, independent of the API
 version.
 

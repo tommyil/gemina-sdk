@@ -9,7 +9,11 @@ spec snapshot it was generated from where that matters.
 
 Pre-1.0: minor versions carry features and may change behaviour.
 
-## Unreleased
+## v0.16.1 — 2026-11-03
+
+- npm tag releases use GitHub trusted publishing instead of a saved npm
+  token. Account 2FA and a publisher for each package are required; existing
+  release tags remain unchanged.
 
 Fix Maven Central release bundling with Maven 3.10 by updating the official
 Central publishing plugin to 0.12.0. The existing v0.16.0 tag remains unchanged.

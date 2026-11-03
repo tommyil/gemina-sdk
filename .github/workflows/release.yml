@@ -1,9 +1,9 @@
 # Release: tag vX.Y.Z → verify versions match the tag → build everything →
-# publish each registry IFF its credential secret exists (loud skip
-# otherwise). Each release records the frozen spec snapshot it was built from.
+# publish npm through its GitHub trusted publisher and other registries when
+# their credential secrets exist. Each release records the frozen spec snapshot.
 #
 # Registry secrets (see docs/PUBLISHING-SETUP.md):
-#   NPM_TOKEN, PYPI_TOKEN, NUGET_API_KEY,
+#   PYPI_TOKEN, NUGET_API_KEY,
 #   MAVEN_CENTRAL_USERNAME, MAVEN_CENTRAL_PASSWORD,
 #   MAVEN_GPG_PRIVATE_KEY, MAVEN_GPG_PASSPHRASE,
 #   SDK_PHP_MIRROR_SSH_KEY (private half of a write deploy key on the
@@ -50,20 +50,16 @@ jobs:
   npm:
     needs: verify
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
     steps:
       - uses: actions/checkout@v4
-      - name: Check credential
-        id: cred
-        run: |
-          if [ -n "${{ secrets.NPM_TOKEN }}" ]; then echo "have=true" >> "$GITHUB_OUTPUT";
-          else echo "::warning title=npm publish SKIPPED::NPM_TOKEN secret is not configured"; fi
       - uses: actions/setup-node@v4
-        if: steps.cred.outputs.have == 'true'
         with: { node-version: 22, registry-url: "https://registry.npmjs.org" }
+      - run: npm install --global npm@11.21.1
       - name: Publish @gemina/sdk
-        if: steps.cred.outputs.have == 'true'
         working-directory: sdks/typescript
-        env: { NODE_AUTH_TOKEN: "${{ secrets.NPM_TOKEN }}" }
         run: |
           npm ci && npm run build && npm test
           npm publish --access public
@@ -74,20 +70,16 @@ jobs:
     # freshly-published SDK version.
     needs: [verify, npm]
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
     steps:
       - uses: actions/checkout@v4
-      - name: Check credential
-        id: cred
-        run: |
-          if [ -n "${{ secrets.NPM_TOKEN }}" ]; then echo "have=true" >> "$GITHUB_OUTPUT";
-          else echo "::warning title=npm elements publish SKIPPED::NPM_TOKEN secret is not configured"; fi
       - uses: actions/setup-node@v4
-        if: steps.cred.outputs.have == 'true'
         with: { node-version: 22, registry-url: "https://registry.npmjs.org" }
+      - run: npm install --global npm@11.21.1
       - name: Publish @gemina/elements
-        if: steps.cred.outputs.have == 'true'
         working-directory: packages/elements
-        env: { NODE_AUTH_TOKEN: "${{ secrets.NPM_TOKEN }}" }
         run: |
           npm ci && npm run build && npm test
           npm publish --access public
@@ -212,5 +204,5 @@ jobs:
             --title "Gemina SDKs $GITHUB_REF_NAME" \
             --notes "Built from frozen spec snapshot: \`${{ needs.verify.outputs.spec }}\`
 
-          Registry publish results: npm=${{ needs.npm.result }} elements=${{ needs.npm-elements.result }} pypi=${{ needs.pypi.result }} nuget=${{ needs.nuget.result }} maven=${{ needs.maven-central.result }} packagist-mirror=${{ needs.packagist-mirror.result }} (success with a missing secret = loud skip; check job warnings)." \
+          Registry publish results: npm=${{ needs.npm.result }} elements=${{ needs.npm-elements.result }} pypi=${{ needs.pypi.result }} nuget=${{ needs.nuget.result }} maven=${{ needs.maven-central.result }} packagist-mirror=${{ needs.packagist-mirror.result }} (non-npm jobs may report success after skipping a missing secret; check job warnings)." \
             specs/${{ needs.verify.outputs.spec }}
