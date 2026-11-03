@@ -9,9 +9,9 @@ spec snapshot it was generated from where that matters.
 
 Pre-1.0: minor versions carry features and may change behaviour.
 
-## Unreleased
+## v0.16.1 — 2026-11-03
 
-- Future npm tag releases use GitHub trusted publishing instead of a saved npm
+- npm tag releases use GitHub trusted publishing instead of a saved npm
   token. Account 2FA and a publisher for each package are required; existing
   release tags remain unchanged.
 
