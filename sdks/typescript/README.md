@@ -283,6 +283,103 @@ const summary = await client.documents.validateDocumentExtraction({
 // summary.data -> per-field comparison against what was extracted
 ```
 
+## Receiving webhooks
+
+Gemina can POST to your server each time an extraction request finishes, so you do not have to poll for each result. Keep every request's correlation id all the same: an event is not guaranteed, and if none has arrived 15 minutes after a request was accepted, poll that request. A call that adds extractions to a document you already uploaded is a request of its own. It reports the upload's correlation id and the ids of the extractions it created (`newExtractionIds`): keep both, and count its 15 minutes from when it was accepted. An event for that correlation id covers the addition only when its result holds those extraction ids (in the event, or fetched from `resultPath` when the event left the result out). One that does not may be the upload's own event, arriving late, so keep the addition's check running. A request that asks only for FileTag does not send a webhook when it succeeds: its result comes back in the response. If such a request fails before FileTag has started on the file, a `failed` event can still arrive. Register your endpoint on the Webhooks page of the console; it gives you a signing secret that starts with `whsec_`.
+
+`unwrapWebhook` checks that a delivery was signed with your secret and is recent, then returns a typed event. It does not remember what it has seen: the same delivery verifies again within five minutes, so your own code decides what a repeat is.
+
+The sample needs nothing beyond Node.js 18 or later and this package. Save it as `webhook.mjs` and start it with `GEMINA_WEBHOOK_SECRET=whsec_... node webhook.mjs` (it listens on port 8099; set `PORT` to change that); it does not start without the secret.
+
+```js
+import { randomUUID } from 'node:crypto';
+import { closeSync, fsyncSync, linkSync, mkdirSync, openSync, rmSync, writeFileSync } from 'node:fs';
+import { createServer } from 'node:http';
+import { join } from 'node:path';
+import { GeminaWebhookVerificationError, unwrapWebhook } from '@gemina/sdk';
+
+const SECRET = process.env.GEMINA_WEBHOOK_SECRET;
+if (!SECRET) {
+  console.error("Set GEMINA_WEBHOOK_SECRET to your endpoint's signing secret (whsec_...).");
+  process.exit(1);
+}
+// One inbox per endpoint. Set GEMINA_WEBHOOK_INBOX if another endpoint's receiver starts from this directory.
+const INBOX = process.env.GEMINA_WEBHOOK_INBOX ?? 'webhook-inbox';
+mkdirSync(INBOX, { recursive: true, mode: 0o700 }); // private: events hold extracted data
+const MAX_BODY_BYTES = 2 * 1024 * 1024; // Gemina's bodies stay near 1 MB
+const PORT = Number(process.env.PORT ?? 8099);
+
+// Store the event under its id BEFORE answering. Write a private file first, then
+// publish it under the event's id. The link fails if that id is already stored,
+// and a half-written file never carries the id.
+function store(id, body) {
+  const final = join(INBOX, `${id}.json`);
+  const partial = join(INBOX, `.${id}.${randomUUID()}.part`);
+  try {
+    const fd = openSync(partial, 'wx', 0o600);
+    try {
+      writeFileSync(fd, body);
+      fsyncSync(fd);
+    } finally {
+      closeSync(fd);
+    }
+    linkSync(partial, final);
+  } catch (error) {
+    if (error.code !== 'EEXIST') throw error; // EEXIST: a repeat of an event you already have
+  } finally {
+    rmSync(partial, { force: true });
+  }
+}
+
+async function handle(req, res, body) {
+  let event;
+  try {
+    event = await unwrapWebhook(body, req.headers, SECRET); // Node joins a repeated header with ", "
+  } catch (error) {
+    if (!(error instanceof GeminaWebhookVerificationError)) throw error;
+    res.writeHead(400).end();
+    return;
+  }
+  if (event.type === 'extraction.completed') store(event.id, body); // a test event, or a type added later, is not stored
+  res.writeHead(200).end();
+}
+
+createServer((req, res) => {
+  if (req.method !== 'POST' || req.url !== '/gemina/webhook') {
+    res.writeHead(404).end();
+    return;
+  }
+  const chunks = []; // the raw bytes, joined once at the end
+  let size = 0;
+  req.on('data', (chunk) => {
+    if (size > MAX_BODY_BYTES) return; // already answered 413: keep nothing more
+    size += chunk.length;
+    if (size > MAX_BODY_BYTES) { // anyone can post here: stop before holding more
+      chunks.length = 0;
+      res.on('finish', () => req.destroy()); // destroying the request first can cut the 413 off
+      res.writeHead(413, { Connection: 'close' }).end();
+      return;
+    }
+    chunks.push(chunk);
+  });
+  req.on('end', () => {
+    if (size > MAX_BODY_BYTES) return;
+    handle(req, res, Buffer.concat(chunks)).catch((error) => {
+      console.error('Gemina webhook not stored:', error); // not stored. A normal delivery is retried; a test or a resend is not
+      res.writeHead(500).end();
+    });
+  });
+}).listen(PORT);
+```
+
+The step that works through the inbox reads a stored event and records `data.status`, which is the outcome whatever happens next. If `resultIncluded` is true, it uses whichever of `data.result` and `data.error` is set (it does not choose by whether there is a `documentId`: a stored failure comes in `error` even when a document exists), and in `data.result` it looks at each extraction first: one whose `meta.purgedAt` is set has no values, so it records that extraction's detail as not available, exactly as for a fetched result. If `resultIncluded` is false, it fetches `resultPath` with the API key saved for that correlation id. (An upload made in the console, or by an assistant signed in to your account with no API key, has no such key: its result is read where the request was made, and the worker records `data.status` and moves on.) It then reads the answer in this order. A 202 first: keep the event in the inbox and fetch again after `Retry-After` (its body has the shape of a result, so a worker that looks at the body first would finish the item with nothing in it). Then a body that is a result document: on a 200 it is the result, and on a 4xx or 5xx it is the detail of a `partial` or `failed` event; an extraction in it whose `meta.purgedAt` is set has no values, because its content was deleted, so record that extraction's detail as not available, also on a 200. Then a connection failure, or a 5xx with no result document in it: leave the event in the inbox and try again later, up to a limit you choose. Any other answer, a 401, 403 or 404 or another error body, is about the fetch and not about the request, so it is never stored as the request's error: keep `data.status`, mark the detail as not available, and move on. A fetch returns the document as it is now, not as it was when the event was sent: if extractions were added since, the answer holds them too, and an event of their own may follow. So a worker that already has a result in the stored event keeps that one, and a worker that had no result in the event (it was too large) cannot tell which of the fetched extractions the event was about: it processes what the answer holds and does the work for each `extractionId` once, so a later event, if one comes, repeats nothing. The image and document links inside a result expire: a worker that gets to an event late fetches the result again from `resultPath`, with the same key, only to take fresh links for the extractions it already has. For an upload made in the console or by a signed-in assistant there is no such key, as above: fresh links come from where the request was made. The step that works through the inbox reads only names that end in `.json`: a `.part` file is never an event.
+
+- **Pass the raw body, and limit its size.** Verify the bytes you received. If your framework parses JSON for you, read the raw body first; a parsed and re-encoded body will not verify. Anyone can post to a public URL, and the signature is checked only after the body is read, so stop reading at 2 MB. Gemina's bodies stay near 1 MB.
+- **Store first, then answer.** Gemina waits 15 seconds for a 2xx. Save the event, answer, and do slow work afterwards. If you cannot save it, answer with a 5xx: Gemina sends an event again on its retry schedule, up to ten attempts over about three days. A test event, and an event you resent from the Webhooks page, is sent once and is not retried: send it again yourself.
+- **Expect repeats.** A delivery can arrive more than once. `event.id` is the same each time, so store each id once. In production use your database or queue: one transaction that inserts the event id and the work to do. The inbox in the sample is there to make it run as printed; it is not a durable queue, and a file can be missing after a power loss.
+- **The result may be left out.** When `resultIncluded` is false, the body has no `result` and no `error`. There are two reasons. A result over 1 MB can still be fetched from `resultPath`. A result whose content was already deleted cannot be fetched any more: the event's `status` is all there is. **Which credential fetches it.** `resultPath` answers only the API key that made the upload the correlation id belongs to, also when that key was used through an assistant. Extractions added to that document later keep the upload's correlation id, so the same key fetches them, wherever the addition was made, the console included. The event does not say which key that was, so if you use more than one, save which key it was next to each correlation id when you make the request: its id, or where you keep its secret, never its name, which can repeat and can change. Fetch with that key: a 404 under another key says nothing about the result. Two kinds of upload were not made with one of your API keys, so no API key can fetch them from `resultPath`. An upload made by an assistant that is signed in to your account with no API key: its result is read in that assistant (its `get_extraction_result` tool, with the event's `correlationId`), not by this code. An upload made in the console: read its result in the console. (The REST guide describes fetching with your account login.) For these two, this code records the event's `status` and stops: an error from `resultPath` says nothing about the result, so do not record it as unavailable. **The outcome is the event's `status`. Never take it from the fetch.** The fetch only adds the detail, and what it returns is the document as it is now: if more was extracted from the document after this event, the answer holds that too, and another event may come for it. Read the answer in this order. First, a 202: the document is being processed again, so keep the event and fetch again after the `Retry-After` time. Check the status code before the body, because a 202 has a result-shaped body. Second, a body that is a result document (its `meta` has a `documentId`): with a 200 it is the result, and with a 4xx or 5xx it is the detail of a `partial` or `failed` request, which is served with an error code. Look at each extraction in it before you record what you got: one whose `meta.purgedAt` is set has no values any more, because its content was deleted, and that is true with a 200 as well. Record such an extraction as not available. The same goes for a result that arrived inside the event: one extraction of a document can be deleted while the others stay, and the event then has `resultIncluded: true` with that extraction's `meta.purgedAt` set and no values. Because the answer is the document as it is now, it can hold extractions that a later event may bring again (a later event is not certain): do the work for each `extractionId` once. Third, a connection failure, or a 5xx with no result document in it: try again later, a limited number of times. Anything else (a 401, 403 or 404, or any other error body) is about the fetch, not about your request: this credential cannot fetch it, or the content is gone. Such a body also says `failed`; do not store it as the request's error. Keep the event's `status`, record that the detail is not available, and stop.
+- **Managing endpoints from code** uses the `webhooks` group with your account-login token (the one the console signs in with), passed to `GeminaClient.withSessionToken`. An API key does not work, and neither does a retrieval session token from `sessions`.
+
 ## Going deeper
 
 **Full API surface.** The convenience layer sits on top of a complete generated client. Every API group is available on the client as a lazy accessor: `documents`, `retrieval`, `chat`, `templates`, `files`, `fileTag`, `sessions`, `subscriptions`, `billing`. For example, list your stored documents:
