@@ -395,8 +395,12 @@ public class GeminaWebhookController {
         if (secret == null || secret.isEmpty()) {
             throw new IllegalStateException("Set GEMINA_WEBHOOK_SECRET to your endpoint's signing secret (whsec_...).");
         }
-        // Private: events hold extracted data. (POSIX only; on Windows, place it where only the service account can read.)
-        Files.createDirectories(inbox, PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString("rwx------")));
+        if (inbox.getFileSystem().supportedFileAttributeViews().contains("posix")) {
+            // Private: events hold extracted data.
+            Files.createDirectories(inbox, PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString("rwx------")));
+        } else {
+            Files.createDirectories(inbox); // Windows: place it where only the service account can read
+        }
     }
 
     @PostMapping("/gemina/webhook")
