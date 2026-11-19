@@ -115,6 +115,7 @@ namespace Gemina.Sdk
         private ISessionsApi _sessions;
         private ISubscriptionsApi _subscriptions;
         private IBillingApi _billing;
+        private IWebhooksApi _webhooks;
         private IDocumentTransport _documentTransport;
 
         private static readonly Random SharedRandom = new Random();
@@ -152,8 +153,11 @@ namespace Gemina.Sdk
         /// Creates a client authenticating with a short-lived session token
         /// (sent as a bearer <c>Authorization</c> header) instead of an API
         /// key — used by browser/session contexts.
+        /// The factory sends whatever bearer token it is given. A retrieval token
+        /// from <c>Sessions</c> does not reach the <see cref="Webhooks"/> group,
+        /// which needs the account-login JWT (the token the console signs in with).
         /// </summary>
-        /// <param name="token">Session token minted via <c>POST /v1/sessions/token</c>.</param>
+        /// <param name="token">Session token minted via <c>POST /v1/sessions/token</c>, or the account-login JWT for <see cref="Webhooks"/>.</param>
         /// <param name="baseUrl">API base URL; override for staging or self-hosted deployments.</param>
         public static GeminaClient WithSessionToken(string token, string baseUrl = DefaultBaseUrl)
         {
@@ -249,6 +253,17 @@ namespace Gemina.Sdk
         {
             get => _billing ?? (_billing = new BillingApi(Configuration));
             internal set => _billing = value;
+        }
+
+        /// <summary>
+        /// Webhook endpoints and their delivery log. These routes need the
+        /// account-login token: build the client with <see cref="WithSessionToken"/>.
+        /// An API key is refused.
+        /// </summary>
+        public IWebhooksApi Webhooks
+        {
+            get => _webhooks ?? (_webhooks = new WebhooksApi(Configuration));
+            internal set => _webhooks = value;
         }
 
         // ---- Stateful chat convenience ----

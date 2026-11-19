@@ -11,6 +11,7 @@ import {
   SessionsApi,
   SubscriptionsApi,
   TemplatesApi,
+  WebhooksApi,
   ResponseStatus,
   type ChatQueryOutDTO,
   type DocumentAddExtractionsOutDTO,
@@ -55,6 +56,7 @@ export interface GeminaClientApis {
   sessions?: SessionsApi;
   subscriptions?: SubscriptionsApi;
   billing?: BillingApi;
+  webhooks?: WebhooksApi;
 }
 
 /** Optional knobs for the `GeminaClient` constructor. */
@@ -365,6 +367,10 @@ export class GeminaClient {
    * Build a client authenticated with a short-lived session token
    * (`OAuth2PasswordBearer` bearer scheme) instead of an API key. Use this
    * in browser/session contexts — never ship the API key to a browser.
+   *
+   * The factory sends whatever bearer token it is given. A retrieval token
+   * from `sessions` does not reach the `webhooks` group, which needs the
+   * account-login JWT (the token the console signs in with).
    */
   static withSessionToken(
     token: string,
@@ -430,6 +436,16 @@ export class GeminaClient {
   get billing(): BillingApi {
     return (this.apiCache.billing ??=
       this.apiOverrides.billing ?? new BillingApi(this.configuration));
+  }
+
+  /**
+   * Webhook endpoints and their delivery log. These routes need the
+   * account-login token (build the client with {@link GeminaClient.withSessionToken});
+   * an API key is refused.
+   */
+  get webhooks(): WebhooksApi {
+    return (this.apiCache.webhooks ??=
+      this.apiOverrides.webhooks ?? new WebhooksApi(this.configuration));
   }
 
   // --- Stateful chat convenience ---

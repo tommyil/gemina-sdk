@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Gemina\Sdk\Tests;
 
 use Gemina\Sdk\Api\DocumentApi;
+use Gemina\Sdk\Api\WebhooksApi;
 use Gemina\Sdk\ApiException;
 use Gemina\Sdk\GeminaClient;
 use Gemina\Sdk\GeminaException;
@@ -65,6 +66,15 @@ final class GeminaClientTest extends TestCase
 
         self::assertSame('session-token', $config->getAccessToken());
         self::assertNull($config->getApiKey('X-API-Key'));
+    }
+
+    public function testWebhooksGroupIsTheGeneratedApiAndIsCached(): void
+    {
+        $client = GeminaClient::withSessionToken('account-login-jwt', 'https://api.example.test');
+
+        self::assertInstanceOf(WebhooksApi::class, $client->webhooks());
+        self::assertSame($client->webhooks(), $client->webhooks());
+        self::assertSame($client->getConfiguration(), $client->webhooks()->getConfig());
     }
 
     // ------------------------------------------------------------------

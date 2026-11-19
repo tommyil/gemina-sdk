@@ -17,8 +17,17 @@ Constructor: `(apiKey, baseUrl = "https://api.gemina.co", options?)`.
   browsers forbid it).
 - Exposes the generated API groups as lazily-constructed accessors:
   `documents`, `retrieval`, `chat`, `templates`, `files`, `fileTag`,
-  `sessions`, `subscriptions`, `billing` (idiomatic casing per language).
-  These are the escape hatch — full generated surface, zero wrapping.
+  `sessions`, `subscriptions`, `billing`, `webhooks` (idiomatic casing per
+  language). These are the escape hatch — full generated surface, zero
+  wrapping.
+- The `webhooks` routes need the account-login JWT, the token the console
+  signs in with. Build the client with the session-token factory
+  (`withSessionToken` in TypeScript, Java and PHP, `with_session_token` in
+  Python, `WithSessionToken` in C#), passing that JWT: the factory only sets
+  the `Authorization: Bearer` header, whatever token it is given. An API key
+  is refused. So is the retrieval session token that `POST /v1/sessions/token`
+  mints: it is a different credential, and passing it through the same
+  factory does not give it access to the `webhooks` group.
 - Exposes `processDocument(...)` / `process_document(...)` (below).
 - Session-token auth variant: a static/named constructor
   `GeminaClient.withSessionToken(token, baseUrl?)` configuring the

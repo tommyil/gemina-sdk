@@ -13,6 +13,7 @@ use Gemina\Sdk\Api\RetrievalApi;
 use Gemina\Sdk\Api\SessionsApi;
 use Gemina\Sdk\Api\SubscriptionsApi;
 use Gemina\Sdk\Api\TemplatesApi;
+use Gemina\Sdk\Api\WebhooksApi;
 use Gemina\Sdk\Model\AddExtractionsInDTO;
 use Gemina\Sdk\Model\DocumentProcessingResultOutDTO;
 use Gemina\Sdk\Model\ResponseStatus;
@@ -103,6 +104,10 @@ class GeminaClient
      * Build a client authenticated with a short-lived session token
      * (Authorization: Bearer) instead of an API key. Session tokens are
      * minted server-side via POST /v1/sessions/token.
+     *
+     * The factory sends whatever bearer token it is given. A retrieval token
+     * from sessions() does not reach the webhooks() group, which needs the
+     * account-login JWT (the token the console signs in with).
      */
     public static function withSessionToken(string $token, string $baseUrl = self::DEFAULT_BASE_URL, array $options = []): self
     {
@@ -164,6 +169,16 @@ class GeminaClient
     public function billing(): BillingApi
     {
         return $this->apis['billing'] ??= new BillingApi($this->httpClient, $this->configuration);
+    }
+
+    /**
+     * Webhook endpoints and their delivery log. These routes need the
+     * account-login token: build the client with withSessionToken(). An API
+     * key is refused.
+     */
+    public function webhooks(): WebhooksApi
+    {
+        return $this->apis['webhooks'] ??= new WebhooksApi($this->httpClient, $this->configuration);
     }
 
     // ------------------------------------------------------------------

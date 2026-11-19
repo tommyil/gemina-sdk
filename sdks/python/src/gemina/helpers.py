@@ -146,8 +146,9 @@ class GeminaClient:
 
     The generated API groups are exposed as lazily-constructed attributes
     (``documents``, ``retrieval``, ``chat``, ``templates``, ``files``,
-    ``file_tag``, ``sessions``, ``subscriptions``, ``billing``) — the full
-    generated surface, zero wrapping.
+    ``file_tag``, ``sessions``, ``subscriptions``, ``billing``, ``webhooks``)
+    — the full generated surface, zero wrapping. ``webhooks`` manages webhook
+    endpoints and needs the account-login token: see ``with_session_token``.
     """
 
     def __init__(
@@ -180,6 +181,10 @@ class GeminaClient:
         Configures the ``OAuth2PasswordBearer`` scheme (``Authorization:
         Bearer <token>``) instead of the API key. Session tokens are minted
         server-side via ``client.sessions.mint_retrieval_token(...)``.
+
+        The factory sends whatever bearer token it is given. A retrieval token
+        from ``sessions`` does not reach the ``webhooks`` group, which needs the
+        account-login JWT (the token the console signs in with).
         """
         configuration = Configuration(
             host=base_url.rstrip("/"),
@@ -203,6 +208,7 @@ class GeminaClient:
         self._sessions: Optional[Any] = None
         self._subscriptions: Optional[Any] = None
         self._billing: Optional[Any] = None
+        self._webhooks: Optional[Any] = None
 
     # -- lifecycle -----------------------------------------------------------
 
@@ -289,6 +295,14 @@ class GeminaClient:
 
             self._billing = BillingApi(self.api_client)
         return self._billing
+
+    @property
+    def webhooks(self) -> Any:
+        if self._webhooks is None:
+            from gemina.generated.api.webhooks_api import WebhooksApi
+
+            self._webhooks = WebhooksApi(self.api_client)
+        return self._webhooks
 
     # -- stateful chat convenience -------------------------------------------
 
