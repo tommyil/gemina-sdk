@@ -20,6 +20,11 @@ jobs:
       # under sdks/, which catches both hand-edits to generated dirs and
       # spec/config drift that wasn't regenerated.
       - run: python tools/generate.py --check
+      # The webhook vectors (stdlib-only): the PHP copies must equal the
+      # canonical files in testdata/, and the typed vectors must equal what
+      # their builder produces.
+      - run: python tools/check_test_vectors.py
+      - run: python tools/build_webhook_typed_vectors.py --check
 
   typescript:
     runs-on: ubuntu-latest

@@ -1,0 +1,67 @@
+{
+  "description": "Signed webhook bodies with a full result or an error. SDK repo only; built by tools/build_webhook_typed_vectors.py.",
+  "valid": [
+    {
+      "name": "extraction-completed-with-result",
+      "secret": "whsec_AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=",
+      "now": 1795000530,
+      "headers": {
+        "webhook-id": "evt_0123456789abcdef0123456789abcdef",
+        "webhook-timestamp": "1795000530",
+        "webhook-signature": "v1,e7MnLYmb6rS96TcrOHkY6UUlUY0IFiSqJv+SWuIpBHk="
+      },
+      "body": "{\"type\":\"extraction.completed\",\"timestamp\":\"2026-11-18T10:15:30Z\",\"data\":{\"correlationId\":\"3f2b6c1e-0d4a-4a57-9a43-1f0e5a7b9c10\",\"documentId\":\"28677df7-033a-409f-8b70-1568ddd17ea0\",\"externalId\":\"חשבונית-2291\",\"endUserId\":null,\"channel\":\"public_api\",\"status\":\"success\",\"resultIncluded\":true,\"resultPath\":\"/api/v1/documents/results/3f2b6c1e-0d4a-4a57-9a43-1f0e5a7b9c10\",\"result\":{\"status\":\"success\",\"meta\":{\"correlationId\":\"3f2b6c1e-0d4a-4a57-9a43-1f0e5a7b9c10\",\"documentId\":\"28677df7-033a-409f-8b70-1568ddd17ea0\"},\"data\":{\"extractions\":[{\"status\":\"success\",\"meta\":{\"extractionType\":\"invoice_headers\",\"modelType\":\"velox\",\"thinking\":false,\"correction\":false,\"evaluation\":false,\"includeCoordinates\":true,\"processorClass\":\"InvoiceHeaderAnalysisProcessor\",\"purgeAt\":\"2026-08-03T17:20:13.180624\",\"purgedAt\":null,\"purgeReason\":null},\"values\":{\"totalAmount\":{\"value\":1572.0,\"coordinates\":null,\"confidence\":null}},\"errors\":[]}]},\"errors\":[]},\"error\":null}}",
+      "expectType": "extraction.completed"
+    },
+    {
+      "name": "extraction-completed-with-error",
+      "secret": "whsec_AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=",
+      "now": 1795000530,
+      "headers": {
+        "webhook-id": "evt_0123456789abcdef0123456789abcdef",
+        "webhook-timestamp": "1795000530",
+        "webhook-signature": "v1,fn0DCgCEw86yoZu9/JzldKWpJzBb5Os4U5+XJVFHEr4="
+      },
+      "body": "{\"type\":\"extraction.completed\",\"timestamp\":\"2026-11-18T10:15:30Z\",\"data\":{\"correlationId\":\"3f2b6c1e-0d4a-4a57-9a43-1f0e5a7b9c10\",\"documentId\":null,\"externalId\":\"חשבונית-2291\",\"endUserId\":null,\"channel\":\"public_api\",\"status\":\"failed\",\"resultIncluded\":true,\"resultPath\":\"/api/v1/documents/results/3f2b6c1e-0d4a-4a57-9a43-1f0e5a7b9c10\",\"result\":null,\"error\":{\"status\":\"failed\",\"meta\":null,\"data\":null,\"errors\":[{\"error_code\":\"PROCESSING_ERROR\",\"description\":\"Document processing failed: unreadable document\"}]}}}",
+      "expectType": "extraction.completed"
+    }
+  ],
+  "invalid": [
+    {
+      "name": "result-is-an-empty-object",
+      "secret": "whsec_AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=",
+      "now": 1795000530,
+      "headers": {
+        "webhook-id": "evt_0123456789abcdef0123456789abcdef",
+        "webhook-timestamp": "1795000530",
+        "webhook-signature": "v1,YSi66wspYYT6vSXL15ZnVm/RgiMDTFZW1Lj0kOrDM14="
+      },
+      "body": "{\"type\":\"extraction.completed\",\"timestamp\":\"2026-11-18T10:15:30Z\",\"data\":{\"correlationId\":\"3f2b6c1e-0d4a-4a57-9a43-1f0e5a7b9c10\",\"documentId\":\"28677df7-033a-409f-8b70-1568ddd17ea0\",\"externalId\":\"חשבונית-2291\",\"endUserId\":null,\"channel\":\"public_api\",\"status\":\"success\",\"resultIncluded\":true,\"resultPath\":\"/api/v1/documents/results/3f2b6c1e-0d4a-4a57-9a43-1f0e5a7b9c10\",\"result\":{},\"error\":null}}",
+      "reason": "invalid_body"
+    },
+    {
+      "name": "result-and-error-both-set",
+      "secret": "whsec_AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=",
+      "now": 1795000530,
+      "headers": {
+        "webhook-id": "evt_0123456789abcdef0123456789abcdef",
+        "webhook-timestamp": "1795000530",
+        "webhook-signature": "v1,19PX7djNl1seqAA5H3+RbhW7sf3CWr706neFJXUAZcw="
+      },
+      "body": "{\"type\":\"extraction.completed\",\"timestamp\":\"2026-11-18T10:15:30Z\",\"data\":{\"correlationId\":\"3f2b6c1e-0d4a-4a57-9a43-1f0e5a7b9c10\",\"documentId\":\"28677df7-033a-409f-8b70-1568ddd17ea0\",\"externalId\":\"חשבונית-2291\",\"endUserId\":null,\"channel\":\"public_api\",\"status\":\"success\",\"resultIncluded\":true,\"resultPath\":\"/api/v1/documents/results/3f2b6c1e-0d4a-4a57-9a43-1f0e5a7b9c10\",\"result\":{\"status\":\"success\",\"meta\":{\"correlationId\":\"3f2b6c1e-0d4a-4a57-9a43-1f0e5a7b9c10\",\"documentId\":\"28677df7-033a-409f-8b70-1568ddd17ea0\"},\"data\":{\"extractions\":[{\"status\":\"success\",\"meta\":{\"extractionType\":\"invoice_headers\",\"modelType\":\"velox\",\"thinking\":false,\"correction\":false,\"evaluation\":false,\"includeCoordinates\":true,\"processorClass\":\"InvoiceHeaderAnalysisProcessor\",\"purgeAt\":\"2026-08-03T17:20:13.180624\",\"purgedAt\":null,\"purgeReason\":null},\"values\":{\"totalAmount\":{\"value\":1572.0,\"coordinates\":null,\"confidence\":null}},\"errors\":[]}]},\"errors\":[]},\"error\":{\"status\":\"failed\",\"meta\":null,\"data\":null,\"errors\":[{\"error_code\":\"PROCESSING_ERROR\",\"description\":\"Document processing failed: unreadable document\"}]}}}",
+      "reason": "invalid_body"
+    },
+    {
+      "name": "error-without-a-status",
+      "secret": "whsec_AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=",
+      "now": 1795000530,
+      "headers": {
+        "webhook-id": "evt_0123456789abcdef0123456789abcdef",
+        "webhook-timestamp": "1795000530",
+        "webhook-signature": "v1,ZR8dGZBr8V8e8SEZnaNAHCeIG+BV2rCEovBG9jIP+Bc="
+      },
+      "body": "{\"type\":\"extraction.completed\",\"timestamp\":\"2026-11-18T10:15:30Z\",\"data\":{\"correlationId\":\"3f2b6c1e-0d4a-4a57-9a43-1f0e5a7b9c10\",\"documentId\":\"28677df7-033a-409f-8b70-1568ddd17ea0\",\"externalId\":\"חשבונית-2291\",\"endUserId\":null,\"channel\":\"public_api\",\"status\":\"failed\",\"resultIncluded\":true,\"resultPath\":\"/api/v1/documents/results/3f2b6c1e-0d4a-4a57-9a43-1f0e5a7b9c10\",\"result\":null,\"error\":{\"errors\":[]}}}",
+      "reason": "invalid_body"
+    }
+  ]
+}
