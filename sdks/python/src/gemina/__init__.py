@@ -24,11 +24,16 @@ from gemina.errors import (
     GeminaError as GeminaError,
     GeminaProcessingError as GeminaProcessingError,
     GeminaTimeoutError as GeminaTimeoutError,
+    GeminaWebhookVerificationError as GeminaWebhookVerificationError,
 )
 from gemina.helpers import (
     GeminaChatConversation as GeminaChatConversation,
     GeminaClient as GeminaClient,
     UrlSource as UrlSource,
+)
+from gemina.webhooks import (
+    WebhookEvent as WebhookEvent,
+    unwrap_webhook as unwrap_webhook,
 )
 
 # Commonly-used generated models/enums, re-exported for convenience.
@@ -86,6 +91,9 @@ __all__ = [
     "GeminaError",
     "GeminaProcessingError",
     "GeminaTimeoutError",
+    "GeminaWebhookVerificationError",
+    "WebhookEvent",
+    "unwrap_webhook",
     "generated",
     # generated re-exports
     "ChatMessageOutDTO",
