@@ -280,6 +280,12 @@ entry must verify using that entry's `now` as the clock and yield
 file, must raise with exactly that entry's `reason`. Load the headers as given: two names that
 differ only in case are two entries, so the loader must not fold them.
 
+**What the vectors do not pin.** Some JSON parsers accept more than strict
+JSON (Newtonsoft accepts single quotes, for example). The vectors pin the
+rejections above and nothing beyond them. Only someone who holds the signing
+secret can produce a signed body, so a looser parser on a signed body is not
+a way in.
+
 ### Not in scope
 
 Sending webhooks, and public-key (`v2a`) signatures. Managing endpoints is
