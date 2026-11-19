@@ -9,7 +9,20 @@ spec snapshot it was generated from where that matters.
 
 Pre-1.0: minor versions carry features and may change behaviour.
 
-## Unreleased
+## v0.17.0 — <release date>
+
+Spec snapshot `gemina-1.12.0.json`.
+
+- **Webhooks.** `unwrapWebhook` (idiomatic name per language) verifies a
+  delivery's signature and timestamp per Standard Webhooks v1 and returns a
+  typed event. New error: `GeminaWebhookVerificationError` (`...Exception` in
+  C#, Java and PHP) with a `reason`. See "Receiving webhooks" in each README.
+- New generated models: `ExtractionCompletedEvent`, `ExtractionCompletedEventData`,
+  `WebhookTestEvent`, `WebhookTestEventData`.
+- New generated API group `webhooks` for managing endpoints, exposed on
+  `GeminaClient`. These routes need your account-login token, not an API key
+  and not a retrieval session token.
+- No breaking changes.
 
 NuGet uses GitHub trusted publishing. The Release workflow can recover only the
 NuGet package from an existing immutable tag, without republishing other
