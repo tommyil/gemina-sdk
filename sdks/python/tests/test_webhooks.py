@@ -221,3 +221,8 @@ def test_only_the_verification_error_ever_leaves_the_helper():
     for headers in ({}, {"webhook-id": None}, {"webhook-timestamp": "9" * 400}):
         with pytest.raises(GeminaWebhookVerificationError):
             unwrap_webhook(vector["body"], headers, vector["secret"])
+    # No body and no headers at all, as the C# and Java suites also pass.
+    with pytest.raises(GeminaWebhookVerificationError):
+        unwrap_webhook(vector["body"], None, vector["secret"])  # type: ignore[arg-type]
+    with pytest.raises(GeminaWebhookVerificationError):
+        unwrap_webhook(None, vector["headers"], vector["secret"], now=lambda: vector["now"])  # type: ignore[arg-type]

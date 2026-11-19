@@ -140,6 +140,9 @@ def unwrap_webhook(
             be parsed; ``reason`` says why. No other error leaves this function
             for any body, header or secret.
     """
+    # No body and no headers are judged like empty ones, as in the other SDKs.
+    body = b"" if body is None else body
+    headers = {} if headers is None else headers
     # One private copy. bytes() copies a bytearray, so the caller's buffer is never read again.
     try:
         raw_body = body.encode("utf-8") if isinstance(body, str) else bytes(body)

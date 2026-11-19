@@ -268,6 +268,13 @@ describe('unwrapWebhook', () => {
     for (const headers of [{}, { 'webhook-id': undefined }, { 'webhook-timestamp': '9'.repeat(400) }]) {
       await reasonOf(unwrapWebhook(utf8.body, headers, utf8.secret));
     }
+    // No body and no headers at all, as the C# and Java suites also pass (plain JavaScript callers can).
+    for (const headers of [null, undefined]) {
+      await reasonOf(unwrapWebhook(utf8.body, headers as unknown as WebhookHeaders, utf8.secret));
+    }
+    for (const body of [null, undefined]) {
+      await reasonOf(unwrapWebhook(body as unknown as string, utf8.headers, utf8.secret, { now: () => utf8.now }));
+    }
   });
 
   it('narrows to the typed data without a cast', async () => {

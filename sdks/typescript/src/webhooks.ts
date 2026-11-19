@@ -92,7 +92,9 @@ function header(headers: WebhookHeaders, name: string): string {
   const add = (value: string) => {
     for (const part of value.split(', ')) if (!values.includes(part)) values.push(part);
   };
-  if (typeof (headers as { get?: unknown }).get === 'function') {
+  if (headers === null || headers === undefined) {
+    // No headers at all (possible from plain JavaScript): judged like an empty set.
+  } else if (typeof (headers as { get?: unknown }).get === 'function') {
     const value = (headers as { get(n: string): string | null }).get(name);
     if (value !== null) add(value);
   } else {
@@ -151,7 +153,8 @@ export async function unwrapWebhook(
 ): Promise<WebhookEvent> {
   // One private copy, taken BEFORE the first await. `new Uint8Array(view)` copies;
   // Buffer.prototype.slice does not. The caller may reuse its buffer at once.
-  const rawBody = typeof body === 'string' ? new TextEncoder().encode(body) : new Uint8Array(body);
+  // No body (possible from plain JavaScript) is judged like an empty one.
+  const rawBody = typeof body === 'string' ? new TextEncoder().encode(body) : new Uint8Array(body ?? 0);
 
   const id = header(headers, 'webhook-id');
   const timestampText = header(headers, 'webhook-timestamp');
