@@ -71,6 +71,8 @@ public class GeminaClient {
             .parseDefaulting(ChronoField.OFFSET_SECONDS, 0)
             .toFormatter();
 
+    private static boolean lenientJsonInstalled;
+
     static {
         // JSON's adapters are static/global, so installing once at class load
         // covers every construction path — including the
@@ -80,7 +82,19 @@ public class GeminaClient {
         // timestamps. Raw generated-client usage that never touches this
         // facade is out of scope, same as the multipart fix in
         // GeminaApiClient.
+        installLenientJson();
+    }
+
+    /**
+     * Idempotent. Also called by {@link GeminaWebhooks}, which must parse a
+     * webhook's result exactly as polling does without a client instance.
+     */
+    static synchronized void installLenientJson() {
+        if (lenientJsonInstalled) {
+            return;
+        }
         JSON.setOffsetDateTimeFormat(LENIENT_OFFSET_DATE_TIME);
+        lenientJsonInstalled = true;
     }
 
     private final ApiClient apiClient;
