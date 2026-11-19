@@ -15,4 +15,5 @@ from gemina.generated.api.retrieval_api import RetrievalApi
 from gemina.generated.api.sessions_api import SessionsApi
 from gemina.generated.api.subscriptions_api import SubscriptionsApi
 from gemina.generated.api.templates_api import TemplatesApi
+from gemina.generated.api.webhooks_api import WebhooksApi
 
