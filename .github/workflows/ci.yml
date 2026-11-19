@@ -42,6 +42,10 @@ jobs:
       - run: npm run build
       - run: npx tsc --noEmit
       - run: npm test
+      # The published entry points, not only the source: one shared webhook
+      # vector through dist/index.js and dist/index.cjs. On Node 18 both use
+      # the node:crypto fallback, which proves the dynamic import survives tsup.
+      - run: node test/dist-entry-check.mjs && node test/dist-entry-check.cjs
 
   python:
     runs-on: ubuntu-latest
