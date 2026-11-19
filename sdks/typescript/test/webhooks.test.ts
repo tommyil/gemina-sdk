@@ -225,10 +225,11 @@ describe('unwrapWebhook', () => {
     expect((await unwrap(utf8, {}, same)).type).toBe('extraction.completed');
   });
 
-  it('folds header names by ASCII case only', async () => {
-    // U+212A KELVIN SIGN lower-cases to "k" under Unicode rules; header names are ASCII.
+  it.each(['webhoo\u212a-id', 'webhook-\u0131d'])('folds header names by ASCII case only (%s)', async (lookalike) => {
+    // U+212A KELVIN SIGN lower-cases to "k" and U+0131 DOTLESS I upper-cases to "I" under
+    // Unicode rules; header names are ASCII.
     const { 'webhook-id': id, ...rest } = utf8.headers;
-    expect(await reasonOf(unwrap(utf8, {}, { 'webhooK-id': id, ...rest }))).toBe('missing_header');
+    expect(await reasonOf(unwrap(utf8, {}, { [lookalike]: id, ...rest }))).toBe('missing_header');
   });
 
   it.each([

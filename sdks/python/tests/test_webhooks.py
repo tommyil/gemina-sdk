@@ -170,13 +170,15 @@ def test_a_header_given_as_a_list_contributes_each_item():
     assert error.value.reason == "ambiguous_header"
 
 
-def test_header_names_are_folded_by_ascii_case_only():
-    # U+212A KELVIN SIGN lower-cases to "k" under Unicode rules. Header names are ASCII,
-    # so a name that only matches after a Unicode fold is not the webhook-id header.
+@pytest.mark.parametrize("lookalike", ["webhoo\u212a-id", "webhook-\u0131d"])
+def test_header_names_are_folded_by_ascii_case_only(lookalike):
+    # U+212A KELVIN SIGN lower-cases to "k" and U+0131 DOTLESS I upper-cases to "I" under
+    # Unicode rules. Header names are ASCII: a name that only matches after a Unicode fold
+    # is not the webhook-id header.
     vector = named(VECTORS["valid"], "extraction-completed-utf8-body")
     rest = {k: v for k, v in vector["headers"].items() if k != "webhook-id"}
     with pytest.raises(GeminaWebhookVerificationError) as error:
-        unwrap({**vector, "headers": {"webhooK-id": vector["headers"]["webhook-id"], **rest}})
+        unwrap({**vector, "headers": {lookalike: vector["headers"]["webhook-id"], **rest}})
     assert error.value.reason == "missing_header"
 
 

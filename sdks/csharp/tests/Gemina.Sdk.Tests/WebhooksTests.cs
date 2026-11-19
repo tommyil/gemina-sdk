@@ -316,8 +316,8 @@ namespace Gemina.Sdk.Tests
         }
 
         [Theory]
-        [InlineData("webhooK-id")]   // KELVIN SIGN: lower-cases to "k" under Unicode rules
-        [InlineData("webhook-ıd")]   // DOTLESS I: upper-cases to "I" under Unicode rules
+        [InlineData("webhoo\u212A-id")]   // KELVIN SIGN: lower-cases to "k" under Unicode rules
+        [InlineData("webhook-\u0131d")]   // DOTLESS I: upper-cases to "I" under Unicode rules
         public void HeaderNamesAreFoldedByAsciiCaseOnly(string lookalike)
         {
             var v = Utf8;
