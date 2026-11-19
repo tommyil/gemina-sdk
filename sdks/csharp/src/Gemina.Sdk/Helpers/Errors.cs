@@ -86,4 +86,38 @@ namespace Gemina.Sdk
             LastResult = lastResult;
         }
     }
+
+    /// <summary>
+    /// Thrown by <see cref="GeminaWebhooks.Unwrap(string, System.Collections.Generic.IEnumerable{System.Collections.Generic.KeyValuePair{string, string}}, string, WebhookOptions)"/>
+    /// when an incoming webhook cannot be verified or parsed (contract §6).
+    /// No other exception type leaves the helper.
+    /// </summary>
+    public class GeminaWebhookVerificationException : GeminaException
+    {
+        /// <summary>
+        /// Why the delivery was refused: <c>missing_header</c>, <c>ambiguous_header</c>,
+        /// <c>invalid_timestamp</c>, <c>timestamp_out_of_tolerance</c>, <c>invalid_secret</c>,
+        /// <c>no_matching_signature</c> or <c>invalid_body</c>.
+        /// </summary>
+        public string Reason { get; }
+
+        /// <summary>Initializes a new instance with a reason and a message.</summary>
+        /// <param name="reason">One of the reason names listed on <see cref="Reason"/>.</param>
+        /// <param name="message">The error message.</param>
+        public GeminaWebhookVerificationException(string reason, string message)
+            : base(message)
+        {
+            Reason = reason;
+        }
+
+        /// <summary>Initializes a new instance with a reason, a message and the underlying cause.</summary>
+        /// <param name="reason">One of the reason names listed on <see cref="Reason"/>.</param>
+        /// <param name="message">The error message.</param>
+        /// <param name="innerException">The underlying cause.</param>
+        public GeminaWebhookVerificationException(string reason, string message, Exception innerException)
+            : base(message, innerException)
+        {
+            Reason = reason;
+        }
+    }
 }
