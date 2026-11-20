@@ -202,6 +202,25 @@ describe('unwrapWebhook', () => {
     expect(await reasonOf(unwrap(utf8, {}, { [first]: real, [second]: 'evt_other', ...rest }))).toBe('ambiguous_header');
   });
 
+  it('parses the verified bytes of an ArrayBuffer the caller changes after the call', async () => {
+    const encoded = new TextEncoder().encode(utf8.body);
+    const arrayBuffer = encoded.buffer.slice(encoded.byteOffset, encoded.byteOffset + encoded.byteLength);
+    const pending = unwrapWebhook(arrayBuffer, utf8.headers, utf8.secret, { now: () => utf8.now });
+    new Uint8Array(arrayBuffer).fill(0x20); // JSON whitespace: a parse of these bytes would fail
+    const event = await pending;
+    expect(event.raw).toEqual(JSON.parse(utf8.body));
+  });
+
+  it('copies a view over part of a larger buffer, and only that part', async () => {
+    const encoded = new TextEncoder().encode(utf8.body);
+    const larger = new Uint8Array(encoded.length + 8);
+    larger.set(encoded, 4);
+    const view = new DataView(larger.buffer, 4, encoded.length);
+    const pending = unwrapWebhook(view, utf8.headers, utf8.secret, { now: () => utf8.now });
+    larger.fill(0);
+    expect((await pending).raw).toEqual(JSON.parse(utf8.body));
+  });
+
   it('judges a repeat that a library already joined the same', async () => {
     const signature = utf8.headers['webhook-signature'];
     expect((await unwrap(utf8, {}, { ...utf8.headers, 'webhook-signature': `${signature}, ${signature}` })).type)
@@ -233,6 +252,19 @@ describe('unwrapWebhook', () => {
     const same = new Headers(utf8.headers);
     same.append('webhook-signature', utf8.headers['webhook-signature']);
     expect((await unwrap(utf8, {}, same)).type).toBe('extraction.completed');
+  });
+
+  it('reads a Map whose get() answers undefined for a missing header', async () => {
+    const all = new Map(Object.entries(utf8.headers));
+    expect((await unwrap(utf8, {}, all as unknown as WebhookHeaders)).type).toBe('extraction.completed');
+    all.delete('webhook-id');
+    expect(await reasonOf(unwrap(utf8, {}, all as unknown as WebhookHeaders))).toBe('missing_header');
+  });
+
+  it('treats options: null like no options', async () => {
+    // The real clock then finds the 2026 vector too old: the point is that nothing else is thrown.
+    expect(await reasonOf(unwrapWebhook(utf8.body, utf8.headers, utf8.secret, null as unknown as UnwrapWebhookOptions)))
+      .toBe('timestamp_out_of_tolerance');
   });
 
   it.each(['webhoo\u212a-id', 'webhook-\u0131d'])('folds header names by ASCII case only (%s)', async (lookalike) => {

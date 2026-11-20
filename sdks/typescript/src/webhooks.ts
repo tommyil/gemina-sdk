@@ -95,8 +95,9 @@ function header(headers: WebhookHeaders, name: string): string {
   if (headers === null || headers === undefined) {
     // No headers at all (possible from plain JavaScript): judged like an empty set.
   } else if (typeof (headers as { get?: unknown }).get === 'function') {
-    const value = (headers as { get(n: string): string | null }).get(name);
-    if (value !== null) add(value);
+    // `!= null`: a Map answers undefined for a missing name, a fetch Headers object null.
+    const value = (headers as { get(n: string): string | null | undefined }).get(name);
+    if (value != null) add(String(value));
   } else {
     for (const [key, value] of Object.entries(headers as Record<string, string | string[] | undefined>)) {
       if (asciiLower(key) !== name || value === undefined || value === null) continue;
@@ -125,6 +126,19 @@ function constantTimeEqual(a: Uint8Array, b: Uint8Array): boolean {
   return difference === 0;
 }
 
+// One private copy of the body. `new Uint8Array(arrayBuffer)` would be a view over the
+// caller's memory, so an ArrayBuffer or a view is copied explicitly, and only the bytes it covers.
+function copyBody(body: string | ArrayBuffer | ArrayBufferView | null | undefined): Uint8Array<ArrayBuffer> {
+  if (typeof body === 'string') return new TextEncoder().encode(body);
+  if (body == null) return new Uint8Array(0); // possible from plain JavaScript: judged like an empty body
+  const source = ArrayBuffer.isView(body)
+    ? new Uint8Array(body.buffer, body.byteOffset, body.byteLength)
+    : new Uint8Array(body as ArrayBuffer);
+  const copy = new Uint8Array(source.length);
+  copy.set(source);
+  return copy;
+}
+
 async function subtleCrypto(): Promise<SubtleCrypto> {
   const global = (globalThis as { crypto?: Crypto }).crypto;
   if (global?.subtle) return global.subtle;
@@ -146,15 +160,14 @@ async function subtleCrypto(): Promise<SubtleCrypto> {
  *   for any body, header or secret.
  */
 export async function unwrapWebhook(
-  body: string | Uint8Array,
+  body: string | ArrayBuffer | ArrayBufferView,
   headers: WebhookHeaders,
   secret: string,
   options: UnwrapWebhookOptions = {},
 ): Promise<WebhookEvent> {
-  // One private copy, taken BEFORE the first await. `new Uint8Array(view)` copies;
-  // Buffer.prototype.slice does not. The caller may reuse its buffer at once.
-  // No body (possible from plain JavaScript) is judged like an empty one.
-  const rawBody = typeof body === 'string' ? new TextEncoder().encode(body) : new Uint8Array(body ?? 0);
+  // One private copy, taken BEFORE the first await: the caller may reuse its buffer at once.
+  const rawBody = copyBody(body);
+  options = options ?? {}; // null from plain JavaScript reads as no options
 
   const id = header(headers, 'webhook-id');
   const timestampText = header(headers, 'webhook-timestamp');
@@ -188,6 +201,8 @@ export async function unwrapWebhook(
   signed.set(rawBody, prefix.length);
 
   const subtle = await subtleCrypto();
+  // From here on only `signed` is read: the bytes the HMAC covers are the bytes that are parsed.
+  const verifiedBody = signed.subarray(prefix.length);
   const cryptoKey = await subtle.importKey('raw', key, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
   const expected = new Uint8Array(await subtle.sign('HMAC', cryptoKey, signed));
 
@@ -201,19 +216,17 @@ export async function unwrapWebhook(
   }
   if (!matched) throw fail('no_matching_signature', 'No signature in the webhook-signature header matches.');
 
-  if (rawBody.length >= 3 && rawBody[0] === 0xef && rawBody[1] === 0xbb && rawBody[2] === 0xbf) {
+  if (verifiedBody.length >= 3 && verifiedBody[0] === 0xef && verifiedBody[1] === 0xbb && verifiedBody[2] === 0xbf) {
     throw fail('invalid_body', 'The webhook body starts with a byte order mark.');
   }
   let parsed: unknown;
   try {
     // ignoreBOM keeps a byte order mark in the text instead of silently dropping it.
-    parsed = JSON.parse(new TextDecoder('utf-8', { fatal: true, ignoreBOM: true }).decode(rawBody));
-  } catch (error) {
-    // TextDecoder throws a TypeError on bytes that are not UTF-8; JSON.parse a SyntaxError.
-    if (error instanceof TypeError || error instanceof SyntaxError) {
-      throw fail('invalid_body', 'The webhook body is not valid JSON.');
-    }
-    throw error;
+    parsed = JSON.parse(new TextDecoder('utf-8', { fatal: true, ignoreBOM: true }).decode(verifiedBody));
+  } catch {
+    // These two calls read nothing but the body: whatever they throw (a TypeError for bytes
+    // that are not UTF-8, a SyntaxError for text that is not JSON) is about the body.
+    throw fail('invalid_body', 'The webhook body is not valid JSON.');
   }
   if (!isObject(parsed)) throw fail('invalid_body', 'The webhook body is not a JSON object.');
 
