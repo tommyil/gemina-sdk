@@ -100,6 +100,7 @@ public class VerifiedDiffEntryOutDTO {
           return b;
         }
       }
+      // Gemina: a value the API added later is UNKNOWN_DEFAULT_OPEN_API, nullable or not (config/templates/java).
       return UNKNOWN_DEFAULT_OPEN_API;
     }
 

@@ -136,6 +136,30 @@ def test_headers_that_can_be_read_only_once_still_verify(make):
     assert unwrap({**vector, "headers": make(vector["headers"])}).type == "extraction.completed"
 
 
+def test_a_nullable_enum_reads_an_unknown_string_as_unknown_and_null_as_null():
+    from gemina.generated.models.webhook_event_out_dto import WebhookEventOutDTO
+    from gemina.generated.models.webhook_endpoint_out_dto import WebhookEndpointOutDTO
+    event = {"id": "8a1d0c55-2f8e-4c1b-9d6e-5b2f1a3c4d5e", "endpointId": "5f2b7c1e-2b6b-4f0e-9a1c-3d4e5f6a7b8c",
+             "webhookId": "evt_0123456789abcdef0123456789abcdef", "type": "extraction.completed", "status": "failed",
+             "attemptCount": 2, "manual": False, "occurredAt": "2026-11-18T10:15:30Z"}
+    assert WebhookEventOutDTO.from_dict({**event, "failureReason": "rate_limited"}).failure_reason == "unknown_default_open_api"
+    assert WebhookEventOutDTO.from_dict({**event, "failureReason": None}).failure_reason is None
+    endpoint = {"id": "5f2b7c1e-2b6b-4f0e-9a1c-3d4e5f6a7b8c", "url": "https://example.com/gemina/webhook",
+                "enabled": False, "notBefore": "2026-11-18T10:15:30Z"}
+    assert WebhookEndpointOutDTO.from_dict({**endpoint, "disabledReason": "suspended"}).disabled_reason == "unknown_default_open_api"
+    assert WebhookEndpointOutDTO.from_dict({**endpoint, "disabledReason": None}).disabled_reason is None
+
+
+def test_an_inline_enum_refuses_a_number():
+    vector = named(TYPED["valid"], "extraction-completed-with-unknown-enum-values")
+    body = json.loads(vector["body"])
+    body["data"]["result"]["data"]["extractions"][0]["verifiedDiff"] = [{"field": "totalAmount", "status": 42}]
+    raw = json.dumps(body, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
+    with pytest.raises(GeminaWebhookVerificationError) as error:
+        unwrap_webhook(raw, signed(vector, raw), vector["secret"], now=lambda: vector["now"])
+    assert error.value.reason == "invalid_body"
+
+
 def test_an_error_envelope_is_typed():
     event = unwrap(named(TYPED["valid"], "extraction-completed-with-error"))
     assert event.data.result is None and event.data.status == "failed"

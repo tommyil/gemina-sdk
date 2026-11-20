@@ -11,6 +11,8 @@ use Gemina\Sdk\Model\DocumentProcessingResultOutDTO;
 use Gemina\Sdk\Model\ExtractionCompletedEventData;
 use Gemina\Sdk\Model\ModelType;
 use Gemina\Sdk\Model\ResponseStatus;
+use Gemina\Sdk\Model\VerifiedDiffEntryOutDTO;
+use Gemina\Sdk\Model\WebhookEventOutDTO;
 use Gemina\Sdk\Model\WebhookTestEventData;
 use Gemina\Sdk\ObjectSerializer;
 use Gemina\Sdk\WebhookEvent;
@@ -198,6 +200,44 @@ final class GeminaWebhooksTest extends TestCase
         // The polling path (json_decode, then ObjectSerializer) refuses it too.
         $this->expectException(\InvalidArgumentException::class);
         ObjectSerializer::deserialize(json_decode(json_encode($body->data->result)), DocumentProcessingResultOutDTO::class);
+    }
+
+    /** The unknown-enum vector with one verifiedDiff entry whose inline-enum status is $status, re-signed. */
+    private static function withDiffStatus(mixed $status): array
+    {
+        $vector = self::named(self::typed()['valid'], 'extraction-completed-with-unknown-enum-values');
+        $body = json_decode($vector['body'], false, 512, JSON_THROW_ON_ERROR);
+        $body->data->result->data->extractions[0]->verifiedDiff = [(object) ['field' => 'totalAmount', 'status' => $status]];
+        $raw = json_encode($body, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        return [$vector, $raw, $body];
+    }
+
+    public function testAnInlineEnumRefusesANumberAndReadsAnUnknownStringAsUnknown(): void
+    {
+        [$vector, $raw, $body] = self::withDiffStatus(42);
+        $this->assertSame('invalid_body', $this->reasonOf(
+            fn () => GeminaWebhooks::unwrap($raw, self::signed($vector, $raw), $vector['secret'], 300, fn () => $vector['now'])));
+        try {
+            ObjectSerializer::deserialize(json_decode(json_encode($body->data->result)), DocumentProcessingResultOutDTO::class);
+            $this->fail('the polling path accepted a number as an inline enum value');
+        } catch (\InvalidArgumentException) {
+        }
+
+        [$vector, $raw] = self::withDiffStatus('reopened');
+        $event = GeminaWebhooks::unwrap($raw, self::signed($vector, $raw), $vector['secret'], 300, fn () => $vector['now']);
+        $entry = $event->data->getResult()->getData()->getExtractions()[0]->getVerifiedDiff()[0];
+        $this->assertSame(VerifiedDiffEntryOutDTO::STATUS_UNKNOWN_DEFAULT_OPEN_API, $entry->getStatus());
+    }
+
+    public function testANullableEnumReadsAnUnknownStringAsUnknownAndNullAsNull(): void
+    {
+        $event = fn (?string $reason) => ObjectSerializer::deserialize(json_decode(json_encode([
+            'id' => '8a1d0c55-2f8e-4c1b-9d6e-5b2f1a3c4d5e', 'endpointId' => '5f2b7c1e-2b6b-4f0e-9a1c-3d4e5f6a7b8c',
+            'webhookId' => 'evt_0123456789abcdef0123456789abcdef', 'type' => 'extraction.completed', 'status' => 'failed',
+            'failureReason' => $reason, 'attemptCount' => 2, 'manual' => false, 'occurredAt' => '2026-11-18T10:15:30Z',
+        ])), WebhookEventOutDTO::class);
+        $this->assertSame(WebhookEventOutDTO::FAILURE_REASON_UNKNOWN_DEFAULT_OPEN_API, $event('rate_limited')->getFailureReason());
+        $this->assertNull($event(null)->getFailureReason());
     }
 
     public function testAnErrorEnvelopeIsTyped(): void

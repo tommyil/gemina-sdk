@@ -144,7 +144,11 @@ public class WebhookEventOutDTO {
           return b;
         }
       }
-      return null;
+      if (value == null) {
+        return null;
+      }
+      // Gemina: a value the API added later is UNKNOWN_DEFAULT_OPEN_API, nullable or not (config/templates/java).
+      return UNKNOWN_DEFAULT_OPEN_API;
     }
 
     public static class Adapter extends TypeAdapter<FailureReasonEnum> {
@@ -240,6 +244,7 @@ public class WebhookEventOutDTO {
           return b;
         }
       }
+      // Gemina: a value the API added later is UNKNOWN_DEFAULT_OPEN_API, nullable or not (config/templates/java).
       return UNKNOWN_DEFAULT_OPEN_API;
     }
 
@@ -307,6 +312,7 @@ public class WebhookEventOutDTO {
           return b;
         }
       }
+      // Gemina: a value the API added later is UNKNOWN_DEFAULT_OPEN_API, nullable or not (config/templates/java).
       return UNKNOWN_DEFAULT_OPEN_API;
     }
 

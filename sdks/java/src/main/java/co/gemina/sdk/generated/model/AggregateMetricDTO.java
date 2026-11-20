@@ -89,7 +89,11 @@ public class AggregateMetricDTO {
           return b;
         }
       }
-      return null;
+      if (value == null) {
+        return null;
+      }
+      // Gemina: a value the API added later is UNKNOWN_DEFAULT_OPEN_API, nullable or not (config/templates/java).
+      return UNKNOWN_DEFAULT_OPEN_API;
     }
 
     public static class Adapter extends TypeAdapter<FieldEnum> {
@@ -162,6 +166,7 @@ public class AggregateMetricDTO {
           return b;
         }
       }
+      // Gemina: a value the API added later is UNKNOWN_DEFAULT_OPEN_API, nullable or not (config/templates/java).
       return UNKNOWN_DEFAULT_OPEN_API;
     }
 

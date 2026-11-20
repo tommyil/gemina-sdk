@@ -72,6 +72,19 @@ namespace Gemina.Sdk.Tests
         }
 
         [Fact]
+        public async Task ANullReasonStaysNullThroughTheWebhooksGroup()
+        {
+            const string body = "{\"count\":1,\"events\":[{\"id\":\"8a1d0c55-2f8e-4c1b-9d6e-5b2f1a3c4d5e\"," +
+                "\"endpointId\":\"5f2b7c1e-2b6b-4f0e-9a1c-3d4e5f6a7b8c\",\"webhookId\":\"evt_0123456789abcdef0123456789abcdef\"," +
+                "\"type\":\"extraction.completed\",\"status\":\"delivered\",\"failureReason\":null," +
+                "\"attemptCount\":1,\"manual\":false,\"occurredAt\":\"2026-11-18T10:15:30.000000\"}]}";
+
+            var list = await Serve(body, client => client.Webhooks.ListWebhookEventsAsync());
+
+            Assert.Null(Assert.Single(list.Events).FailureReason);
+        }
+
+        [Fact]
         public async Task AResultWithValuesAddedLaterParsesThroughTheDocumentsGroup()
         {
             // purgeReason is not null here: the generated group still drops a whole result for a null

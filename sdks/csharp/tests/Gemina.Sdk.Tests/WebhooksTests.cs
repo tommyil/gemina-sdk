@@ -233,6 +233,17 @@ namespace Gemina.Sdk.Tests
         }
 
         [Fact]
+        public void AnInlineEnumRefusesANumber()
+        {
+            var v = Named(Typed.Valid, "extraction-completed-with-unknown-enum-values");
+            var body = JObject.Parse(v.Body);
+            body["data"]["result"]["data"]["extractions"][0]["verifiedDiff"] = JArray.Parse("[{\"field\":\"totalAmount\",\"status\":42}]");
+            var bytes = Encoding.UTF8.GetBytes(body.ToString(Formatting.None));
+            Assert.Equal("invalid_body", ReasonOf(() =>
+                GeminaWebhooks.Unwrap(bytes, Signed(v, bytes), v.Secret, new WebhookOptions { Now = () => v.Now })));
+        }
+
+        [Fact]
         public void AnErrorEnvelopeIsTyped()
         {
             var data = Assert.IsType<ExtractionCompletedEventData>(Unwrap(Named(Typed.Valid, "extraction-completed-with-error")).Data);

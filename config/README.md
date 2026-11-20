@@ -65,8 +65,11 @@ fix these by editing generated code):
   `config/templates/python` (`model_enum.mustache` adds a string-only
   `_missing_`, `model_generic.mustache` maps inline enums instead of raising),
   `config/templates/php/ObjectSerializer.mustache` (maps a string instead of
-  throwing), `config/templates/java/libraries/okhttp-gson` (both enum
-  templates refuse a value that is not a JSON string), and the C# helper's
+  throwing, and checks an inline enum's raw value before the string coercion
+  would turn 42 into "42"), `config/templates/java/libraries/okhttp-gson`
+  (both enum templates refuse a value that is not a JSON string, and map an
+  unknown string even for a nullable enum, where the stock template returned
+  null), and the C# helper's
   `UnknownEnumValueContractResolver` (strings only; integers refused), which
   polling, webhooks and every group the C# facade builds read with (the facade
   sets it on each group's own ApiClient; a group constructed by hand keeps the
