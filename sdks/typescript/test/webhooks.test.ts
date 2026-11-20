@@ -133,6 +133,16 @@ describe('unwrapWebhook', () => {
     expect(event.data.result).toEqual(DocumentProcessingResultOutDTOFromJSON(raw.data.result));
   });
 
+  it('keeps a value of another JSON type as sent, as documented (TypeScript checks no value types)', async () => {
+    const v = named(TYPED.valid, 'extraction-completed-with-unknown-enum-values');
+    const body = JSON.parse(v.body);
+    body.data.result.data.extractions[0].meta.modelType = 42;
+    const bytes = new TextEncoder().encode(JSON.stringify(body));
+    const event = await unwrapWebhook(bytes, signed(v, bytes), v.secret, { now: () => v.now });
+    if (!isExtractionCompleted(event)) throw new Error('expected extraction.completed');
+    expect(event.data.result?.data?.extractions?.[0].meta.modelType as unknown).toBe(42);
+  });
+
   it('types an error envelope', async () => {
     const event = await unwrap(named(TYPED.valid, 'extraction-completed-with-error'));
     if (!isExtractionCompleted(event)) throw new Error('expected extraction.completed');

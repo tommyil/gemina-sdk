@@ -77,7 +77,7 @@ reject it.
 | `document_line_items_hebrew` | Hebrew document line items |
 | `custom_template` | Fields defined by your custom template (pass `templateId`) |
 
-**Values added to the API later.** An enum value this version of the SDK does not know yet (a new `modelType` or `status`, say) does not fail the response: the field holds the string as it was sent, outside the union its type names. This holds for polling results and for webhook events alike.
+**Values added to the API later.** An enum value this version of the SDK does not know yet (a new `modelType` or `status`, say) does not fail the response: the field holds the string as it was sent, outside the union its type names. This holds for polling results and for webhook events alike. The TypeScript SDK does not check the JSON type of any value in a result: a field holds what was sent, also when that is not the type its declaration names (a number where an enum or a string belongs, for one). If you need the types enforced, validate the values yourself. The other Gemina SDKs refuse a value of the wrong kind where an enum belongs.
 
 ## Search & aggregate your documents
 

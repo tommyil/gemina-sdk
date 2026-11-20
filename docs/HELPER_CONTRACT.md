@@ -275,13 +275,22 @@ An unknown `type` is NOT an error. A new event type must not break an old SDK.
 
 An unknown enum value inside `data` (a `modelType` or a result `status` the
 API added later) is not an error either, and the polling path reads it the
-same way. Only a string can be such a value: a number, an object or an array
-where an enum belongs is still refused (`invalid_body`), and a null keeps
-the nullability the field already had. Python, Java and PHP read it as the enum's generated
+same way. Python, Java and PHP read it as the enum's generated
 `UNKNOWN_DEFAULT_OPEN_API` case (PHP: the string `unknown_default_open_api`),
-C# as `UnknownDefaultOpenApi`; TypeScript keeps the string as sent. `raw`
-always holds the value as sent. The typed vector
+C# as `UnknownDefaultOpenApi`. In those four languages only a string can be
+such a value: a number, an object or an array where an enum belongs is
+refused (`invalid_body`), and a null keeps the nullability the field already
+had. `raw` always holds the value as sent. The typed vector
 `extraction-completed-with-unknown-enum-values` pins this.
+
+TypeScript checks no value's JSON type inside a result, for enums or for any
+other field, and never has: the generated converters copy values as sent.
+So TypeScript keeps an unknown enum string as it was sent, and it also keeps
+a number, an object or an array where an enum (or a string) belongs, without
+an error. Its static types describe what the API sends, not what a body was
+checked to hold; a caller that needs the types enforced validates the values
+itself. The helper's own checks (step 10's required fields, and the shape of
+`result` and `error`) apply in TypeScript as everywhere.
 
 TypeScript, whose compiler narrows through a type guard, exports one check
 per known type (`isExtractionCompleted`, `isWebhookTest`). In C# and Java

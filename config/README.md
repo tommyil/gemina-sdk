@@ -73,8 +73,11 @@ fix these by editing generated code):
   `UnknownEnumValueContractResolver` (strings only; integers refused), which
   polling, webhooks and every group the C# facade builds read with (the facade
   sets it on each group's own ApiClient; a group constructed by hand keeps the
-  generator's strict settings). typescript-fetch already passes unknown
-  strings through.
+  generator's strict settings). typescript-fetch checks no value's JSON type
+  at all (not for enums, not for any field): it keeps an unknown string, and
+  also a number, object or array, as sent. Adding enum-only checks there would
+  be inconsistent, so it is documented instead (contract section 6 and the
+  TypeScript README).
   The five template files are copies of the v7.23.0 originals with those
   edits only: re-copy and re-apply them when the generator is bumped.
 - **Java datetime parsing**: the API emits naive datetimes (`servedAt` without
