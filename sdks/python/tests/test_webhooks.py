@@ -212,12 +212,44 @@ def test_text_that_is_not_well_formed_never_leaks_a_native_error():
     assert error.value.reason == "invalid_body"     # Python's encoder raises; the other languages substitute
 
 
+def test_a_webhook_id_decoded_with_surrogateescape_verifies_the_bytes_on_the_wire():
+    # aiohttp decodes header bytes that are not UTF-8 with surrogateescape: b"\xff" arrives as "\udcff".
+    vector = named(VECTORS["valid"], "extraction-completed-utf8-body")
+    timestamp = vector["headers"]["webhook-timestamp"]
+    key = base64.b64decode(vector["secret"][len("whsec_"):])
+    message = b"evt_\xff." + timestamp.encode() + b"." + vector["body"].encode("utf-8")
+    headers = {"webhook-id": "evt_\udcff", "webhook-timestamp": timestamp,
+               "webhook-signature": "v1," + base64.b64encode(hmac.new(key, message, hashlib.sha256).digest()).decode()}
+    event = unwrap_webhook(vector["body"], headers, vector["secret"], now=lambda: vector["now"])
+    assert event.id == "evt_\udcff" and event.type == "extraction.completed"
+
+
+def test_a_webhook_id_that_no_bytes_decode_to_does_not_leak_a_native_error():
+    vector = named(VECTORS["valid"], "extraction-completed-utf8-body")
+    with pytest.raises(GeminaWebhookVerificationError) as error:
+        unwrap({**vector, "headers": {**vector["headers"], "webhook-id": "evt_\ud800"}})
+    assert error.value.reason == "no_matching_signature"
+
+
 def test_a_signed_body_that_is_not_utf8_is_rejected():
     vector = named(VECTORS["valid"], "extraction-completed-utf8-body")
     body = b'{"type":"extraction.completed","data":"\xff"}'      # JSON text cannot carry this byte, so it is signed here
     with pytest.raises(GeminaWebhookVerificationError) as error:
         unwrap_webhook(body, signed(vector, body), vector["secret"], now=lambda: vector["now"])
     assert error.value.reason == "invalid_body"
+
+
+def test_headers_given_as_name_value_pairs_are_read_like_a_mapping():
+    # ASGI scopes and some frameworks give headers as (name, value) pairs, often as bytes.
+    vector = named(VECTORS["valid"], "extraction-completed-utf8-body")
+    pairs = list(vector["headers"].items())
+    assert unwrap({**vector, "headers": pairs}).type == "extraction.completed"
+    as_bytes = [(k.encode(), v.encode()) for k, v in pairs]
+    assert unwrap({**vector, "headers": as_bytes}).type == "extraction.completed"
+    for wrong in (42, [("webhook-id",)], [object()]):
+        with pytest.raises(GeminaWebhookVerificationError) as error:
+            unwrap({**vector, "headers": wrong})
+        assert error.value.reason == "missing_header"
 
 
 def test_an_unset_secret_is_an_invalid_secret():

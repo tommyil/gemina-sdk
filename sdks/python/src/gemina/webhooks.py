@@ -13,7 +13,7 @@ import math
 import re
 import time
 from dataclasses import dataclass
-from typing import Any, Callable, Mapping, NoReturn, Optional, Union
+from typing import Any, Callable, Iterable, Mapping, NoReturn, Optional, Tuple, Union
 
 from .errors import GeminaWebhookVerificationError
 from .generated.models.extraction_completed_event_data import ExtractionCompletedEventData
@@ -63,13 +63,29 @@ def _fail(reason: str, message: str) -> NoReturn:
     raise GeminaWebhookVerificationError(reason, message)
 
 
-def _header(headers: Mapping[str, Any], name: str) -> str:
+def _text(value: Any) -> str:
+    # Header bytes (an ASGI scope's, say) are decoded the way aiohttp decodes them, so the
+    # signed prefix can be encoded back to the same bytes (see unwrap_webhook).
+    return value.decode("utf-8", errors="surrogateescape") if isinstance(value, (bytes, bytearray)) else str(value)
+
+
+def _entries(headers: Any) -> list:
+    """(name, value) entries of a mapping, or of an iterable of pairs; anything else holds none."""
+    if hasattr(headers, "items"):
+        return list(headers.items())
+    try:
+        return [entry for entry in headers if isinstance(entry, (list, tuple)) and len(entry) == 2]
+    except TypeError:                             # not iterable: no headers at all
+        return []
+
+
+def _header(headers: Any, name: str) -> str:
     values: list = []
-    for key, value in headers.items():
-        if str(key).translate(_ASCII_LOWER) != name or value is None:
+    for key, value in _entries(headers):
+        if _text(key).translate(_ASCII_LOWER) != name or value is None:
             continue
         for item in (value if isinstance(value, (list, tuple)) else (value,)):
-            for part in str(item).split(", "):      # a repeat that an HTTP library already joined
+            for part in _text(item).split(", "):    # a repeat that an HTTP library already joined
                 if part not in values:
                     values.append(part)
     if not values:
@@ -115,7 +131,7 @@ def _is_complete(event_type: str, data: Any) -> bool:
 
 def unwrap_webhook(
     body: Union[bytes, bytearray, memoryview, str],
-    headers: Mapping[str, Any],
+    headers: Union[Mapping[str, Any], Iterable[Tuple[Any, Any]]],
     secret: str,
     *,
     tolerance_seconds: float = DEFAULT_TOLERANCE_SECONDS,
@@ -128,8 +144,9 @@ def unwrap_webhook(
 
     Args:
         body: The request body as bytes, or as text (encoded as UTF-8).
-        headers: The request headers. Names are matched ignoring ASCII case;
-            a value may be a list, or several values already joined with ", ".
+        headers: The request headers, as a mapping or as (name, value) pairs, in
+            text or bytes. Names are matched ignoring ASCII case; a value may be a
+            list, or several values already joined with ", ".
         secret: The endpoint's signing secret, ``whsec_...``.
         tolerance_seconds: The largest accepted distance between the clock and
             the ``webhook-timestamp`` header. Default 300.
@@ -170,7 +187,14 @@ def unwrap_webhook(
     if not key:                                    # not set, not base64, or an empty key anyone could sign with
         _fail("invalid_secret", "The signing secret is not valid: expected whsec_ followed by base64.")
 
-    expected = hmac.new(key, f"{event_id}.{timestamp_text}.".encode("utf-8") + raw_body, hashlib.sha256).digest()
+    try:
+        # A header that was not UTF-8 on the wire arrives surrogate-escaped (aiohttp decodes headers
+        # that way): encoding it back the same way signs exactly the bytes that were sent.
+        prefix = f"{event_id}.{timestamp_text}.".encode("utf-8", errors="surrogateescape")
+    except UnicodeEncodeError as exc:            # a lone surrogate no received bytes decode to
+        raise GeminaWebhookVerificationError(
+            "no_matching_signature", "The webhook-id header holds text that was never received bytes.") from exc
+    expected = hmac.new(key, prefix + raw_body, hashlib.sha256).digest()
 
     matched = False
     for entry in signature_header.split(" "):
