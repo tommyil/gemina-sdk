@@ -176,7 +176,15 @@ export async function unwrapWebhook(
   options: UnwrapWebhookOptions = {},
 ): Promise<WebhookEvent> {
   // One private copy, taken BEFORE the first await: the caller may reuse its buffer at once.
-  const rawBody = copyBody(body);
+  let rawBody: Uint8Array<ArrayBuffer>;
+  try {
+    rawBody = copyBody(body);
+  } catch (error) {
+    // A detached ArrayBuffer, or a view over one (a body transferred to a worker), throws a
+    // TypeError when read: there are no bytes left to verify.
+    if (!(error instanceof TypeError)) throw error;
+    throw fail('invalid_body', 'The webhook body cannot be read: its buffer was detached.');
+  }
   options = options ?? {}; // null from plain JavaScript reads as no options
 
   const id = header(headers, 'webhook-id');

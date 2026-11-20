@@ -221,6 +221,16 @@ describe('unwrapWebhook', () => {
     expect(event.raw).toEqual(JSON.parse(utf8.body));
   });
 
+  it.each(['ArrayBuffer', 'DataView'] as const)('reports a %s over a detached buffer as invalid_body', async (kind) => {
+    // A body transferred to a worker leaves its ArrayBuffer detached: there are no bytes left to read.
+    const encoded = new TextEncoder().encode(utf8.body);
+    const buffer = encoded.buffer.slice(encoded.byteOffset, encoded.byteOffset + encoded.byteLength);
+    const view = new DataView(buffer);
+    structuredClone(buffer, { transfer: [buffer] });
+    const body = kind === 'ArrayBuffer' ? buffer : view;
+    expect(await reasonOf(unwrapWebhook(body, utf8.headers, utf8.secret, { now: () => utf8.now }))).toBe('invalid_body');
+  });
+
   it('copies a view over part of a larger buffer, and only that part', async () => {
     const encoded = new TextEncoder().encode(utf8.body);
     const larger = new Uint8Array(encoded.length + 8);
