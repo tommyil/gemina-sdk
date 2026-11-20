@@ -125,6 +125,9 @@ final class GeminaWebhooks
                 continue;
             }
             foreach (is_array($value) ? $value : [$value] as $item) {
+                if (!is_scalar($item) && !$item instanceof \Stringable) {
+                    continue;   // an array or an object PHP cannot turn into text is not a header value
+                }
                 foreach (explode(', ', (string) $item) as $part) {   // a repeat that was already joined
                     $values[$part] = true;
                 }

@@ -192,10 +192,17 @@ unwrapWebhook(body, headers, secret, options?) -> WebhookEvent
 - `body`: the raw request body exactly as received, as bytes or as a string
   (encoded as UTF-8). Callers must NOT pass a parsed-and-reserialised body:
   the signature covers the exact bytes. Each README says this first.
+  (TypeScript takes a string, an `ArrayBuffer` or any `ArrayBufferView`, and
+  copies the bytes the view covers before its first `await`.)
 - `headers`: a mapping of header names to values. Names are matched ignoring
   ASCII case. The same header given twice with different values is rejected,
   whether the repeats arrive as separate entries, as a list, or already
-  joined with ", " by an HTTP library.
+  joined with ", " by an HTTP library. (Python also takes `(name, value)`
+  pairs, in text or bytes; header bytes that are not UTF-8 are read with
+  `surrogateescape`, as aiohttp does, and encoded back the same way for the
+  signature. TypeScript also takes anything with a `get(name)`, a fetch
+  `Headers` object or a `Map`.) A value that cannot be read as text is not a
+  header value.
 - `secret`: the endpoint's signing secret, `whsec_...`.
 - `options`: `toleranceSeconds` (default **300**), and an injectable clock so
   unit tests need no real time (the same requirement as the polling wait in

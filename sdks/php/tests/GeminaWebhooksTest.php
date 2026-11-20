@@ -336,6 +336,9 @@ final class GeminaWebhooksTest extends TestCase
     public function testOnlyTheVerificationErrorEverLeavesTheHelper(): void
     {
         $vector = self::utf8();
+        // A header value PHP cannot turn into text is not a header value.
+        $this->assertSame('missing_header', $this->reasonOf(fn () => self::unwrap($vector, ['webhook-id' => new \stdClass()] + $vector['headers'])));
+        $this->assertSame('missing_header', $this->reasonOf(fn () => self::unwrap($vector, ['webhook-id' => [[$vector['headers']['webhook-id']]]] + $vector['headers'])));
         foreach ([[], ['webhook-id' => null], ['webhook-timestamp' => str_repeat('9', 400)]] as $headers) {
             $this->reasonOf(fn () => GeminaWebhooks::unwrap($vector['body'], $headers, $vector['secret']));
         }
