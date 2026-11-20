@@ -406,9 +406,9 @@ app.MapPost("/gemina/webhook", async (HttpRequest request) =>
         }
         Directory.Move(partial, final);
     }
-    catch (IOException) when (Directory.Exists(final))
+    catch (IOException) when (File.Exists(Path.Combine(final, "event.json")))
     {
-        // a repeat of an event you already have
+        // a repeat of an event you already have (a directory without event.json is not one)
     }
     catch (Exception e) when (e is IOException || e is UnauthorizedAccessException)
     {
