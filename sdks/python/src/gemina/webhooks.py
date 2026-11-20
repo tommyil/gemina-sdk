@@ -79,9 +79,9 @@ def _entries(headers: Any) -> list:
         return []
 
 
-def _header(headers: Any, name: str) -> str:
+def _header(entries: list, name: str) -> str:
     values: list = []
-    for key, value in _entries(headers):
+    for key, value in entries:
         if _text(key).translate(_ASCII_LOWER) != name or value is None:
             continue
         for item in (value if isinstance(value, (list, tuple)) else (value,)):
@@ -159,16 +159,17 @@ def unwrap_webhook(
     """
     # No body and no headers are judged like empty ones, as in the other SDKs.
     body = b"" if body is None else body
-    headers = {} if headers is None else headers
+    # Read once: an iterator or generator of pairs can only be read once.
+    entries = _entries({} if headers is None else headers)
     # One private copy. bytes() copies a bytearray, so the caller's buffer is never read again.
     try:
         raw_body = body.encode("utf-8") if isinstance(body, str) else bytes(body)
     except UnicodeEncodeError as exc:              # an unpaired surrogate: this text was never a UTF-8 body
         raise GeminaWebhookVerificationError("invalid_body", "The webhook body is not well-formed text.") from exc
 
-    event_id = _header(headers, "webhook-id")
-    timestamp_text = _header(headers, "webhook-timestamp")
-    signature_header = _header(headers, "webhook-signature")
+    event_id = _header(entries, "webhook-id")
+    timestamp_text = _header(entries, "webhook-timestamp")
+    signature_header = _header(entries, "webhook-signature")
 
     if _TIMESTAMP.fullmatch(timestamp_text) is None:
         _fail("invalid_timestamp", "The webhook-timestamp header is not a whole number of seconds.")

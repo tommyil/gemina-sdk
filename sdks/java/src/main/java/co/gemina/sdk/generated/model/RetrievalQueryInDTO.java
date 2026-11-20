@@ -110,12 +110,20 @@ public class RetrievalQueryInDTO {
 
       @Override
       public ModeEnum read(final JsonReader jsonReader) throws IOException {
+        // Gemina: only a string may read as UNKNOWN_DEFAULT_OPEN_API; any other kind of value is refused (config/templates/java).
+        if (jsonReader.peek() != com.google.gson.stream.JsonToken.STRING) {
+          throw new com.google.gson.JsonParseException("Expected a string for ModeEnum but got " + jsonReader.peek());
+        }
         String value =  jsonReader.nextString();
         return ModeEnum.fromValue(value);
       }
     }
 
     public static void validateJsonElement(JsonElement jsonElement) throws IOException {
+      // Gemina: only a string may read as UNKNOWN_DEFAULT_OPEN_API; any other kind of value is refused (config/templates/java).
+      if (!jsonElement.isJsonPrimitive() || !jsonElement.getAsJsonPrimitive().isString()) {
+        throw new IllegalArgumentException(String.format(java.util.Locale.ROOT, "Expected a string for ModeEnum but got `%s`", jsonElement.toString()));
+      }
       String value = jsonElement.getAsString();
       ModeEnum.fromValue(value);
     }
@@ -180,12 +188,20 @@ public class RetrievalQueryInDTO {
 
       @Override
       public SortFieldEnum read(final JsonReader jsonReader) throws IOException {
+        // Gemina: only a string may read as UNKNOWN_DEFAULT_OPEN_API; any other kind of value is refused (config/templates/java).
+        if (jsonReader.peek() != com.google.gson.stream.JsonToken.STRING) {
+          throw new com.google.gson.JsonParseException("Expected a string for SortFieldEnum but got " + jsonReader.peek());
+        }
         String value =  jsonReader.nextString();
         return SortFieldEnum.fromValue(value);
       }
     }
 
     public static void validateJsonElement(JsonElement jsonElement) throws IOException {
+      // Gemina: only a string may read as UNKNOWN_DEFAULT_OPEN_API; any other kind of value is refused (config/templates/java).
+      if (!jsonElement.isJsonPrimitive() || !jsonElement.getAsJsonPrimitive().isString()) {
+        throw new IllegalArgumentException(String.format(java.util.Locale.ROOT, "Expected a string for SortFieldEnum but got `%s`", jsonElement.toString()));
+      }
       String value = jsonElement.getAsString();
       SortFieldEnum.fromValue(value);
     }
@@ -239,12 +255,20 @@ public class RetrievalQueryInDTO {
 
       @Override
       public SortMethodEnum read(final JsonReader jsonReader) throws IOException {
+        // Gemina: only a string may read as UNKNOWN_DEFAULT_OPEN_API; any other kind of value is refused (config/templates/java).
+        if (jsonReader.peek() != com.google.gson.stream.JsonToken.STRING) {
+          throw new com.google.gson.JsonParseException("Expected a string for SortMethodEnum but got " + jsonReader.peek());
+        }
         String value =  jsonReader.nextString();
         return SortMethodEnum.fromValue(value);
       }
     }
 
     public static void validateJsonElement(JsonElement jsonElement) throws IOException {
+      // Gemina: only a string may read as UNKNOWN_DEFAULT_OPEN_API; any other kind of value is refused (config/templates/java).
+      if (!jsonElement.isJsonPrimitive() || !jsonElement.getAsJsonPrimitive().isString()) {
+        throw new IllegalArgumentException(String.format(java.util.Locale.ROOT, "Expected a string for SortMethodEnum but got `%s`", jsonElement.toString()));
+      }
       String value = jsonElement.getAsString();
       SortMethodEnum.fromValue(value);
     }

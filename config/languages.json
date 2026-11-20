@@ -43,7 +43,8 @@
           "from": "src/main/java/co/gemina/sdk/generated",
           "to": "sdks/java/src/main/java/co/gemina/sdk/generated"
         }
-      ]
+      ],
+      "templates": "config/templates/java"
     },
     "php": {
       "generator": "php",

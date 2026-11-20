@@ -25,12 +25,22 @@ namespace Gemina.Sdk
 
     /// <summary>
     /// Reads a string that is not one of an enum's values as its <c>UnknownDefaultOpenApi</c>
-    /// member, which the generator adds to every enum (<c>enumUnknownDefaultCase</c>). Every
-    /// other token, and writing, behaves as <see cref="StringEnumConverter"/>.
+    /// member, which the generator adds to every enum (<c>enumUnknownDefaultCase</c>). Any other
+    /// kind of value (a number, an object, an array) is refused; writing behaves as
+    /// <see cref="StringEnumConverter"/>.
     /// </summary>
     internal sealed class UnknownEnumValueConverter : StringEnumConverter
     {
         internal const string UnknownMember = "UnknownDefaultOpenApi";
+
+        /// <summary>
+        /// Integers are refused: only a string can be a value added later, and
+        /// StringEnumConverter would otherwise read 42 as an undefined member.
+        /// </summary>
+        public UnknownEnumValueConverter()
+        {
+            AllowIntegerValues = false;
+        }
 
         internal static bool HasUnknownMember(Type type) => type.IsEnum && Enum.IsDefined(type, UnknownMember);
 

@@ -181,6 +181,25 @@ final class GeminaWebhooksTest extends TestCase
         $this->assertEquals($polled, $result);
     }
 
+    public static function malformedModelTypes(): array
+    {
+        return ['number' => ['42'], 'object' => ['{}'], 'array' => ['[]']];
+    }
+
+    #[DataProvider('malformedModelTypes')]
+    public function testOnlyAnUnknownStringReadsAsUnknownAnythingElseIsStillRefused(string $modelType): void
+    {
+        $vector = self::named(self::typed()['valid'], 'extraction-completed-with-unknown-enum-values');
+        $body = json_decode($vector['body'], false, 512, JSON_THROW_ON_ERROR);
+        $body->data->result->data->extractions[0]->meta->modelType = json_decode($modelType);
+        $raw = json_encode($body, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        $this->assertSame('invalid_body', $this->reasonOf(
+            fn () => GeminaWebhooks::unwrap($raw, self::signed($vector, $raw), $vector['secret'], 300, fn () => $vector['now'])));
+        // The polling path (json_decode, then ObjectSerializer) refuses it too.
+        $this->expectException(\InvalidArgumentException::class);
+        ObjectSerializer::deserialize(json_decode(json_encode($body->data->result)), DocumentProcessingResultOutDTO::class);
+    }
+
     public function testAnErrorEnvelopeIsTyped(): void
     {
         $data = self::unwrap(self::named(self::typed()['valid'], 'extraction-completed-with-error'))->data;

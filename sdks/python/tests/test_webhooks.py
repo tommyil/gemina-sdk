@@ -108,6 +108,34 @@ def test_an_enum_value_added_to_the_api_later_reads_as_unknown_like_polling():
     assert result == DocumentProcessingResultOutDTO.from_json(json.dumps(raw))   # polling reads it the same way
 
 
+def _with_model_type(value):
+    """The unknown-enum typed vector with another modelType, re-signed: (vector, body bytes, headers)."""
+    vector = named(TYPED["valid"], "extraction-completed-with-unknown-enum-values")
+    body = json.loads(vector["body"])
+    body["data"]["result"]["data"]["extractions"][0]["meta"]["modelType"] = value
+    raw = json.dumps(body, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
+    return vector, raw, signed(vector, raw)
+
+
+@pytest.mark.parametrize("value", [42, {}, [], None], ids=["number", "object", "array", "null"])
+def test_only_an_unknown_string_reads_as_unknown_anything_else_is_still_refused(value):
+    vector, raw, headers = _with_model_type(value)
+    with pytest.raises(GeminaWebhookVerificationError) as error:
+        unwrap_webhook(raw, headers, vector["secret"], now=lambda: vector["now"])
+    assert error.value.reason == "invalid_body"
+    with pytest.raises(ValueError):                         # the polling parser refuses it too
+        DocumentProcessingResultOutDTO.from_dict(json.loads(raw)["data"]["result"])
+    vector, raw, headers = _with_model_type("nova")         # while an unknown string still reads as unknown
+    assert unwrap_webhook(raw, headers, vector["secret"], now=lambda: vector["now"]).data.result.data.extractions[0].meta.model_type \
+        == ModelType.UNKNOWN_DEFAULT_OPEN_API
+
+
+@pytest.mark.parametrize("make", [lambda h: iter(h.items()), lambda h: ((k, v) for k, v in h.items())], ids=["iter", "generator"])
+def test_headers_that_can_be_read_only_once_still_verify(make):
+    vector = named(VECTORS["valid"], "extraction-completed-utf8-body")
+    assert unwrap({**vector, "headers": make(vector["headers"])}).type == "extraction.completed"
+
+
 def test_an_error_envelope_is_typed():
     event = unwrap(named(TYPED["valid"], "extraction-completed-with-error"))
     assert event.data.result is None and event.data.status == "failed"

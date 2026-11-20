@@ -123,12 +123,20 @@ public class CreatedWebhookEndpointOutDTO {
 
       @Override
       public DisabledReasonEnum read(final JsonReader jsonReader) throws IOException {
+        // Gemina: only a string may read as UNKNOWN_DEFAULT_OPEN_API; any other kind of value is refused (config/templates/java).
+        if (jsonReader.peek() != com.google.gson.stream.JsonToken.STRING) {
+          throw new com.google.gson.JsonParseException("Expected a string for DisabledReasonEnum but got " + jsonReader.peek());
+        }
         String value =  jsonReader.nextString();
         return DisabledReasonEnum.fromValue(value);
       }
     }
 
     public static void validateJsonElement(JsonElement jsonElement) throws IOException {
+      // Gemina: only a string may read as UNKNOWN_DEFAULT_OPEN_API; any other kind of value is refused (config/templates/java).
+      if (!jsonElement.isJsonPrimitive() || !jsonElement.getAsJsonPrimitive().isString()) {
+        throw new IllegalArgumentException(String.format(java.util.Locale.ROOT, "Expected a string for DisabledReasonEnum but got `%s`", jsonElement.toString()));
+      }
       String value = jsonElement.getAsString();
       DisabledReasonEnum.fromValue(value);
     }

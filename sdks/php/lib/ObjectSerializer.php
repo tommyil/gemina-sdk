@@ -493,10 +493,14 @@ class ObjectSerializer
 
         if (method_exists($class, 'getAllowableEnumValues')) {
             if (!in_array($data, $class::getAllowableEnumValues(), true)) {
-                // Gemina: a value the API added after this SDK was generated reads as
+                // Gemina: a string the API added after this SDK was generated reads as
                 // UNKNOWN_DEFAULT_OPEN_API, as the generated setters of inline enums already
-                // do (config/templates/php, enumUnknownDefaultCase).
-                return $class::UNKNOWN_DEFAULT_OPEN_API;
+                // do; any other kind of value is still refused (config/templates/php).
+                if (is_string($data)) {
+                    return $class::UNKNOWN_DEFAULT_OPEN_API;
+                }
+                $imploded = implode("', '", $class::getAllowableEnumValues());
+                throw new \InvalidArgumentException("Invalid value for enum '$class', must be one of: '$imploded'");
             }
             return $data;
         } else {

@@ -215,6 +215,23 @@ namespace Gemina.Sdk.Tests
             Assert.Equal(polled.Data.Extractions[0].Meta.ModelType, result.Data.Extractions[0].Meta.ModelType);
         }
 
+        [Theory]
+        [InlineData("42")]
+        [InlineData("{}")]
+        [InlineData("[]")]
+        public void OnlyAnUnknownStringReadsAsUnknownAnythingElseIsStillRefused(string modelType)
+        {
+            var v = Named(Typed.Valid, "extraction-completed-with-unknown-enum-values");
+            var body = JObject.Parse(v.Body);
+            body["data"]["result"]["data"]["extractions"][0]["meta"]["modelType"] = JToken.Parse(modelType);
+            var bytes = Encoding.UTF8.GetBytes(body.ToString(Formatting.None));
+            Assert.Equal("invalid_body", ReasonOf(() =>
+                GeminaWebhooks.Unwrap(bytes, Signed(v, bytes), v.Secret, new WebhookOptions { Now = () => v.Now })));
+            // The polling reader refuses it too.
+            Assert.ThrowsAny<JsonException>(() =>
+                DocumentTransport.HandleResponse(200, body["data"]["result"].ToString(Formatting.None), "test"));
+        }
+
         [Fact]
         public void AnErrorEnvelopeIsTyped()
         {

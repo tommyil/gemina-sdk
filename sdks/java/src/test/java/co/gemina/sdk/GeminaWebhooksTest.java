@@ -258,6 +258,21 @@ class GeminaWebhooksTest {
         assertEquals(DocumentProcessingResultOutDTO.fromJson(raw.toString()), result);      // polling reads it the same way
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {"42", "{}", "[]"})
+    void onlyAnUnknownStringReadsAsUnknownAnythingElseIsStillRefused(String modelType) throws Exception {
+        Vector v = named(TYPED.get("valid"), "extraction-completed-with-unknown-enum-values");
+        JsonObject body = JsonParser.parseString(v.body).getAsJsonObject();
+        JsonObject result = body.getAsJsonObject("data").getAsJsonObject("result");
+        result.getAsJsonObject("data").getAsJsonArray("extractions").get(0).getAsJsonObject()
+                .getAsJsonObject("meta").add("modelType", JsonParser.parseString(modelType));
+        byte[] bytes = body.toString().getBytes(StandardCharsets.UTF_8);
+        Map<String, String> headers = signed(v, bytes);
+        assertEquals("invalid_body", reasonOf(() -> GeminaWebhooks.unwrap(bytes, headers, v.secret, clock(v.now))));
+        // The polling reader refuses it too.
+        assertThrows(Exception.class, () -> DocumentProcessingResultOutDTO.fromJson(result.toString()));
+    }
+
     @Test
     void anErrorEnvelopeIsTyped() {
         ExtractionCompletedEventData data = (ExtractionCompletedEventData)

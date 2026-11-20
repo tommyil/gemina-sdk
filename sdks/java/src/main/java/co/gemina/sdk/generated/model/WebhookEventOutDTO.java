@@ -155,12 +155,20 @@ public class WebhookEventOutDTO {
 
       @Override
       public FailureReasonEnum read(final JsonReader jsonReader) throws IOException {
+        // Gemina: only a string may read as UNKNOWN_DEFAULT_OPEN_API; any other kind of value is refused (config/templates/java).
+        if (jsonReader.peek() != com.google.gson.stream.JsonToken.STRING) {
+          throw new com.google.gson.JsonParseException("Expected a string for FailureReasonEnum but got " + jsonReader.peek());
+        }
         String value =  jsonReader.nextString();
         return FailureReasonEnum.fromValue(value);
       }
     }
 
     public static void validateJsonElement(JsonElement jsonElement) throws IOException {
+      // Gemina: only a string may read as UNKNOWN_DEFAULT_OPEN_API; any other kind of value is refused (config/templates/java).
+      if (!jsonElement.isJsonPrimitive() || !jsonElement.getAsJsonPrimitive().isString()) {
+        throw new IllegalArgumentException(String.format(java.util.Locale.ROOT, "Expected a string for FailureReasonEnum but got `%s`", jsonElement.toString()));
+      }
       String value = jsonElement.getAsString();
       FailureReasonEnum.fromValue(value);
     }
@@ -243,12 +251,20 @@ public class WebhookEventOutDTO {
 
       @Override
       public StatusEnum read(final JsonReader jsonReader) throws IOException {
+        // Gemina: only a string may read as UNKNOWN_DEFAULT_OPEN_API; any other kind of value is refused (config/templates/java).
+        if (jsonReader.peek() != com.google.gson.stream.JsonToken.STRING) {
+          throw new com.google.gson.JsonParseException("Expected a string for StatusEnum but got " + jsonReader.peek());
+        }
         String value =  jsonReader.nextString();
         return StatusEnum.fromValue(value);
       }
     }
 
     public static void validateJsonElement(JsonElement jsonElement) throws IOException {
+      // Gemina: only a string may read as UNKNOWN_DEFAULT_OPEN_API; any other kind of value is refused (config/templates/java).
+      if (!jsonElement.isJsonPrimitive() || !jsonElement.getAsJsonPrimitive().isString()) {
+        throw new IllegalArgumentException(String.format(java.util.Locale.ROOT, "Expected a string for StatusEnum but got `%s`", jsonElement.toString()));
+      }
       String value = jsonElement.getAsString();
       StatusEnum.fromValue(value);
     }
@@ -302,12 +318,20 @@ public class WebhookEventOutDTO {
 
       @Override
       public TypeEnum read(final JsonReader jsonReader) throws IOException {
+        // Gemina: only a string may read as UNKNOWN_DEFAULT_OPEN_API; any other kind of value is refused (config/templates/java).
+        if (jsonReader.peek() != com.google.gson.stream.JsonToken.STRING) {
+          throw new com.google.gson.JsonParseException("Expected a string for TypeEnum but got " + jsonReader.peek());
+        }
         String value =  jsonReader.nextString();
         return TypeEnum.fromValue(value);
       }
     }
 
     public static void validateJsonElement(JsonElement jsonElement) throws IOException {
+      // Gemina: only a string may read as UNKNOWN_DEFAULT_OPEN_API; any other kind of value is refused (config/templates/java).
+      if (!jsonElement.isJsonPrimitive() || !jsonElement.getAsJsonPrimitive().isString()) {
+        throw new IllegalArgumentException(String.format(java.util.Locale.ROOT, "Expected a string for TypeEnum but got `%s`", jsonElement.toString()));
+      }
       String value = jsonElement.getAsString();
       TypeEnum.fromValue(value);
     }

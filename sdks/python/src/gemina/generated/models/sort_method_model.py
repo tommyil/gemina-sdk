@@ -35,11 +35,11 @@ class SortMethodModel(str, Enum):
         """Create an instance of SortMethodModel from a JSON string"""
         return cls(json.loads(json_str))
 
-    # Gemina: a value the API added after this SDK was generated reads as
-    # UNKNOWN_DEFAULT_OPEN_API instead of failing the whole response
-    # (config/templates/python, enumUnknownDefaultCase).
+    # Gemina: a string the API added after this SDK was generated reads as
+    # UNKNOWN_DEFAULT_OPEN_API instead of failing the whole response; any other
+    # kind of value is still refused (config/templates/python, enumUnknownDefaultCase).
     @classmethod
     def _missing_(cls, value):
-        return cls.UNKNOWN_DEFAULT_OPEN_API
+        return cls.UNKNOWN_DEFAULT_OPEN_API if isinstance(value, str) else None
 
 
