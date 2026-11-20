@@ -47,7 +47,13 @@ namespace Gemina.Sdk.Model
         /// Enum EnterpriseUsage for value: enterprise_usage
         /// </summary>
         [EnumMember(Value = "enterprise_usage")]
-        EnterpriseUsage = 3
+        EnterpriseUsage = 3,
+
+        /// <summary>
+        /// Enum UnknownDefaultOpenApi for value: unknown_default_open_api
+        /// </summary>
+        [EnumMember(Value = "unknown_default_open_api")]
+        UnknownDefaultOpenApi = 4
     }
 
 }

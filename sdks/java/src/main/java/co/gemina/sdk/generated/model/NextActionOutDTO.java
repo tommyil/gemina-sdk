@@ -55,7 +55,9 @@ public class NextActionOutDTO {
    */
   @JsonAdapter(ActionEnum.Adapter.class)
   public enum ActionEnum {
-    HTTP_GET_AND_SAVE("http_get_and_save");
+    HTTP_GET_AND_SAVE("http_get_and_save"),
+    
+    UNKNOWN_DEFAULT_OPEN_API("unknown_default_open_api");
 
     private String value;
 
@@ -78,7 +80,7 @@ public class NextActionOutDTO {
           return b;
         }
       }
-      throw new IllegalArgumentException("Unexpected value '" + value + "'");
+      return UNKNOWN_DEFAULT_OPEN_API;
     }
 
     public static class Adapter extends TypeAdapter<ActionEnum> {

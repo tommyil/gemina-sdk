@@ -77,7 +77,13 @@ namespace Gemina.Sdk.Model
         /// Enum Storage for value: storage
         /// </summary>
         [EnumMember(Value = "storage")]
-        Storage = 8
+        Storage = 8,
+
+        /// <summary>
+        /// Enum UnknownDefaultOpenApi for value: unknown_default_open_api
+        /// </summary>
+        [EnumMember(Value = "unknown_default_open_api")]
+        UnknownDefaultOpenApi = 9
     }
 
 }

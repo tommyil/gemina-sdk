@@ -9,6 +9,8 @@ use Gemina\Sdk\GeminaWebhooks;
 use Gemina\Sdk\GeminaWebhookVerificationException;
 use Gemina\Sdk\Model\DocumentProcessingResultOutDTO;
 use Gemina\Sdk\Model\ExtractionCompletedEventData;
+use Gemina\Sdk\Model\ModelType;
+use Gemina\Sdk\Model\ResponseStatus;
 use Gemina\Sdk\Model\WebhookTestEventData;
 use Gemina\Sdk\ObjectSerializer;
 use Gemina\Sdk\WebhookEvent;
@@ -115,7 +117,7 @@ final class GeminaWebhooksTest extends TestCase
     {
         // A truncated or mis-copied file would otherwise shrink the data providers silently.
         $this->assertSame([12, 30], [count(self::shared()['valid']), count(self::shared()['invalid'])]);
-        $this->assertSame([2, 3], [count(self::typed()['valid']), count(self::typed()['invalid'])]);
+        $this->assertSame([3, 3], [count(self::typed()['valid']), count(self::typed()['invalid'])]);
     }
 
     #[DataProvider('validVectors')]
@@ -163,6 +165,20 @@ final class GeminaWebhooksTest extends TestCase
         $this->assertNull($meta->getPurgeReason());
         $this->assertSame('2026-08-03T17:20:13.180624', $meta->getPurgeAt()->format('Y-m-d\TH:i:s.u'));
         $this->assertSame('28677df7-033a-409f-8b70-1568ddd17ea0', $event->data->getResult()->getMeta()->getDocumentId());
+    }
+
+    public function testAnEnumValueAddedToTheApiLaterReadsAsUnknownLikePolling(): void
+    {
+        $event = self::unwrap(self::named(self::typed()['valid'], 'extraction-completed-with-unknown-enum-values'));
+        $result = $event->data->getResult();
+        $this->assertSame(ResponseStatus::UNKNOWN_DEFAULT_OPEN_API, $result->getStatus());
+        $this->assertSame(ModelType::UNKNOWN_DEFAULT_OPEN_API, $result->getData()->getExtractions()[0]->getMeta()->getModelType());
+        $this->assertSame('queued', $event->raw->data->result->status); // the value that was sent stays in raw
+        $polled = ObjectSerializer::deserialize(
+            json_decode(json_encode($event->raw->data->result), false, 512, JSON_THROW_ON_ERROR),
+            DocumentProcessingResultOutDTO::class
+        );
+        $this->assertEquals($polled, $result);
     }
 
     public function testAnErrorEnvelopeIsTyped(): void

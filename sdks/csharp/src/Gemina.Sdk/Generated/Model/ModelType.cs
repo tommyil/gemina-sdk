@@ -65,7 +65,13 @@ namespace Gemina.Sdk.Model
         /// Enum Invictus for value: invictus
         /// </summary>
         [EnumMember(Value = "invictus")]
-        Invictus = 6
+        Invictus = 6,
+
+        /// <summary>
+        /// Enum UnknownDefaultOpenApi for value: unknown_default_open_api
+        /// </summary>
+        [EnumMember(Value = "unknown_default_open_api")]
+        UnknownDefaultOpenApi = 7
     }
 
 }

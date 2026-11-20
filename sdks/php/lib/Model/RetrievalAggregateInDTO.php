@@ -267,6 +267,7 @@ class RetrievalAggregateInDTO implements ModelInterface, ArrayAccess, \JsonSeria
     public const GROUP_BY_DOC_NUMBER = 'doc_number';
     public const GROUP_BY_ISSUE_DATE = 'issue_date';
     public const GROUP_BY_DOCUMENT_ID = 'document_id';
+    public const GROUP_BY_UNKNOWN_DEFAULT_OPEN_API = 'unknown_default_open_api';
 
     /**
      * Gets allowable values of the enum
@@ -291,6 +292,7 @@ class RetrievalAggregateInDTO implements ModelInterface, ArrayAccess, \JsonSeria
             self::GROUP_BY_DOC_NUMBER,
             self::GROUP_BY_ISSUE_DATE,
             self::GROUP_BY_DOCUMENT_ID,
+            self::GROUP_BY_UNKNOWN_DEFAULT_OPEN_API,
         ];
     }
 

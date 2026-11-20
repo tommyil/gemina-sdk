@@ -56,22 +56,25 @@ class WebhookEventOutDTO(BaseModel):
         if value is None:
             return value
 
-        if value not in set(['endpoint_disabled', 'retries_exhausted', 'failed', 'gone', 'not_final', 'unavailable', 'superseded']):
-            raise ValueError("must be one of enum values ('endpoint_disabled', 'retries_exhausted', 'failed', 'gone', 'not_final', 'unavailable', 'superseded')")
+        if value not in set(['endpoint_disabled', 'retries_exhausted', 'failed', 'gone', 'not_final', 'unavailable', 'superseded', 'unknown_default_open_api']):
+            # Gemina: a value the API added later reads as unknown_default_open_api (enumUnknownDefaultCase).
+            return 'unknown_default_open_api'
         return value
 
     @field_validator('status')
     def status_validate_enum(cls, value):
         """Validates the enum"""
-        if value not in set(['pending', 'delivered', 'failed', 'superseded']):
-            raise ValueError("must be one of enum values ('pending', 'delivered', 'failed', 'superseded')")
+        if value not in set(['pending', 'delivered', 'failed', 'superseded', 'unknown_default_open_api']):
+            # Gemina: a value the API added later reads as unknown_default_open_api (enumUnknownDefaultCase).
+            return 'unknown_default_open_api'
         return value
 
     @field_validator('type')
     def type_validate_enum(cls, value):
         """Validates the enum"""
-        if value not in set(['extraction.completed', 'webhook.test']):
-            raise ValueError("must be one of enum values ('extraction.completed', 'webhook.test')")
+        if value not in set(['extraction.completed', 'webhook.test', 'unknown_default_open_api']):
+            # Gemina: a value the API added later reads as unknown_default_open_api (enumUnknownDefaultCase).
+            return 'unknown_default_open_api'
         return value
 
     model_config = ConfigDict(

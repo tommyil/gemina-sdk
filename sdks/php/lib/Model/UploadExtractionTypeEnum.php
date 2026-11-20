@@ -55,6 +55,8 @@ class UploadExtractionTypeEnum
 
     public const CUSTOM_TEMPLATE = 'custom_template';
 
+    public const UNKNOWN_DEFAULT_OPEN_API = 'unknown_default_open_api';
+
     /**
      * Gets allowable values of the enum
      * @return string[]
@@ -67,7 +69,8 @@ class UploadExtractionTypeEnum
             self::DOCUMENT_LINE_ITEMS_HEBREW,
             self::INVOICE_HEADERS,
             self::INVOICE_LINE_ITEMS,
-            self::CUSTOM_TEMPLATE
+            self::CUSTOM_TEMPLATE,
+            self::UNKNOWN_DEFAULT_OPEN_API
         ];
     }
 }

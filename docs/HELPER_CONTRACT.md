@@ -265,6 +265,14 @@ The platform decoders disagree without it: Java and PHP accept a missing `=`, an
 
 An unknown `type` is NOT an error. A new event type must not break an old SDK.
 
+An unknown enum value inside `data` (a `modelType` or a result `status` the
+API added later) is not an error either, and the polling path reads it the
+same way. Python, Java and PHP read it as the enum's generated
+`UNKNOWN_DEFAULT_OPEN_API` case (PHP: the string `unknown_default_open_api`),
+C# as `UnknownDefaultOpenApi`; TypeScript keeps the string as sent. `raw`
+always holds the value as sent. The typed vector
+`extraction-completed-with-unknown-enum-values` pins this.
+
 TypeScript, whose compiler narrows through a type guard, exports one check
 per known type (`isExtractionCompleted`, `isWebhookTest`). In C# and Java
 `data` is typed `object` / `Object`, and the caller narrows with the

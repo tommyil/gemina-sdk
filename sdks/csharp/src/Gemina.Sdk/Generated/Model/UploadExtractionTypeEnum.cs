@@ -66,7 +66,13 @@ namespace Gemina.Sdk.Model
         /// Enum CustomTemplate for value: custom_template
         /// </summary>
         [EnumMember(Value = "custom_template")]
-        CustomTemplate = 6
+        CustomTemplate = 6,
+
+        /// <summary>
+        /// Enum UnknownDefaultOpenApi for value: unknown_default_open_api
+        /// </summary>
+        [EnumMember(Value = "unknown_default_open_api")]
+        UnknownDefaultOpenApi = 7
     }
 
 }

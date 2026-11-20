@@ -50,6 +50,8 @@ class FeatureType
 
     public const CORRECTION = 'correction';
 
+    public const UNKNOWN_DEFAULT_OPEN_API = 'unknown_default_open_api';
+
     /**
      * Gets allowable values of the enum
      * @return string[]
@@ -60,7 +62,8 @@ class FeatureType
             self::BASIC,
             self::THINKING,
             self::EVALUATION,
-            self::CORRECTION
+            self::CORRECTION,
+            self::UNKNOWN_DEFAULT_OPEN_API
         ];
     }
 }

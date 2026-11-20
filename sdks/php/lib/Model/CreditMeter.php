@@ -47,6 +47,8 @@ class CreditMeter
 
     public const FILETAG_CREDITS = 'filetag_credits';
 
+    public const UNKNOWN_DEFAULT_OPEN_API = 'unknown_default_open_api';
+
     /**
      * Gets allowable values of the enum
      * @return string[]
@@ -55,7 +57,8 @@ class CreditMeter
     {
         return [
             self::PROCESSING_CREDITS,
-            self::FILETAG_CREDITS
+            self::FILETAG_CREDITS,
+            self::UNKNOWN_DEFAULT_OPEN_API
         ];
     }
 }

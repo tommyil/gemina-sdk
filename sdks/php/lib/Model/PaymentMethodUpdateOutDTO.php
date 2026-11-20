@@ -256,6 +256,7 @@ class PaymentMethodUpdateOutDTO implements ModelInterface, ArrayAccess, \JsonSer
     public const PURPOSE_UPDATE_PAYMENT_METHOD = 'update_payment_method';
     public const PURPOSE_PAY_OVERDUE = 'pay_overdue';
     public const PURPOSE_RESUME_SUBSCRIPTION = 'resume_subscription';
+    public const PURPOSE_UNKNOWN_DEFAULT_OPEN_API = 'unknown_default_open_api';
 
     /**
      * Gets allowable values of the enum
@@ -268,6 +269,7 @@ class PaymentMethodUpdateOutDTO implements ModelInterface, ArrayAccess, \JsonSer
             self::PURPOSE_UPDATE_PAYMENT_METHOD,
             self::PURPOSE_PAY_OVERDUE,
             self::PURPOSE_RESUME_SUBSCRIPTION,
+            self::PURPOSE_UNKNOWN_DEFAULT_OPEN_API,
         ];
     }
 
@@ -503,13 +505,7 @@ class PaymentMethodUpdateOutDTO implements ModelInterface, ArrayAccess, \JsonSer
         }
         $allowedValues = $this->getPurposeAllowableValues();
         if (!in_array($purpose, $allowedValues, true)) {
-            throw new \InvalidArgumentException(
-                sprintf(
-                    "Invalid value '%s' for 'purpose', must be one of '%s'",
-                    $purpose,
-                    implode("', '", $allowedValues)
-                )
-            );
+            $purpose = self::PURPOSE_UNKNOWN_DEFAULT_OPEN_API;
         }
         $this->container['purpose'] = $purpose;
 

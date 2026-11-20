@@ -53,7 +53,13 @@ namespace Gemina.Sdk.Model
         /// Enum Asia for value: asia
         /// </summary>
         [EnumMember(Value = "asia")]
-        Asia = 4
+        Asia = 4,
+
+        /// <summary>
+        /// Enum UnknownDefaultOpenApi for value: unknown_default_open_api
+        /// </summary>
+        [EnumMember(Value = "unknown_default_open_api")]
+        UnknownDefaultOpenApi = 5
     }
 
 }

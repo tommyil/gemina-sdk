@@ -337,12 +337,15 @@ class WebhookEventOutDTO implements ModelInterface, ArrayAccess, \JsonSerializab
     public const FAILURE_REASON_NOT_FINAL = 'not_final';
     public const FAILURE_REASON_UNAVAILABLE = 'unavailable';
     public const FAILURE_REASON_SUPERSEDED = 'superseded';
+    public const FAILURE_REASON_UNKNOWN_DEFAULT_OPEN_API = 'unknown_default_open_api';
     public const STATUS_PENDING = 'pending';
     public const STATUS_DELIVERED = 'delivered';
     public const STATUS_FAILED = 'failed';
     public const STATUS_SUPERSEDED = 'superseded';
+    public const STATUS_UNKNOWN_DEFAULT_OPEN_API = 'unknown_default_open_api';
     public const TYPE_EXTRACTION_COMPLETED = 'extraction.completed';
     public const TYPE_WEBHOOK_TEST = 'webhook.test';
+    public const TYPE_UNKNOWN_DEFAULT_OPEN_API = 'unknown_default_open_api';
 
     /**
      * Gets allowable values of the enum
@@ -359,6 +362,7 @@ class WebhookEventOutDTO implements ModelInterface, ArrayAccess, \JsonSerializab
             self::FAILURE_REASON_NOT_FINAL,
             self::FAILURE_REASON_UNAVAILABLE,
             self::FAILURE_REASON_SUPERSEDED,
+            self::FAILURE_REASON_UNKNOWN_DEFAULT_OPEN_API,
         ];
     }
 
@@ -374,6 +378,7 @@ class WebhookEventOutDTO implements ModelInterface, ArrayAccess, \JsonSerializab
             self::STATUS_DELIVERED,
             self::STATUS_FAILED,
             self::STATUS_SUPERSEDED,
+            self::STATUS_UNKNOWN_DEFAULT_OPEN_API,
         ];
     }
 
@@ -387,6 +392,7 @@ class WebhookEventOutDTO implements ModelInterface, ArrayAccess, \JsonSerializab
         return [
             self::TYPE_EXTRACTION_COMPLETED,
             self::TYPE_WEBHOOK_TEST,
+            self::TYPE_UNKNOWN_DEFAULT_OPEN_API,
         ];
     }
 
@@ -834,13 +840,7 @@ class WebhookEventOutDTO implements ModelInterface, ArrayAccess, \JsonSerializab
         }
         $allowedValues = $this->getFailureReasonAllowableValues();
         if (!is_null($failure_reason) && !in_array($failure_reason, $allowedValues, true)) {
-            throw new \InvalidArgumentException(
-                sprintf(
-                    "Invalid value '%s' for 'failure_reason', must be one of '%s'",
-                    $failure_reason,
-                    implode("', '", $allowedValues)
-                )
-            );
+            $failure_reason = self::FAILURE_REASON_UNKNOWN_DEFAULT_OPEN_API;
         }
         $this->container['failure_reason'] = $failure_reason;
 
@@ -1020,13 +1020,7 @@ class WebhookEventOutDTO implements ModelInterface, ArrayAccess, \JsonSerializab
         }
         $allowedValues = $this->getStatusAllowableValues();
         if (!in_array($status, $allowedValues, true)) {
-            throw new \InvalidArgumentException(
-                sprintf(
-                    "Invalid value '%s' for 'status', must be one of '%s'",
-                    $status,
-                    implode("', '", $allowedValues)
-                )
-            );
+            $status = self::STATUS_UNKNOWN_DEFAULT_OPEN_API;
         }
         $this->container['status'] = $status;
 
@@ -1057,13 +1051,7 @@ class WebhookEventOutDTO implements ModelInterface, ArrayAccess, \JsonSerializab
         }
         $allowedValues = $this->getTypeAllowableValues();
         if (!in_array($type, $allowedValues, true)) {
-            throw new \InvalidArgumentException(
-                sprintf(
-                    "Invalid value '%s' for 'type', must be one of '%s'",
-                    $type,
-                    implode("', '", $allowedValues)
-                )
-            );
+            $type = self::TYPE_UNKNOWN_DEFAULT_OPEN_API;
         }
         $this->container['type'] = $type;
 

@@ -31,7 +31,9 @@ public enum CreditMeter {
   
   PROCESSING_CREDITS("processing_credits"),
   
-  FILETAG_CREDITS("filetag_credits");
+  FILETAG_CREDITS("filetag_credits"),
+  
+  UNKNOWN_DEFAULT_OPEN_API("unknown_default_open_api");
 
   private String value;
 
@@ -54,7 +56,7 @@ public enum CreditMeter {
         return b;
       }
     }
-    throw new IllegalArgumentException("Unexpected value '" + value + "'");
+    return UNKNOWN_DEFAULT_OPEN_API;
   }
 
   public static class Adapter extends TypeAdapter<CreditMeter> {

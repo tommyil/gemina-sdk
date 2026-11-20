@@ -65,7 +65,13 @@ namespace Gemina.Sdk.Model
         /// Enum Voided for value: voided
         /// </summary>
         [EnumMember(Value = "voided")]
-        Voided = 6
+        Voided = 6,
+
+        /// <summary>
+        /// Enum UnknownDefaultOpenApi for value: unknown_default_open_api
+        /// </summary>
+        [EnumMember(Value = "unknown_default_open_api")]
+        UnknownDefaultOpenApi = 7
     }
 
 }

@@ -81,7 +81,9 @@ public class CheckoutOutDTO {
   public enum StatusEnum {
     CHECKOUT_READY("checkout_ready"),
     
-    PAYMENT_PROCESSING("payment_processing");
+    PAYMENT_PROCESSING("payment_processing"),
+    
+    UNKNOWN_DEFAULT_OPEN_API("unknown_default_open_api");
 
     private String value;
 
@@ -104,7 +106,7 @@ public class CheckoutOutDTO {
           return b;
         }
       }
-      throw new IllegalArgumentException("Unexpected value '" + value + "'");
+      return UNKNOWN_DEFAULT_OPEN_API;
     }
 
     public static class Adapter extends TypeAdapter<StatusEnum> {

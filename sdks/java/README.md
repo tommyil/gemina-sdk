@@ -109,6 +109,8 @@ Available extraction types:
 | `CUSTOM_TEMPLATE` (`custom_template`) | Fields defined by your own template (pass `templateId`) |
 | `FILETAG` (`filetag`) | File classification and tagging |
 
+**Values added to the API later.** An enum value this version of the SDK does not know yet (a new `modelType` or `status`, say) does not fail the response: it reads as that enum's `UNKNOWN_DEFAULT_OPEN_API` constant. This holds for polling results and for webhook events alike; a webhook's `getRaw()` keeps the value as it was sent.
+
 ## What did an extraction cost?
 
 Credits are charged *after* the result is delivered, so cost is a separate

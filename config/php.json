@@ -1,4 +1,5 @@
 {
   "composerPackageName": "gemina/sdk",
-  "invokerPackage": "Gemina\\Sdk"
+  "invokerPackage": "Gemina\\Sdk",
+  "enumUnknownDefaultCase": true
 }

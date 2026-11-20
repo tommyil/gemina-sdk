@@ -37,8 +37,9 @@ class StructuredFilterDTO(BaseModel):
     @field_validator('op')
     def op_validate_enum(cls, value):
         """Validates the enum"""
-        if value not in set(['eq', 'neq', 'gt', 'lt', 'contains', 'exists', 'in']):
-            raise ValueError("must be one of enum values ('eq', 'neq', 'gt', 'lt', 'contains', 'exists', 'in')")
+        if value not in set(['eq', 'neq', 'gt', 'lt', 'contains', 'exists', 'in', 'unknown_default_open_api']):
+            # Gemina: a value the API added later reads as unknown_default_open_api (enumUnknownDefaultCase).
+            return 'unknown_default_open_api'
         return value
 
     @field_validator('path')

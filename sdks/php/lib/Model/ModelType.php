@@ -54,6 +54,8 @@ class ModelType
 
     public const INVICTUS = 'invictus';
 
+    public const UNKNOWN_DEFAULT_OPEN_API = 'unknown_default_open_api';
+
     /**
      * Gets allowable values of the enum
      * @return string[]
@@ -66,7 +68,8 @@ class ModelType
             self::OPENAI,
             self::VELOX,
             self::PRAETORIAN,
-            self::INVICTUS
+            self::INVICTUS,
+            self::UNKNOWN_DEFAULT_OPEN_API
         ];
     }
 }

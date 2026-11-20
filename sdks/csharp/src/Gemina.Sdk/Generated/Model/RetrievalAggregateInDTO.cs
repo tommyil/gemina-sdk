@@ -125,7 +125,13 @@ namespace Gemina.Sdk.Model
             /// Enum DocumentId for value: document_id
             /// </summary>
             [EnumMember(Value = "document_id")]
-            DocumentId = 15
+            DocumentId = 15,
+
+            /// <summary>
+            /// Enum UnknownDefaultOpenApi for value: unknown_default_open_api
+            /// </summary>
+            [EnumMember(Value = "unknown_default_open_api")]
+            UnknownDefaultOpenApi = 16
         }
 
         /// <summary>

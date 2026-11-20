@@ -311,6 +311,7 @@ class WebhookEndpointOutDTO implements ModelInterface, ArrayAccess, \JsonSeriali
     public const DISABLED_REASON_FAILING = 'failing';
     public const DISABLED_REASON_ACCOUNT_DELETED = 'account_deleted';
     public const DISABLED_REASON_OPERATOR = 'operator';
+    public const DISABLED_REASON_UNKNOWN_DEFAULT_OPEN_API = 'unknown_default_open_api';
 
     /**
      * Gets allowable values of the enum
@@ -325,6 +326,7 @@ class WebhookEndpointOutDTO implements ModelInterface, ArrayAccess, \JsonSeriali
             self::DISABLED_REASON_FAILING,
             self::DISABLED_REASON_ACCOUNT_DELETED,
             self::DISABLED_REASON_OPERATOR,
+            self::DISABLED_REASON_UNKNOWN_DEFAULT_OPEN_API,
         ];
     }
 
@@ -589,13 +591,7 @@ class WebhookEndpointOutDTO implements ModelInterface, ArrayAccess, \JsonSeriali
         }
         $allowedValues = $this->getDisabledReasonAllowableValues();
         if (!is_null($disabled_reason) && !in_array($disabled_reason, $allowedValues, true)) {
-            throw new \InvalidArgumentException(
-                sprintf(
-                    "Invalid value '%s' for 'disabled_reason', must be one of '%s'",
-                    $disabled_reason,
-                    implode("', '", $allowedValues)
-                )
-            );
+            $disabled_reason = self::DISABLED_REASON_UNKNOWN_DEFAULT_OPEN_API;
         }
         $this->container['disabled_reason'] = $disabled_reason;
 

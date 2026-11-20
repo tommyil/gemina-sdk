@@ -38,8 +38,9 @@ class FilesNextToolCallOutDTO(BaseModel):
         if value is None:
             return value
 
-        if value not in set(['tag_file', 'extract_document']):
-            raise ValueError("must be one of enum values ('tag_file', 'extract_document')")
+        if value not in set(['tag_file', 'extract_document', 'unknown_default_open_api']):
+            # Gemina: a value the API added later reads as unknown_default_open_api (enumUnknownDefaultCase).
+            return 'unknown_default_open_api'
         return value
 
     model_config = ConfigDict(

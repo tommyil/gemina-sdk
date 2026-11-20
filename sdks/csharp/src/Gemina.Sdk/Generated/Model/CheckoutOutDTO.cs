@@ -47,7 +47,13 @@ namespace Gemina.Sdk.Model
             /// Enum PaymentProcessing for value: payment_processing
             /// </summary>
             [EnumMember(Value = "payment_processing")]
-            PaymentProcessing = 2
+            PaymentProcessing = 2,
+
+            /// <summary>
+            /// Enum UnknownDefaultOpenApi for value: unknown_default_open_api
+            /// </summary>
+            [EnumMember(Value = "unknown_default_open_api")]
+            UnknownDefaultOpenApi = 3
         }
 
 

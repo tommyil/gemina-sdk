@@ -54,6 +54,8 @@ class InvoiceStatus
 
     public const VOIDED = 'voided';
 
+    public const UNKNOWN_DEFAULT_OPEN_API = 'unknown_default_open_api';
+
     /**
      * Gets allowable values of the enum
      * @return string[]
@@ -66,7 +68,8 @@ class InvoiceStatus
             self::ISSUED,
             self::PAID,
             self::REFUNDED,
-            self::VOIDED
+            self::VOIDED,
+            self::UNKNOWN_DEFAULT_OPEN_API
         ];
     }
 }

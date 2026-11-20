@@ -1,5 +1,6 @@
 {
   "packageName": "gemina.generated",
   "library": "httpx",
-  "httpUserAgent": "gemina-sdk-python"
+  "httpUserAgent": "gemina-sdk-python",
+  "enumUnknownDefaultCase": true
 }

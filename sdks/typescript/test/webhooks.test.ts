@@ -74,7 +74,7 @@ describe('unwrapWebhook', () => {
   it('loads every vector', () => {
     // A truncated or mis-copied file would otherwise shrink the cases below silently.
     expect([VECTORS.valid.length, VECTORS.invalid.length]).toEqual([12, 30]);
-    expect([TYPED.valid.length, TYPED.invalid.length]).toEqual([2, 3]);
+    expect([TYPED.valid.length, TYPED.invalid.length]).toEqual([3, 3]);
   });
 
   it.each([...VECTORS.valid, ...TYPED.valid].map((v) => [v.name, v] as const))('verifies %s', async (_, v) => {
@@ -121,6 +121,16 @@ describe('unwrapWebhook', () => {
     expect(meta?.purgeReason).toBeNull();
     expect(meta?.purgeAt).toEqual(new Date('2026-08-03T17:20:13.180624')); // a Date keeps milliseconds only
     expect(event.data.result?.meta.documentId).toBe('28677df7-033a-409f-8b70-1568ddd17ea0');
+  });
+
+  it('keeps an enum value added to the API later, as polling does', async () => {
+    const event = await unwrap(named(TYPED.valid, 'extraction-completed-with-unknown-enum-values'));
+    if (!isExtractionCompleted(event)) throw new Error('expected extraction.completed');
+    // TypeScript enums are string unions: the value that was sent is kept as it is.
+    expect(event.data.result?.status).toBe('queued');
+    expect(event.data.result?.data?.extractions?.[0].meta.modelType).toBe('nova');
+    const raw = event.raw as { data: { result: unknown } };
+    expect(event.data.result).toEqual(DocumentProcessingResultOutDTOFromJSON(raw.data.result));
   });
 
   it('types an error envelope', async () => {

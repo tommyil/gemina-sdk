@@ -239,11 +239,13 @@ class AggregateMetricDTO implements ModelInterface, ArrayAccess, \JsonSerializab
     public const FIELD_VAT_AMOUNT = 'vat_amount';
     public const FIELD_MEASURABLE_QUANTITY = 'measurable_quantity';
     public const FIELD_LINE_TOTAL = 'line_total';
+    public const FIELD_UNKNOWN_DEFAULT_OPEN_API = 'unknown_default_open_api';
     public const OP_SUM = 'sum';
     public const OP_AVG = 'avg';
     public const OP_MIN = 'min';
     public const OP_MAX = 'max';
     public const OP_COUNT = 'count';
+    public const OP_UNKNOWN_DEFAULT_OPEN_API = 'unknown_default_open_api';
 
     /**
      * Gets allowable values of the enum
@@ -258,6 +260,7 @@ class AggregateMetricDTO implements ModelInterface, ArrayAccess, \JsonSerializab
             self::FIELD_VAT_AMOUNT,
             self::FIELD_MEASURABLE_QUANTITY,
             self::FIELD_LINE_TOTAL,
+            self::FIELD_UNKNOWN_DEFAULT_OPEN_API,
         ];
     }
 
@@ -274,6 +277,7 @@ class AggregateMetricDTO implements ModelInterface, ArrayAccess, \JsonSerializab
             self::OP_MIN,
             self::OP_MAX,
             self::OP_COUNT,
+            self::OP_UNKNOWN_DEFAULT_OPEN_API,
         ];
     }
 
@@ -390,13 +394,7 @@ class AggregateMetricDTO implements ModelInterface, ArrayAccess, \JsonSerializab
         }
         $allowedValues = $this->getFieldAllowableValues();
         if (!is_null($field) && !in_array($field, $allowedValues, true)) {
-            throw new \InvalidArgumentException(
-                sprintf(
-                    "Invalid value '%s' for 'field', must be one of '%s'",
-                    $field,
-                    implode("', '", $allowedValues)
-                )
-            );
+            $field = self::FIELD_UNKNOWN_DEFAULT_OPEN_API;
         }
         $this->container['field'] = $field;
 
@@ -427,13 +425,7 @@ class AggregateMetricDTO implements ModelInterface, ArrayAccess, \JsonSerializab
         }
         $allowedValues = $this->getOpAllowableValues();
         if (!in_array($op, $allowedValues, true)) {
-            throw new \InvalidArgumentException(
-                sprintf(
-                    "Invalid value '%s' for 'op', must be one of '%s'",
-                    $op,
-                    implode("', '", $allowedValues)
-                )
-            );
+            $op = self::OP_UNKNOWN_DEFAULT_OPEN_API;
         }
         $this->container['op'] = $op;
 

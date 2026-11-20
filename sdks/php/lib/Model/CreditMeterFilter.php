@@ -49,6 +49,8 @@ class CreditMeterFilter
 
     public const ALL = 'all';
 
+    public const UNKNOWN_DEFAULT_OPEN_API = 'unknown_default_open_api';
+
     /**
      * Gets allowable values of the enum
      * @return string[]
@@ -58,7 +60,8 @@ class CreditMeterFilter
         return [
             self::PROCESSING_CREDITS,
             self::FILETAG_CREDITS,
-            self::ALL
+            self::ALL,
+            self::UNKNOWN_DEFAULT_OPEN_API
         ];
     }
 }

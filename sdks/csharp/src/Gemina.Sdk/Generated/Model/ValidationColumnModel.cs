@@ -65,7 +65,13 @@ namespace Gemina.Sdk.Model
             /// Enum Date for value: date
             /// </summary>
             [EnumMember(Value = "date")]
-            Date = 5
+            Date = 5,
+
+            /// <summary>
+            /// Enum UnknownDefaultOpenApi for value: unknown_default_open_api
+            /// </summary>
+            [EnumMember(Value = "unknown_default_open_api")]
+            UnknownDefaultOpenApi = 6
         }
 
 

@@ -41,7 +41,13 @@ namespace Gemina.Sdk.Model
             /// Enum HttpGetAndSave for value: http_get_and_save
             /// </summary>
             [EnumMember(Value = "http_get_and_save")]
-            HttpGetAndSave = 1
+            HttpGetAndSave = 1,
+
+            /// <summary>
+            /// Enum UnknownDefaultOpenApi for value: unknown_default_open_api
+            /// </summary>
+            [EnumMember(Value = "unknown_default_open_api")]
+            UnknownDefaultOpenApi = 2
         }
 
 

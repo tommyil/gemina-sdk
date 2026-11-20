@@ -58,6 +58,8 @@ class OperationType
 
     public const STORAGE = 'storage';
 
+    public const UNKNOWN_DEFAULT_OPEN_API = 'unknown_default_open_api';
+
     /**
      * Gets allowable values of the enum
      * @return string[]
@@ -72,7 +74,8 @@ class OperationType
             self::FILETAG,
             self::INDEX,
             self::CHAT,
-            self::STORAGE
+            self::STORAGE,
+            self::UNKNOWN_DEFAULT_OPEN_API
         ];
     }
 }

@@ -65,7 +65,13 @@ namespace Gemina.Sdk.Model
             /// Enum Operator for value: operator
             /// </summary>
             [EnumMember(Value = "operator")]
-            Operator = 5
+            Operator = 5,
+
+            /// <summary>
+            /// Enum UnknownDefaultOpenApi for value: unknown_default_open_api
+            /// </summary>
+            [EnumMember(Value = "unknown_default_open_api")]
+            UnknownDefaultOpenApi = 6
         }
 
 

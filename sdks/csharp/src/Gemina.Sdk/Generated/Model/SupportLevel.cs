@@ -47,7 +47,13 @@ namespace Gemina.Sdk.Model
         /// Enum Dedicated for value: dedicated
         /// </summary>
         [EnumMember(Value = "dedicated")]
-        Dedicated = 3
+        Dedicated = 3,
+
+        /// <summary>
+        /// Enum UnknownDefaultOpenApi for value: unknown_default_open_api
+        /// </summary>
+        [EnumMember(Value = "unknown_default_open_api")]
+        UnknownDefaultOpenApi = 4
     }
 
 }

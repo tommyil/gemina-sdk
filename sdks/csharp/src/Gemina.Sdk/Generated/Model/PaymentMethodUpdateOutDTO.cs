@@ -53,7 +53,13 @@ namespace Gemina.Sdk.Model
             /// Enum ResumeSubscription for value: resume_subscription
             /// </summary>
             [EnumMember(Value = "resume_subscription")]
-            ResumeSubscription = 3
+            ResumeSubscription = 3,
+
+            /// <summary>
+            /// Enum UnknownDefaultOpenApi for value: unknown_default_open_api
+            /// </summary>
+            [EnumMember(Value = "unknown_default_open_api")]
+            UnknownDefaultOpenApi = 4
         }
 
 

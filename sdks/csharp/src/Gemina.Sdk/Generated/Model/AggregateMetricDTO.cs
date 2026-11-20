@@ -65,7 +65,13 @@ namespace Gemina.Sdk.Model
             /// Enum LineTotal for value: line_total
             /// </summary>
             [EnumMember(Value = "line_total")]
-            LineTotal = 5
+            LineTotal = 5,
+
+            /// <summary>
+            /// Enum UnknownDefaultOpenApi for value: unknown_default_open_api
+            /// </summary>
+            [EnumMember(Value = "unknown_default_open_api")]
+            UnknownDefaultOpenApi = 6
         }
 
 
@@ -108,7 +114,13 @@ namespace Gemina.Sdk.Model
             /// Enum Count for value: count
             /// </summary>
             [EnumMember(Value = "count")]
-            Count = 5
+            Count = 5,
+
+            /// <summary>
+            /// Enum UnknownDefaultOpenApi for value: unknown_default_open_api
+            /// </summary>
+            [EnumMember(Value = "unknown_default_open_api")]
+            UnknownDefaultOpenApi = 6
         }
 
 

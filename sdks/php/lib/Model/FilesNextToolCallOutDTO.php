@@ -243,6 +243,7 @@ class FilesNextToolCallOutDTO implements ModelInterface, ArrayAccess, \JsonSeria
 
     public const TOOL_TAG_FILE = 'tag_file';
     public const TOOL_EXTRACT_DOCUMENT = 'extract_document';
+    public const TOOL_UNKNOWN_DEFAULT_OPEN_API = 'unknown_default_open_api';
 
     /**
      * Gets allowable values of the enum
@@ -254,6 +255,7 @@ class FilesNextToolCallOutDTO implements ModelInterface, ArrayAccess, \JsonSeria
         return [
             self::TOOL_TAG_FILE,
             self::TOOL_EXTRACT_DOCUMENT,
+            self::TOOL_UNKNOWN_DEFAULT_OPEN_API,
         ];
     }
 
@@ -409,13 +411,7 @@ class FilesNextToolCallOutDTO implements ModelInterface, ArrayAccess, \JsonSeria
         }
         $allowedValues = $this->getToolAllowableValues();
         if (!in_array($tool, $allowedValues, true)) {
-            throw new \InvalidArgumentException(
-                sprintf(
-                    "Invalid value '%s' for 'tool', must be one of '%s'",
-                    $tool,
-                    implode("', '", $allowedValues)
-                )
-            );
+            $tool = self::TOOL_UNKNOWN_DEFAULT_OPEN_API;
         }
         $this->container['tool'] = $tool;
 

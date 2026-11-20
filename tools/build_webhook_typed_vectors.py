@@ -35,6 +35,15 @@ RESULT = {
     }]},
     "errors": [],
 }
+# A result from a newer API: an enum value this SDK does not know, at two depths.
+UNKNOWN_ENUMS = {
+    **RESULT,
+    "status": "queued",
+    "data": {"extractions": [{
+        **RESULT["data"]["extractions"][0],
+        "meta": {**RESULT["data"]["extractions"][0]["meta"], "modelType": "nova"},
+    }]},
+}
 ERROR = {
     "status": "failed",
     "meta": None,
@@ -70,6 +79,8 @@ def build() -> str:
         "valid": [
             vector("extraction-completed-with-result", data(result=RESULT)),
             vector("extraction-completed-with-error", data(documentId=None, status="failed", error=ERROR)),
+            # The typed parse is tolerant, as polling is: values added to an enum later must not fail it.
+            vector("extraction-completed-with-unknown-enum-values", data(result=UNKNOWN_ENUMS)),
         ],
         # Correctly signed, and still refused: a known event is never returned half typed.
         "invalid": [

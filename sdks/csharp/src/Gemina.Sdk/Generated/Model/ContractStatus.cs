@@ -47,7 +47,13 @@ namespace Gemina.Sdk.Model
         /// Enum Terminated for value: terminated
         /// </summary>
         [EnumMember(Value = "terminated")]
-        Terminated = 3
+        Terminated = 3,
+
+        /// <summary>
+        /// Enum UnknownDefaultOpenApi for value: unknown_default_open_api
+        /// </summary>
+        [EnumMember(Value = "unknown_default_open_api")]
+        UnknownDefaultOpenApi = 4
     }
 
 }

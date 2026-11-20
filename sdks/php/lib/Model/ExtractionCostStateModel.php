@@ -49,6 +49,8 @@ class ExtractionCostStateModel
 
     public const NOT_CHARGED = 'not_charged';
 
+    public const UNKNOWN_DEFAULT_OPEN_API = 'unknown_default_open_api';
+
     /**
      * Gets allowable values of the enum
      * @return string[]
@@ -58,7 +60,8 @@ class ExtractionCostStateModel
         return [
             self::PENDING,
             self::SETTLED,
-            self::NOT_CHARGED
+            self::NOT_CHARGED,
+            self::UNKNOWN_DEFAULT_OPEN_API
         ];
     }
 }

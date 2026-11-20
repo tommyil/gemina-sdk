@@ -41,7 +41,13 @@ namespace Gemina.Sdk.Model
             /// Enum ExtractionCompleted for value: extraction.completed
             /// </summary>
             [EnumMember(Value = "extraction.completed")]
-            ExtractionCompleted = 1
+            ExtractionCompleted = 1,
+
+            /// <summary>
+            /// Enum UnknownDefaultOpenApi for value: unknown_default_open_api
+            /// </summary>
+            [EnumMember(Value = "unknown_default_open_api")]
+            UnknownDefaultOpenApi = 2
         }
 
 

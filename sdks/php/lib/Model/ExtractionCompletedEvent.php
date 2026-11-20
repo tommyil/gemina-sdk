@@ -241,6 +241,7 @@ class ExtractionCompletedEvent implements ModelInterface, ArrayAccess, \JsonSeri
     }
 
     public const TYPE_EXTRACTION_COMPLETED = 'extraction.completed';
+    public const TYPE_UNKNOWN_DEFAULT_OPEN_API = 'unknown_default_open_api';
 
     /**
      * Gets allowable values of the enum
@@ -251,6 +252,7 @@ class ExtractionCompletedEvent implements ModelInterface, ArrayAccess, \JsonSeri
     {
         return [
             self::TYPE_EXTRACTION_COMPLETED,
+            self::TYPE_UNKNOWN_DEFAULT_OPEN_API,
         ];
     }
 
@@ -412,13 +414,7 @@ class ExtractionCompletedEvent implements ModelInterface, ArrayAccess, \JsonSeri
         }
         $allowedValues = $this->getTypeAllowableValues();
         if (!in_array($type, $allowedValues, true)) {
-            throw new \InvalidArgumentException(
-                sprintf(
-                    "Invalid value '%s' for 'type', must be one of '%s'",
-                    $type,
-                    implode("', '", $allowedValues)
-                )
-            );
+            $type = self::TYPE_UNKNOWN_DEFAULT_OPEN_API;
         }
         $this->container['type'] = $type;
 

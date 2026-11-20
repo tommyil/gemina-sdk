@@ -37,8 +37,9 @@ class VerifiedDiffEntryOutDTO(BaseModel):
     @field_validator('status')
     def status_validate_enum(cls, value):
         """Validates the enum"""
-        if value not in set(['corrected', 'added', 'removed']):
-            raise ValueError("must be one of enum values ('corrected', 'added', 'removed')")
+        if value not in set(['corrected', 'added', 'removed', 'unknown_default_open_api']):
+            # Gemina: a value the API added later reads as unknown_default_open_api (enumUnknownDefaultCase).
+            return 'unknown_default_open_api'
         return value
 
     model_config = ConfigDict(

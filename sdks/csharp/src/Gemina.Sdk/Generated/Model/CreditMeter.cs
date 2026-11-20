@@ -42,7 +42,13 @@ namespace Gemina.Sdk.Model
         /// Enum FiletagCredits for value: filetag_credits
         /// </summary>
         [EnumMember(Value = "filetag_credits")]
-        FiletagCredits = 2
+        FiletagCredits = 2,
+
+        /// <summary>
+        /// Enum UnknownDefaultOpenApi for value: unknown_default_open_api
+        /// </summary>
+        [EnumMember(Value = "unknown_default_open_api")]
+        UnknownDefaultOpenApi = 3
     }
 
 }

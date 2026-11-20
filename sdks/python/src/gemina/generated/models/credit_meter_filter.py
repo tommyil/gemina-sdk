@@ -29,10 +29,18 @@ class CreditMeterFilter(str, Enum):
     PROCESSING_CREDITS = 'processing_credits'
     FILETAG_CREDITS = 'filetag_credits'
     ALL = 'all'
+    UNKNOWN_DEFAULT_OPEN_API = 'unknown_default_open_api'
 
     @classmethod
     def from_json(cls, json_str: str) -> Self:
         """Create an instance of CreditMeterFilter from a JSON string"""
         return cls(json.loads(json_str))
+
+    # Gemina: a value the API added after this SDK was generated reads as
+    # UNKNOWN_DEFAULT_OPEN_API instead of failing the whole response
+    # (config/templates/python, enumUnknownDefaultCase).
+    @classmethod
+    def _missing_(cls, value):
+        return cls.UNKNOWN_DEFAULT_OPEN_API
 
 

@@ -2,5 +2,6 @@
   "packageName": "Gemina.Sdk",
   "library": "restsharp",
   "targetFramework": "netstandard2.0",
-  "httpUserAgent": "gemina-sdk-csharp"
+  "httpUserAgent": "gemina-sdk-csharp",
+  "enumUnknownDefaultCase": true
 }

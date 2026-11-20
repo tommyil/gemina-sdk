@@ -73,7 +73,9 @@ public class FilesUploadDetailsOutDTO {
    */
   @JsonAdapter(MethodEnum.Adapter.class)
   public enum MethodEnum {
-    PUT("PUT");
+    PUT("PUT"),
+    
+    UNKNOWN_DEFAULT_OPEN_API("unknown_default_open_api");
 
     private String value;
 
@@ -96,7 +98,7 @@ public class FilesUploadDetailsOutDTO {
           return b;
         }
       }
-      throw new IllegalArgumentException("Unexpected value '" + value + "'");
+      return UNKNOWN_DEFAULT_OPEN_API;
     }
 
     public static class Adapter extends TypeAdapter<MethodEnum> {

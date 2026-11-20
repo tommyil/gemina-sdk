@@ -44,9 +44,8 @@ class RetrievalAggregateInDTO(BaseModel):
         if value is None:
             return value
 
-        for i in value:
-            if i not in set(['vendor_name', 'vendor_tax_id', 'buyer_name', 'currency', 'document_type', 'expense_type', 'payment_method', 'end_user_id', 'month', 'year', 'measurable_uom', 'description', 'doc_number', 'issue_date', 'document_id']):
-                raise ValueError("each list item must be one of ('vendor_name', 'vendor_tax_id', 'buyer_name', 'currency', 'document_type', 'expense_type', 'payment_method', 'end_user_id', 'month', 'year', 'measurable_uom', 'description', 'doc_number', 'issue_date', 'document_id')")
+        # Gemina: a value the API added later reads as unknown_default_open_api (enumUnknownDefaultCase).
+        value = [i if i in set(['vendor_name', 'vendor_tax_id', 'buyer_name', 'currency', 'document_type', 'expense_type', 'payment_method', 'end_user_id', 'month', 'year', 'measurable_uom', 'description', 'doc_number', 'issue_date', 'document_id', 'unknown_default_open_api']) else 'unknown_default_open_api' for i in value]
         return value
 
     model_config = ConfigDict(

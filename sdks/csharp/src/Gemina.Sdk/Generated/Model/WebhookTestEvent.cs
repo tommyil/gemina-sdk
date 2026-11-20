@@ -41,7 +41,13 @@ namespace Gemina.Sdk.Model
             /// Enum WebhookTest for value: webhook.test
             /// </summary>
             [EnumMember(Value = "webhook.test")]
-            WebhookTest = 1
+            WebhookTest = 1,
+
+            /// <summary>
+            /// Enum UnknownDefaultOpenApi for value: unknown_default_open_api
+            /// </summary>
+            [EnumMember(Value = "unknown_default_open_api")]
+            UnknownDefaultOpenApi = 2
         }
 
 

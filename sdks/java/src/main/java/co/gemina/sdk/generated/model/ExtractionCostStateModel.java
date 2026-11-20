@@ -33,7 +33,9 @@ public enum ExtractionCostStateModel {
   
   SETTLED("settled"),
   
-  NOT_CHARGED("not_charged");
+  NOT_CHARGED("not_charged"),
+  
+  UNKNOWN_DEFAULT_OPEN_API("unknown_default_open_api");
 
   private String value;
 
@@ -56,7 +58,7 @@ public enum ExtractionCostStateModel {
         return b;
       }
     }
-    throw new IllegalArgumentException("Unexpected value '" + value + "'");
+    return UNKNOWN_DEFAULT_OPEN_API;
   }
 
   public static class Adapter extends TypeAdapter<ExtractionCostStateModel> {

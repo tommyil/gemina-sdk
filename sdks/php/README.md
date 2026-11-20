@@ -81,6 +81,8 @@ Extraction types:
 `filetag` is deliberately absent: the upload endpoints reject it, and FileTag
 has its own endpoints.
 
+**Values added to the API later.** An enum value this version of the SDK does not know yet (a new `modelType` or `status`, say) does not fail the response: it reads as `'unknown_default_open_api'`, the enum class's `UNKNOWN_DEFAULT_OPEN_API` constant. This holds for polling results and for webhook events alike; a webhook's `$event->raw` keeps the value as it was sent.
+
 ## What did an extraction cost?
 
 Credits are charged *after* the result is delivered, so cost is a separate

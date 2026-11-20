@@ -41,7 +41,13 @@ namespace Gemina.Sdk.Model
         /// Enum Desc for value: desc
         /// </summary>
         [EnumMember(Value = "desc")]
-        Desc = 2
+        Desc = 2,
+
+        /// <summary>
+        /// Enum UnknownDefaultOpenApi for value: unknown_default_open_api
+        /// </summary>
+        [EnumMember(Value = "unknown_default_open_api")]
+        UnknownDefaultOpenApi = 3
     }
 
 }

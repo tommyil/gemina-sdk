@@ -264,6 +264,7 @@ class ValidationFieldModel implements ModelInterface, ArrayAccess, \JsonSerializ
     public const TYPE_INTEGER = 'integer';
     public const TYPE_BOOLEAN = 'boolean';
     public const TYPE_DATE = 'date';
+    public const TYPE_UNKNOWN_DEFAULT_OPEN_API = 'unknown_default_open_api';
 
     /**
      * Gets allowable values of the enum
@@ -278,6 +279,7 @@ class ValidationFieldModel implements ModelInterface, ArrayAccess, \JsonSerializ
             self::TYPE_INTEGER,
             self::TYPE_BOOLEAN,
             self::TYPE_DATE,
+            self::TYPE_UNKNOWN_DEFAULT_OPEN_API,
         ];
     }
 
@@ -553,13 +555,7 @@ class ValidationFieldModel implements ModelInterface, ArrayAccess, \JsonSerializ
         }
         $allowedValues = $this->getTypeAllowableValues();
         if (!in_array($type, $allowedValues, true)) {
-            throw new \InvalidArgumentException(
-                sprintf(
-                    "Invalid value '%s' for 'type', must be one of '%s'",
-                    $type,
-                    implode("', '", $allowedValues)
-                )
-            );
+            $type = self::TYPE_UNKNOWN_DEFAULT_OPEN_API;
         }
         $this->container['type'] = $type;
 

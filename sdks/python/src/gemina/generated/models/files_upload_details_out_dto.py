@@ -41,8 +41,9 @@ class FilesUploadDetailsOutDTO(BaseModel):
         if value is None:
             return value
 
-        if value not in set(['PUT']):
-            raise ValueError("must be one of enum values ('PUT')")
+        if value not in set(['PUT', 'unknown_default_open_api']):
+            # Gemina: a value the API added later reads as unknown_default_open_api (enumUnknownDefaultCase).
+            return 'unknown_default_open_api'
         return value
 
     model_config = ConfigDict(

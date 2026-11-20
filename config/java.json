@@ -7,5 +7,6 @@
   "library": "okhttp-gson",
   "disallowAdditionalPropertiesIfNotPresent": false,
   "httpUserAgent": "gemina-sdk-java",
-  "hideGenerationTimestamp": true
+  "hideGenerationTimestamp": true,
+  "enumUnknownDefaultCase": true
 }

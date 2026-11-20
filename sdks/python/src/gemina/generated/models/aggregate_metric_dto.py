@@ -37,15 +37,17 @@ class AggregateMetricDTO(BaseModel):
         if value is None:
             return value
 
-        if value not in set(['total_amount', 'net_amount', 'vat_amount', 'measurable_quantity', 'line_total']):
-            raise ValueError("must be one of enum values ('total_amount', 'net_amount', 'vat_amount', 'measurable_quantity', 'line_total')")
+        if value not in set(['total_amount', 'net_amount', 'vat_amount', 'measurable_quantity', 'line_total', 'unknown_default_open_api']):
+            # Gemina: a value the API added later reads as unknown_default_open_api (enumUnknownDefaultCase).
+            return 'unknown_default_open_api'
         return value
 
     @field_validator('op')
     def op_validate_enum(cls, value):
         """Validates the enum"""
-        if value not in set(['sum', 'avg', 'min', 'max', 'count']):
-            raise ValueError("must be one of enum values ('sum', 'avg', 'min', 'max', 'count')")
+        if value not in set(['sum', 'avg', 'min', 'max', 'count', 'unknown_default_open_api']):
+            # Gemina: a value the API added later reads as unknown_default_open_api (enumUnknownDefaultCase).
+            return 'unknown_default_open_api'
         return value
 
     model_config = ConfigDict(

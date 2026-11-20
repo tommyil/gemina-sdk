@@ -74,7 +74,9 @@ public class RetrievalQueryInDTO {
     
     SEMANTIC("semantic"),
     
-    HYBRID("hybrid");
+    HYBRID("hybrid"),
+    
+    UNKNOWN_DEFAULT_OPEN_API("unknown_default_open_api");
 
     private String value;
 
@@ -97,7 +99,7 @@ public class RetrievalQueryInDTO {
           return b;
         }
       }
-      throw new IllegalArgumentException("Unexpected value '" + value + "'");
+      return UNKNOWN_DEFAULT_OPEN_API;
     }
 
     public static class Adapter extends TypeAdapter<ModeEnum> {
@@ -142,7 +144,9 @@ public class RetrievalQueryInDTO {
     
     VENDOR_NAME("vendor_name"),
     
-    CREATED_AT("created_at");
+    CREATED_AT("created_at"),
+    
+    UNKNOWN_DEFAULT_OPEN_API("unknown_default_open_api");
 
     private String value;
 
@@ -199,7 +203,9 @@ public class RetrievalQueryInDTO {
   public enum SortMethodEnum {
     ASC("asc"),
     
-    DESC("desc");
+    DESC("desc"),
+    
+    UNKNOWN_DEFAULT_OPEN_API("unknown_default_open_api");
 
     private String value;
 
@@ -222,7 +228,7 @@ public class RetrievalQueryInDTO {
           return b;
         }
       }
-      throw new IllegalArgumentException("Unexpected value '" + value + "'");
+      return UNKNOWN_DEFAULT_OPEN_API;
     }
 
     public static class Adapter extends TypeAdapter<SortMethodEnum> {

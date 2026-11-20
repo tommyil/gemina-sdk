@@ -24,6 +24,18 @@
       },
       "body": "{\"type\":\"extraction.completed\",\"timestamp\":\"2026-11-18T10:15:30Z\",\"data\":{\"correlationId\":\"3f2b6c1e-0d4a-4a57-9a43-1f0e5a7b9c10\",\"documentId\":null,\"externalId\":\"חשבונית-2291\",\"endUserId\":null,\"channel\":\"public_api\",\"status\":\"failed\",\"resultIncluded\":true,\"resultPath\":\"/api/v1/documents/results/3f2b6c1e-0d4a-4a57-9a43-1f0e5a7b9c10\",\"result\":null,\"error\":{\"status\":\"failed\",\"meta\":null,\"data\":null,\"errors\":[{\"error_code\":\"PROCESSING_ERROR\",\"description\":\"Document processing failed: unreadable document\"}]}}}",
       "expectType": "extraction.completed"
+    },
+    {
+      "name": "extraction-completed-with-unknown-enum-values",
+      "secret": "whsec_AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=",
+      "now": 1795000530,
+      "headers": {
+        "webhook-id": "evt_0123456789abcdef0123456789abcdef",
+        "webhook-timestamp": "1795000530",
+        "webhook-signature": "v1,Vm0bVppJeYQfne3wqB1mQGJe/NUGyHcWE8ME67lnNOY="
+      },
+      "body": "{\"type\":\"extraction.completed\",\"timestamp\":\"2026-11-18T10:15:30Z\",\"data\":{\"correlationId\":\"3f2b6c1e-0d4a-4a57-9a43-1f0e5a7b9c10\",\"documentId\":\"28677df7-033a-409f-8b70-1568ddd17ea0\",\"externalId\":\"חשבונית-2291\",\"endUserId\":null,\"channel\":\"public_api\",\"status\":\"success\",\"resultIncluded\":true,\"resultPath\":\"/api/v1/documents/results/3f2b6c1e-0d4a-4a57-9a43-1f0e5a7b9c10\",\"result\":{\"status\":\"queued\",\"meta\":{\"correlationId\":\"3f2b6c1e-0d4a-4a57-9a43-1f0e5a7b9c10\",\"documentId\":\"28677df7-033a-409f-8b70-1568ddd17ea0\"},\"data\":{\"extractions\":[{\"status\":\"success\",\"meta\":{\"extractionType\":\"invoice_headers\",\"modelType\":\"nova\",\"thinking\":false,\"correction\":false,\"evaluation\":false,\"includeCoordinates\":true,\"processorClass\":\"InvoiceHeaderAnalysisProcessor\",\"purgeAt\":\"2026-08-03T17:20:13.180624\",\"purgedAt\":null,\"purgeReason\":null},\"values\":{\"totalAmount\":{\"value\":1572.0,\"coordinates\":null,\"confidence\":null}},\"errors\":[]}]},\"errors\":[]},\"error\":null}}",
+      "expectType": "extraction.completed"
     }
   ],
   "invalid": [

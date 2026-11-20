@@ -87,7 +87,9 @@ public class WebhookEndpointOutDTO {
     
     ACCOUNT_DELETED("account_deleted"),
     
-    OPERATOR("operator");
+    OPERATOR("operator"),
+    
+    UNKNOWN_DEFAULT_OPEN_API("unknown_default_open_api");
 
     private String value;
 

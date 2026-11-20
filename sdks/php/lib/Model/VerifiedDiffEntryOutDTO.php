@@ -256,6 +256,7 @@ class VerifiedDiffEntryOutDTO implements ModelInterface, ArrayAccess, \JsonSeria
     public const STATUS_CORRECTED = 'corrected';
     public const STATUS_ADDED = 'added';
     public const STATUS_REMOVED = 'removed';
+    public const STATUS_UNKNOWN_DEFAULT_OPEN_API = 'unknown_default_open_api';
 
     /**
      * Gets allowable values of the enum
@@ -268,6 +269,7 @@ class VerifiedDiffEntryOutDTO implements ModelInterface, ArrayAccess, \JsonSeria
             self::STATUS_CORRECTED,
             self::STATUS_ADDED,
             self::STATUS_REMOVED,
+            self::STATUS_UNKNOWN_DEFAULT_OPEN_API,
         ];
     }
 
@@ -469,13 +471,7 @@ class VerifiedDiffEntryOutDTO implements ModelInterface, ArrayAccess, \JsonSeria
         }
         $allowedValues = $this->getStatusAllowableValues();
         if (!in_array($status, $allowedValues, true)) {
-            throw new \InvalidArgumentException(
-                sprintf(
-                    "Invalid value '%s' for 'status', must be one of '%s'",
-                    $status,
-                    implode("', '", $allowedValues)
-                )
-            );
+            $status = self::STATUS_UNKNOWN_DEFAULT_OPEN_API;
         }
         $this->container['status'] = $status;
 

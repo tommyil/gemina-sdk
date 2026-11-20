@@ -53,7 +53,13 @@ namespace Gemina.Sdk.Model
         /// Enum Array for value: array
         /// </summary>
         [EnumMember(Value = "array")]
-        Array = 4
+        Array = 4,
+
+        /// <summary>
+        /// Enum UnknownDefaultOpenApi for value: unknown_default_open_api
+        /// </summary>
+        [EnumMember(Value = "unknown_default_open_api")]
+        UnknownDefaultOpenApi = 5
     }
 
 }

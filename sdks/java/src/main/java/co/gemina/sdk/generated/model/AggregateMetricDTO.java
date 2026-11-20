@@ -64,7 +64,9 @@ public class AggregateMetricDTO {
     
     MEASURABLE_QUANTITY("measurable_quantity"),
     
-    LINE_TOTAL("line_total");
+    LINE_TOTAL("line_total"),
+    
+    UNKNOWN_DEFAULT_OPEN_API("unknown_default_open_api");
 
     private String value;
 
@@ -127,7 +129,9 @@ public class AggregateMetricDTO {
     
     MAX("max"),
     
-    COUNT("count");
+    COUNT("count"),
+    
+    UNKNOWN_DEFAULT_OPEN_API("unknown_default_open_api");
 
     private String value;
 
@@ -150,7 +154,7 @@ public class AggregateMetricDTO {
           return b;
         }
       }
-      throw new IllegalArgumentException("Unexpected value '" + value + "'");
+      return UNKNOWN_DEFAULT_OPEN_API;
     }
 
     public static class Adapter extends TypeAdapter<OpEnum> {

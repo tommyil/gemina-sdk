@@ -51,8 +51,9 @@ class WebhookEndpointOutDTO(BaseModel):
         if value is None:
             return value
 
-        if value not in set(['user', 'gone', 'failing', 'account_deleted', 'operator']):
-            raise ValueError("must be one of enum values ('user', 'gone', 'failing', 'account_deleted', 'operator')")
+        if value not in set(['user', 'gone', 'failing', 'account_deleted', 'operator', 'unknown_default_open_api']):
+            # Gemina: a value the API added later reads as unknown_default_open_api (enumUnknownDefaultCase).
+            return 'unknown_default_open_api'
         return value
 
     model_config = ConfigDict(

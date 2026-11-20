@@ -261,6 +261,7 @@ class QueryMetaDTO implements ModelInterface, ArrayAccess, \JsonSerializable
     public const INDEXING_STATE_PREPARING = 'preparing';
     public const INDEXING_STATE_READY = 'ready';
     public const INDEXING_STATE_UNAVAILABLE = 'unavailable';
+    public const INDEXING_STATE_UNKNOWN_DEFAULT_OPEN_API = 'unknown_default_open_api';
 
     /**
      * Gets allowable values of the enum
@@ -273,6 +274,7 @@ class QueryMetaDTO implements ModelInterface, ArrayAccess, \JsonSerializable
             self::INDEXING_STATE_PREPARING,
             self::INDEXING_STATE_READY,
             self::INDEXING_STATE_UNAVAILABLE,
+            self::INDEXING_STATE_UNKNOWN_DEFAULT_OPEN_API,
         ];
     }
 
@@ -448,13 +450,7 @@ class QueryMetaDTO implements ModelInterface, ArrayAccess, \JsonSerializable
         }
         $allowedValues = $this->getIndexingStateAllowableValues();
         if (!is_null($indexing_state) && !in_array($indexing_state, $allowedValues, true)) {
-            throw new \InvalidArgumentException(
-                sprintf(
-                    "Invalid value '%s' for 'indexing_state', must be one of '%s'",
-                    $indexing_state,
-                    implode("', '", $allowedValues)
-                )
-            );
+            $indexing_state = self::INDEXING_STATE_UNKNOWN_DEFAULT_OPEN_API;
         }
         $this->container['indexing_state'] = $indexing_state;
 

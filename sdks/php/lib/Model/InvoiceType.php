@@ -48,6 +48,8 @@ class InvoiceType
 
     public const ENTERPRISE_USAGE = 'enterprise_usage';
 
+    public const UNKNOWN_DEFAULT_OPEN_API = 'unknown_default_open_api';
+
     /**
      * Gets allowable values of the enum
      * @return string[]
@@ -57,7 +59,8 @@ class InvoiceType
         return [
             self::SUBSCRIPTION,
             self::TOP_UP,
-            self::ENTERPRISE_USAGE
+            self::ENTERPRISE_USAGE,
+            self::UNKNOWN_DEFAULT_OPEN_API
         ];
     }
 }

@@ -41,7 +41,13 @@ namespace Gemina.Sdk.Model
             /// Enum PUT for value: PUT
             /// </summary>
             [EnumMember(Value = "PUT")]
-            PUT = 1
+            PUT = 1,
+
+            /// <summary>
+            /// Enum UnknownDefaultOpenApi for value: unknown_default_open_api
+            /// </summary>
+            [EnumMember(Value = "unknown_default_open_api")]
+            UnknownDefaultOpenApi = 2
         }
 
 

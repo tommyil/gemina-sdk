@@ -254,6 +254,7 @@ class NextActionOutDTO implements ModelInterface, ArrayAccess, \JsonSerializable
     }
 
     public const ACTION_HTTP_GET_AND_SAVE = 'http_get_and_save';
+    public const ACTION_UNKNOWN_DEFAULT_OPEN_API = 'unknown_default_open_api';
 
     /**
      * Gets allowable values of the enum
@@ -264,6 +265,7 @@ class NextActionOutDTO implements ModelInterface, ArrayAccess, \JsonSerializable
     {
         return [
             self::ACTION_HTTP_GET_AND_SAVE,
+            self::ACTION_UNKNOWN_DEFAULT_OPEN_API,
         ];
     }
 
@@ -373,13 +375,7 @@ class NextActionOutDTO implements ModelInterface, ArrayAccess, \JsonSerializable
         }
         $allowedValues = $this->getActionAllowableValues();
         if (!in_array($action, $allowedValues, true)) {
-            throw new \InvalidArgumentException(
-                sprintf(
-                    "Invalid value '%s' for 'action', must be one of '%s'",
-                    $action,
-                    implode("', '", $allowedValues)
-                )
-            );
+            $action = self::ACTION_UNKNOWN_DEFAULT_OPEN_API;
         }
         $this->container['action'] = $action;
 

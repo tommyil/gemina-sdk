@@ -41,8 +41,9 @@ class QueryMetaDTO(BaseModel):
         if value is None:
             return value
 
-        if value not in set(['preparing', 'ready', 'unavailable']):
-            raise ValueError("must be one of enum values ('preparing', 'ready', 'unavailable')")
+        if value not in set(['preparing', 'ready', 'unavailable', 'unknown_default_open_api']):
+            # Gemina: a value the API added later reads as unknown_default_open_api (enumUnknownDefaultCase).
+            return 'unknown_default_open_api'
         return value
 
     model_config = ConfigDict(

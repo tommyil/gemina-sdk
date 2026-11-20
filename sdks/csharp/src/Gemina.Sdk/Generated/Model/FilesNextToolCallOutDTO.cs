@@ -47,7 +47,13 @@ namespace Gemina.Sdk.Model
             /// Enum ExtractDocument for value: extract_document
             /// </summary>
             [EnumMember(Value = "extract_document")]
-            ExtractDocument = 2
+            ExtractDocument = 2,
+
+            /// <summary>
+            /// Enum UnknownDefaultOpenApi for value: unknown_default_open_api
+            /// </summary>
+            [EnumMember(Value = "unknown_default_open_api")]
+            UnknownDefaultOpenApi = 3
         }
 
 

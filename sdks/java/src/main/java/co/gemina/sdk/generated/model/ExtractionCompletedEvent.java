@@ -67,7 +67,9 @@ public class ExtractionCompletedEvent {
    */
   @JsonAdapter(TypeEnum.Adapter.class)
   public enum TypeEnum {
-    EXTRACTION_COMPLETED("extraction.completed");
+    EXTRACTION_COMPLETED("extraction.completed"),
+    
+    UNKNOWN_DEFAULT_OPEN_API("unknown_default_open_api");
 
     private String value;
 
@@ -90,7 +92,7 @@ public class ExtractionCompletedEvent {
           return b;
         }
       }
-      throw new IllegalArgumentException("Unexpected value '" + value + "'");
+      return UNKNOWN_DEFAULT_OPEN_API;
     }
 
     public static class Adapter extends TypeAdapter<TypeEnum> {

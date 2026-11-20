@@ -82,7 +82,9 @@ public class PaymentMethodUpdateOutDTO {
     
     PAY_OVERDUE("pay_overdue"),
     
-    RESUME_SUBSCRIPTION("resume_subscription");
+    RESUME_SUBSCRIPTION("resume_subscription"),
+    
+    UNKNOWN_DEFAULT_OPEN_API("unknown_default_open_api");
 
     private String value;
 
@@ -105,7 +107,7 @@ public class PaymentMethodUpdateOutDTO {
           return b;
         }
       }
-      throw new IllegalArgumentException("Unexpected value '" + value + "'");
+      return UNKNOWN_DEFAULT_OPEN_API;
     }
 
     public static class Adapter extends TypeAdapter<PurposeEnum> {

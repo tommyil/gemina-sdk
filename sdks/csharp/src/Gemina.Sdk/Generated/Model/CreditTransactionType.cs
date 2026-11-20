@@ -83,7 +83,13 @@ namespace Gemina.Sdk.Model
         /// Enum FiletagGrant for value: filetag_grant
         /// </summary>
         [EnumMember(Value = "filetag_grant")]
-        FiletagGrant = 9
+        FiletagGrant = 9,
+
+        /// <summary>
+        /// Enum UnknownDefaultOpenApi for value: unknown_default_open_api
+        /// </summary>
+        [EnumMember(Value = "unknown_default_open_api")]
+        UnknownDefaultOpenApi = 10
     }
 
 }

@@ -37,8 +37,9 @@ class ExtractionCompletedEvent(BaseModel):
     @field_validator('type')
     def type_validate_enum(cls, value):
         """Validates the enum"""
-        if value not in set(['extraction.completed']):
-            raise ValueError("must be one of enum values ('extraction.completed')")
+        if value not in set(['extraction.completed', 'unknown_default_open_api']):
+            # Gemina: a value the API added later reads as unknown_default_open_api (enumUnknownDefaultCase).
+            return 'unknown_default_open_api'
         return value
 
     model_config = ConfigDict(

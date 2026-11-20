@@ -77,7 +77,13 @@ namespace Gemina.Sdk.Model
         /// Enum Always for value: always
         /// </summary>
         [EnumMember(Value = "always")]
-        Always = 8
+        Always = 8,
+
+        /// <summary>
+        /// Enum UnknownDefaultOpenApi for value: unknown_default_open_api
+        /// </summary>
+        [EnumMember(Value = "unknown_default_open_api")]
+        UnknownDefaultOpenApi = 9
     }
 
 }

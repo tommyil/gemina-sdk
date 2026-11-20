@@ -60,6 +60,8 @@ class CreditTransactionType
 
     public const FILETAG_GRANT = 'filetag_grant';
 
+    public const UNKNOWN_DEFAULT_OPEN_API = 'unknown_default_open_api';
+
     /**
      * Gets allowable values of the enum
      * @return string[]
@@ -75,7 +77,8 @@ class CreditTransactionType
             self::ADJUSTMENT,
             self::RESERVATION,
             self::REFUND,
-            self::FILETAG_GRANT
+            self::FILETAG_GRANT,
+            self::UNKNOWN_DEFAULT_OPEN_API
         ];
     }
 }

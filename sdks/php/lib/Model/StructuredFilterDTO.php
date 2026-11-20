@@ -248,6 +248,7 @@ class StructuredFilterDTO implements ModelInterface, ArrayAccess, \JsonSerializa
     public const OP_CONTAINS = 'contains';
     public const OP_EXISTS = 'exists';
     public const OP_IN = 'in';
+    public const OP_UNKNOWN_DEFAULT_OPEN_API = 'unknown_default_open_api';
 
     /**
      * Gets allowable values of the enum
@@ -264,6 +265,7 @@ class StructuredFilterDTO implements ModelInterface, ArrayAccess, \JsonSerializa
             self::OP_CONTAINS,
             self::OP_EXISTS,
             self::OP_IN,
+            self::OP_UNKNOWN_DEFAULT_OPEN_API,
         ];
     }
 
@@ -372,13 +374,7 @@ class StructuredFilterDTO implements ModelInterface, ArrayAccess, \JsonSerializa
         }
         $allowedValues = $this->getOpAllowableValues();
         if (!in_array($op, $allowedValues, true)) {
-            throw new \InvalidArgumentException(
-                sprintf(
-                    "Invalid value '%s' for 'op', must be one of '%s'",
-                    $op,
-                    implode("', '", $allowedValues)
-                )
-            );
+            $op = self::OP_UNKNOWN_DEFAULT_OPEN_API;
         }
         $this->container['op'] = $op;
 

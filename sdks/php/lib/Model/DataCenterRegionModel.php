@@ -50,6 +50,8 @@ class DataCenterRegionModel
 
     public const ASIA = 'asia';
 
+    public const UNKNOWN_DEFAULT_OPEN_API = 'unknown_default_open_api';
+
     /**
      * Gets allowable values of the enum
      * @return string[]
@@ -60,7 +62,8 @@ class DataCenterRegionModel
             self::ISRAEL,
             self::EUROPE,
             self::UNITED_STATES,
-            self::ASIA
+            self::ASIA,
+            self::UNKNOWN_DEFAULT_OPEN_API
         ];
     }
 }

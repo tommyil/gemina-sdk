@@ -119,7 +119,9 @@ public class WebhookEventOutDTO {
     
     UNAVAILABLE("unavailable"),
     
-    SUPERSEDED("superseded");
+    SUPERSEDED("superseded"),
+    
+    UNKNOWN_DEFAULT_OPEN_API("unknown_default_open_api");
 
     private String value;
 
@@ -205,7 +207,9 @@ public class WebhookEventOutDTO {
     
     FAILED("failed"),
     
-    SUPERSEDED("superseded");
+    SUPERSEDED("superseded"),
+    
+    UNKNOWN_DEFAULT_OPEN_API("unknown_default_open_api");
 
     private String value;
 
@@ -228,7 +232,7 @@ public class WebhookEventOutDTO {
           return b;
         }
       }
-      throw new IllegalArgumentException("Unexpected value '" + value + "'");
+      return UNKNOWN_DEFAULT_OPEN_API;
     }
 
     public static class Adapter extends TypeAdapter<StatusEnum> {
@@ -262,7 +266,9 @@ public class WebhookEventOutDTO {
   public enum TypeEnum {
     EXTRACTION_COMPLETED("extraction.completed"),
     
-    WEBHOOK_TEST("webhook.test");
+    WEBHOOK_TEST("webhook.test"),
+    
+    UNKNOWN_DEFAULT_OPEN_API("unknown_default_open_api");
 
     private String value;
 
@@ -285,7 +291,7 @@ public class WebhookEventOutDTO {
           return b;
         }
       }
-      throw new IllegalArgumentException("Unexpected value '" + value + "'");
+      return UNKNOWN_DEFAULT_OPEN_API;
     }
 
     public static class Adapter extends TypeAdapter<TypeEnum> {

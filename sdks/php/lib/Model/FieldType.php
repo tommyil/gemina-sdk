@@ -50,6 +50,8 @@ class FieldType
 
     public const _ARRAY = 'array';
 
+    public const UNKNOWN_DEFAULT_OPEN_API = 'unknown_default_open_api';
+
     /**
      * Gets allowable values of the enum
      * @return string[]
@@ -60,7 +62,8 @@ class FieldType
             self::STRING,
             self::NUMBER,
             self::BOOLEAN,
-            self::_ARRAY
+            self::_ARRAY,
+            self::UNKNOWN_DEFAULT_OPEN_API
         ];
     }
 }

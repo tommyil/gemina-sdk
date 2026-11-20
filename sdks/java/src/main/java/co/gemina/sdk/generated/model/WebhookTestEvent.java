@@ -67,7 +67,9 @@ public class WebhookTestEvent {
    */
   @JsonAdapter(TypeEnum.Adapter.class)
   public enum TypeEnum {
-    WEBHOOK_TEST("webhook.test");
+    WEBHOOK_TEST("webhook.test"),
+    
+    UNKNOWN_DEFAULT_OPEN_API("unknown_default_open_api");
 
     private String value;
 
@@ -90,7 +92,7 @@ public class WebhookTestEvent {
           return b;
         }
       }
-      throw new IllegalArgumentException("Unexpected value '" + value + "'");
+      return UNKNOWN_DEFAULT_OPEN_API;
     }
 
     public static class Adapter extends TypeAdapter<TypeEnum> {

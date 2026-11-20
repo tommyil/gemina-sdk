@@ -48,6 +48,8 @@ class ContractStatus
 
     public const TERMINATED = 'terminated';
 
+    public const UNKNOWN_DEFAULT_OPEN_API = 'unknown_default_open_api';
+
     /**
      * Gets allowable values of the enum
      * @return string[]
@@ -57,7 +59,8 @@ class ContractStatus
         return [
             self::ACTIVE,
             self::SUSPENDED,
-            self::TERMINATED
+            self::TERMINATED,
+            self::UNKNOWN_DEFAULT_OPEN_API
         ];
     }
 }

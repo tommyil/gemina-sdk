@@ -260,6 +260,7 @@ class CheckoutOutDTO implements ModelInterface, ArrayAccess, \JsonSerializable
 
     public const STATUS_CHECKOUT_READY = 'checkout_ready';
     public const STATUS_PAYMENT_PROCESSING = 'payment_processing';
+    public const STATUS_UNKNOWN_DEFAULT_OPEN_API = 'unknown_default_open_api';
 
     /**
      * Gets allowable values of the enum
@@ -271,6 +272,7 @@ class CheckoutOutDTO implements ModelInterface, ArrayAccess, \JsonSerializable
         return [
             self::STATUS_CHECKOUT_READY,
             self::STATUS_PAYMENT_PROCESSING,
+            self::STATUS_UNKNOWN_DEFAULT_OPEN_API,
         ];
     }
 
@@ -508,13 +510,7 @@ class CheckoutOutDTO implements ModelInterface, ArrayAccess, \JsonSerializable
         }
         $allowedValues = $this->getStatusAllowableValues();
         if (!in_array($status, $allowedValues, true)) {
-            throw new \InvalidArgumentException(
-                sprintf(
-                    "Invalid value '%s' for 'status', must be one of '%s'",
-                    $status,
-                    implode("', '", $allowedValues)
-                )
-            );
+            $status = self::STATUS_UNKNOWN_DEFAULT_OPEN_API;
         }
         $this->container['status'] = $status;
 

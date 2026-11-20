@@ -48,6 +48,8 @@ class PurgeReasonModel
 
     public const ADMIN_ACTION = 'admin_action';
 
+    public const UNKNOWN_DEFAULT_OPEN_API = 'unknown_default_open_api';
+
     /**
      * Gets allowable values of the enum
      * @return string[]
@@ -57,7 +59,8 @@ class PurgeReasonModel
         return [
             self::USER_DELETED,
             self::RETENTION_EXPIRED,
-            self::ADMIN_ACTION
+            self::ADMIN_ACTION,
+            self::UNKNOWN_DEFAULT_OPEN_API
         ];
     }
 }

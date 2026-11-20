@@ -53,7 +53,13 @@ namespace Gemina.Sdk.Model
             /// Enum Hybrid for value: hybrid
             /// </summary>
             [EnumMember(Value = "hybrid")]
-            Hybrid = 3
+            Hybrid = 3,
+
+            /// <summary>
+            /// Enum UnknownDefaultOpenApi for value: unknown_default_open_api
+            /// </summary>
+            [EnumMember(Value = "unknown_default_open_api")]
+            UnknownDefaultOpenApi = 4
         }
 
 
@@ -96,7 +102,13 @@ namespace Gemina.Sdk.Model
             /// Enum CreatedAt for value: created_at
             /// </summary>
             [EnumMember(Value = "created_at")]
-            CreatedAt = 5
+            CreatedAt = 5,
+
+            /// <summary>
+            /// Enum UnknownDefaultOpenApi for value: unknown_default_open_api
+            /// </summary>
+            [EnumMember(Value = "unknown_default_open_api")]
+            UnknownDefaultOpenApi = 6
         }
 
 
@@ -121,7 +133,13 @@ namespace Gemina.Sdk.Model
             /// Enum Desc for value: desc
             /// </summary>
             [EnumMember(Value = "desc")]
-            Desc = 2
+            Desc = 2,
+
+            /// <summary>
+            /// Enum UnknownDefaultOpenApi for value: unknown_default_open_api
+            /// </summary>
+            [EnumMember(Value = "unknown_default_open_api")]
+            UnknownDefaultOpenApi = 3
         }
 
 

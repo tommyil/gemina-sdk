@@ -104,7 +104,7 @@ namespace Gemina.Sdk.Tests
         {
             // A truncated or mis-copied file would otherwise shrink the theories silently.
             Assert.Equal((12, 30), (Shared.Valid.Count, Shared.Invalid.Count));
-            Assert.Equal((2, 3), (Typed.Valid.Count, Typed.Invalid.Count));
+            Assert.Equal((3, 3), (Typed.Valid.Count, Typed.Invalid.Count));
         }
 
         [Theory]
@@ -198,6 +198,21 @@ namespace Gemina.Sdk.Tests
             Assert.Equal(polled.GetType(), typed.GetType());
             Assert.Equal(polled, typed);
             Assert.Equal("2026-11-18T09:30:00Z", (string)webhook.Raw["data"]["result"]["data"]["extractions"][0]["values"]["issued"]);
+        }
+
+        [Fact]
+        public void AnEnumValueAddedToTheApiLaterReadsAsUnknownLikePolling()
+        {
+            var webhook = Unwrap(Named(Typed.Valid, "extraction-completed-with-unknown-enum-values"));
+            var result = Assert.IsType<ExtractionCompletedEventData>(webhook.Data).Result;
+            Assert.Equal(ResponseStatus.UnknownDefaultOpenApi, result.Status);
+            Assert.Equal(ModelType.UnknownDefaultOpenApi, result.Data.Extractions[0].Meta.ModelType);
+            var raw = webhook.Raw["data"]["result"];               // the value that was sent stays in Raw
+            Assert.Equal("queued", (string)raw["status"]);
+            Assert.Equal("nova", (string)raw["data"]["extractions"][0]["meta"]["modelType"]);
+            var polled = DocumentTransport.HandleResponse(200, raw.ToString(Formatting.None), "test");
+            Assert.Equal(polled.Status, result.Status);
+            Assert.Equal(polled.Data.Extractions[0].Meta.ModelType, result.Data.Extractions[0].Meta.ModelType);
         }
 
         [Fact]

@@ -43,8 +43,9 @@ class CheckoutOutDTO(BaseModel):
         if value is None:
             return value
 
-        if value not in set(['checkout_ready', 'payment_processing']):
-            raise ValueError("must be one of enum values ('checkout_ready', 'payment_processing')")
+        if value not in set(['checkout_ready', 'payment_processing', 'unknown_default_open_api']):
+            # Gemina: a value the API added later reads as unknown_default_open_api (enumUnknownDefaultCase).
+            return 'unknown_default_open_api'
         return value
 
     model_config = ConfigDict(

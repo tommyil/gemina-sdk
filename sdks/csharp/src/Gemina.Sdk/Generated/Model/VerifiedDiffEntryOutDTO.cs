@@ -53,7 +53,13 @@ namespace Gemina.Sdk.Model
             /// Enum Removed for value: removed
             /// </summary>
             [EnumMember(Value = "removed")]
-            Removed = 3
+            Removed = 3,
+
+            /// <summary>
+            /// Enum UnknownDefaultOpenApi for value: unknown_default_open_api
+            /// </summary>
+            [EnumMember(Value = "unknown_default_open_api")]
+            UnknownDefaultOpenApi = 4
         }
 
 

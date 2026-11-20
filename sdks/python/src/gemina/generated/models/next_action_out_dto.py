@@ -40,8 +40,9 @@ class NextActionOutDTO(BaseModel):
         if value is None:
             return value
 
-        if value not in set(['http_get_and_save']):
-            raise ValueError("must be one of enum values ('http_get_and_save')")
+        if value not in set(['http_get_and_save', 'unknown_default_open_api']):
+            # Gemina: a value the API added later reads as unknown_default_open_api (enumUnknownDefaultCase).
+            return 'unknown_default_open_api'
         return value
 
     model_config = ConfigDict(

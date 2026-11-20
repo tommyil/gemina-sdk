@@ -48,7 +48,13 @@ namespace Gemina.Sdk.Model
         /// Enum NotCharged for value: not_charged
         /// </summary>
         [EnumMember(Value = "not_charged")]
-        NotCharged = 3
+        NotCharged = 3,
+
+        /// <summary>
+        /// Enum UnknownDefaultOpenApi for value: unknown_default_open_api
+        /// </summary>
+        [EnumMember(Value = "unknown_default_open_api")]
+        UnknownDefaultOpenApi = 4
     }
 
 }

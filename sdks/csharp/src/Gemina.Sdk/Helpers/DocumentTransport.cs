@@ -74,7 +74,8 @@ namespace Gemina.Sdk
         internal static readonly JsonSerializerSettings SerializerSettings = new JsonSerializerSettings
         {
             ConstructorHandling = ConstructorHandling.AllowNonPublicDefaultConstructor,
-            ContractResolver = new DefaultContractResolver
+            // Reads an enum value the API added later as UnknownDefaultOpenApi.
+            ContractResolver = new UnknownEnumValueContractResolver
             {
                 NamingStrategy = new CamelCaseNamingStrategy
                 {

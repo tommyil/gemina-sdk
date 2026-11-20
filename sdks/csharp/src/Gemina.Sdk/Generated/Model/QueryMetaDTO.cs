@@ -54,7 +54,13 @@ namespace Gemina.Sdk.Model
             /// Enum Unavailable for value: unavailable
             /// </summary>
             [EnumMember(Value = "unavailable")]
-            Unavailable = 3
+            Unavailable = 3,
+
+            /// <summary>
+            /// Enum UnknownDefaultOpenApi for value: unknown_default_open_api
+            /// </summary>
+            [EnumMember(Value = "unknown_default_open_api")]
+            UnknownDefaultOpenApi = 4
         }
 
 

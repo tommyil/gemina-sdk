@@ -54,6 +54,8 @@ class PeriodPresetModel
 
     public const PREV_MONTH = 'prev_month';
 
+    public const UNKNOWN_DEFAULT_OPEN_API = 'unknown_default_open_api';
+
     /**
      * Gets allowable values of the enum
      * @return string[]
@@ -66,7 +68,8 @@ class PeriodPresetModel
             self::LAST7D,
             self::LAST30D,
             self::THIS_MONTH,
-            self::PREV_MONTH
+            self::PREV_MONTH,
+            self::UNKNOWN_DEFAULT_OPEN_API
         ];
     }
 }

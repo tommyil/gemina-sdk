@@ -50,6 +50,8 @@ class TemplateStatusModel
 
     public const FAILED = 'FAILED';
 
+    public const UNKNOWN_DEFAULT_OPEN_API = 'unknown_default_open_api';
+
     /**
      * Gets allowable values of the enum
      * @return string[]
@@ -60,7 +62,8 @@ class TemplateStatusModel
             self::PENDING,
             self::PROCESSING,
             self::READY,
-            self::FAILED
+            self::FAILED,
+            self::UNKNOWN_DEFAULT_OPEN_API
         ];
     }
 }

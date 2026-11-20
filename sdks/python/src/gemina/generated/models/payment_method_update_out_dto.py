@@ -38,8 +38,9 @@ class PaymentMethodUpdateOutDTO(BaseModel):
     @field_validator('purpose')
     def purpose_validate_enum(cls, value):
         """Validates the enum"""
-        if value not in set(['update_payment_method', 'pay_overdue', 'resume_subscription']):
-            raise ValueError("must be one of enum values ('update_payment_method', 'pay_overdue', 'resume_subscription')")
+        if value not in set(['update_payment_method', 'pay_overdue', 'resume_subscription', 'unknown_default_open_api']):
+            # Gemina: a value the API added later reads as unknown_default_open_api (enumUnknownDefaultCase).
+            return 'unknown_default_open_api'
         return value
 
     model_config = ConfigDict(

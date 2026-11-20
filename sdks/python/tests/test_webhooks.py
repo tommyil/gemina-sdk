@@ -16,6 +16,8 @@ import pytest
 
 from gemina import (
     DocumentProcessingResultOutDTO,
+    ModelType,
+    ResponseStatus,
     GeminaError,
     GeminaWebhookVerificationError,
     WebhookEvent,
@@ -47,7 +49,7 @@ def signed(vector, body: bytes):
 def test_every_vector_is_loaded():
     # A truncated or mis-copied file would otherwise shrink the parametrised cases silently.
     assert (len(VECTORS["valid"]), len(VECTORS["invalid"])) == (12, 30)
-    assert (len(TYPED["valid"]), len(TYPED["invalid"])) == (2, 3)
+    assert (len(TYPED["valid"]), len(TYPED["invalid"])) == (3, 3)
 
 
 @pytest.mark.parametrize("vector", VECTORS["valid"] + TYPED["valid"], ids=lambda v: v["name"])
@@ -94,6 +96,16 @@ def test_an_included_result_is_parsed_like_the_polling_path_parses_it():
     assert wire_meta["purgeReason"] is None and wire_meta["purgeAt"] == "2026-08-03T17:20:13.180624"
     # And the typed result is exactly what the polling path's parser gives for the same JSON.
     assert result == DocumentProcessingResultOutDTO.from_json(json.dumps(event.raw["data"]["result"]))
+
+
+def test_an_enum_value_added_to_the_api_later_reads_as_unknown_like_polling():
+    event = unwrap(named(TYPED["valid"], "extraction-completed-with-unknown-enum-values"))
+    result = event.data.result
+    assert result.status == ResponseStatus.UNKNOWN_DEFAULT_OPEN_API
+    assert result.data.extractions[0].meta.model_type == ModelType.UNKNOWN_DEFAULT_OPEN_API
+    raw = event.raw["data"]["result"]                       # the value that was sent stays in raw
+    assert raw["status"] == "queued" and raw["data"]["extractions"][0]["meta"]["modelType"] == "nova"
+    assert result == DocumentProcessingResultOutDTO.from_json(json.dumps(raw))   # polling reads it the same way
 
 
 def test_an_error_envelope_is_typed():

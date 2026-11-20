@@ -29,10 +29,18 @@ class InvoiceType(str, Enum):
     SUBSCRIPTION = 'subscription'
     TOP_UP = 'top_up'
     ENTERPRISE_USAGE = 'enterprise_usage'
+    UNKNOWN_DEFAULT_OPEN_API = 'unknown_default_open_api'
 
     @classmethod
     def from_json(cls, json_str: str) -> Self:
         """Create an instance of InvoiceType from a JSON string"""
         return cls(json.loads(json_str))
+
+    # Gemina: a value the API added after this SDK was generated reads as
+    # UNKNOWN_DEFAULT_OPEN_API instead of failing the whole response
+    # (config/templates/python, enumUnknownDefaultCase).
+    @classmethod
+    def _missing_(cls, value):
+        return cls.UNKNOWN_DEFAULT_OPEN_API
 
 

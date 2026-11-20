@@ -253,6 +253,7 @@ class FilesUploadDetailsOutDTO implements ModelInterface, ArrayAccess, \JsonSeri
     }
 
     public const METHOD_PUT = 'PUT';
+    public const METHOD_UNKNOWN_DEFAULT_OPEN_API = 'unknown_default_open_api';
 
     /**
      * Gets allowable values of the enum
@@ -263,6 +264,7 @@ class FilesUploadDetailsOutDTO implements ModelInterface, ArrayAccess, \JsonSeri
     {
         return [
             self::METHOD_PUT,
+            self::METHOD_UNKNOWN_DEFAULT_OPEN_API,
         ];
     }
 
@@ -456,13 +458,7 @@ class FilesUploadDetailsOutDTO implements ModelInterface, ArrayAccess, \JsonSeri
         }
         $allowedValues = $this->getMethodAllowableValues();
         if (!in_array($method, $allowedValues, true)) {
-            throw new \InvalidArgumentException(
-                sprintf(
-                    "Invalid value '%s' for 'method', must be one of '%s'",
-                    $method,
-                    implode("', '", $allowedValues)
-                )
-            );
+            $method = self::METHOD_UNKNOWN_DEFAULT_OPEN_API;
         }
         $this->container['method'] = $method;
 

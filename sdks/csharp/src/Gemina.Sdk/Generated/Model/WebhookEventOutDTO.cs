@@ -77,7 +77,13 @@ namespace Gemina.Sdk.Model
             /// Enum Superseded for value: superseded
             /// </summary>
             [EnumMember(Value = "superseded")]
-            Superseded = 7
+            Superseded = 7,
+
+            /// <summary>
+            /// Enum UnknownDefaultOpenApi for value: unknown_default_open_api
+            /// </summary>
+            [EnumMember(Value = "unknown_default_open_api")]
+            UnknownDefaultOpenApi = 8
         }
 
 
@@ -114,7 +120,13 @@ namespace Gemina.Sdk.Model
             /// Enum Superseded for value: superseded
             /// </summary>
             [EnumMember(Value = "superseded")]
-            Superseded = 4
+            Superseded = 4,
+
+            /// <summary>
+            /// Enum UnknownDefaultOpenApi for value: unknown_default_open_api
+            /// </summary>
+            [EnumMember(Value = "unknown_default_open_api")]
+            UnknownDefaultOpenApi = 5
         }
 
 
@@ -139,7 +151,13 @@ namespace Gemina.Sdk.Model
             /// Enum WebhookTest for value: webhook.test
             /// </summary>
             [EnumMember(Value = "webhook.test")]
-            WebhookTest = 2
+            WebhookTest = 2,
+
+            /// <summary>
+            /// Enum UnknownDefaultOpenApi for value: unknown_default_open_api
+            /// </summary>
+            [EnumMember(Value = "unknown_default_open_api")]
+            UnknownDefaultOpenApi = 3
         }
 
 

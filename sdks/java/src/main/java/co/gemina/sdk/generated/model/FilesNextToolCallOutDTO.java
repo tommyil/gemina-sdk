@@ -69,7 +69,9 @@ public class FilesNextToolCallOutDTO {
   public enum ToolEnum {
     TAG_FILE("tag_file"),
     
-    EXTRACT_DOCUMENT("extract_document");
+    EXTRACT_DOCUMENT("extract_document"),
+    
+    UNKNOWN_DEFAULT_OPEN_API("unknown_default_open_api");
 
     private String value;
 
@@ -92,7 +94,7 @@ public class FilesNextToolCallOutDTO {
           return b;
         }
       }
-      throw new IllegalArgumentException("Unexpected value '" + value + "'");
+      return UNKNOWN_DEFAULT_OPEN_API;
     }
 
     public static class Adapter extends TypeAdapter<ToolEnum> {

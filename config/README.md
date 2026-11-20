@@ -56,6 +56,18 @@ fix these by editing generated code):
   null-tolerant error handler and exposes `GetProcessingResultAsync`.
 - **typescript-fetch bearer tokens**: the oauth2 template sends `accessToken`
   verbatim (no `Bearer ` prefix); the TS facade prepends it.
+- **Unknown enum values** (`enumUnknownDefaultCase: true` in the Python, C#,
+  Java and PHP configs): every enum gains an `UNKNOWN_DEFAULT_OPEN_API` case so
+  a value the API adds later does not fail a whole response. The option alone
+  only does that in Java (and in PHP's inline-enum setters). The rest is
+  contained here: `config/templates/python` (`model_enum.mustache` adds
+  `_missing_`, `model_generic.mustache` maps inline enums instead of raising),
+  `config/templates/php/ObjectSerializer.mustache` (maps instead of throwing),
+  and the C# helper's `UnknownEnumValueContractResolver`, which polling and
+  webhooks read with. The generated C# API groups used directly still refuse
+  an unknown value. typescript-fetch already passes unknown strings through.
+  The three template files are copies of the v7.23.0 originals with those
+  edits only: re-copy and re-apply them when the generator is bumped.
 - **Java datetime parsing**: the API emits naive datetimes (`servedAt` without
   offset); the Java facade installs a lenient `OffsetDateTime` formatter.
   Root-cause fix belongs API-side (timezone-aware serialization).

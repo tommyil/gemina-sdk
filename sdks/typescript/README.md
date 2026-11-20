@@ -77,6 +77,8 @@ reject it.
 | `document_line_items_hebrew` | Hebrew document line items |
 | `custom_template` | Fields defined by your custom template (pass `templateId`) |
 
+**Values added to the API later.** An enum value this version of the SDK does not know yet (a new `modelType` or `status`, say) does not fail the response: the field holds the string as it was sent, outside the union its type names. This holds for polling results and for webhook events alike.
+
 ## Search & aggregate your documents
 
 Everything you process is indexed for retrieval. Use the `retrieval` group to query with natural language plus structured filters — results carry `documentId` / `documentExtractionId` citations back to the underlying documents:

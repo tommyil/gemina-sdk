@@ -106,6 +106,8 @@ Extraction types:
 `filetag` is deliberately absent: the upload endpoints reject it, and FileTag
 has its own endpoints.
 
+**Values added to the API later.** An enum value this version of the SDK does not know yet (a new `modelType` or `status`, say) does not fail the response: it reads as that enum's `UNKNOWN_DEFAULT_OPEN_API` member. This holds for polling results and for webhook events alike; a webhook's `event.raw` keeps the value as it was sent.
+
 ## Search & aggregate your documents
 
 Everything you process is indexed for retrieval. Query with natural language

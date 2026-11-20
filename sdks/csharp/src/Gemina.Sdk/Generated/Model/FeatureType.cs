@@ -53,7 +53,13 @@ namespace Gemina.Sdk.Model
         /// Enum Correction for value: correction
         /// </summary>
         [EnumMember(Value = "correction")]
-        Correction = 4
+        Correction = 4,
+
+        /// <summary>
+        /// Enum UnknownDefaultOpenApi for value: unknown_default_open_api
+        /// </summary>
+        [EnumMember(Value = "unknown_default_open_api")]
+        UnknownDefaultOpenApi = 5
     }
 
 }

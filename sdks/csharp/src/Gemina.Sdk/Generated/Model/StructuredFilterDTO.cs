@@ -77,7 +77,13 @@ namespace Gemina.Sdk.Model
             /// Enum In for value: in
             /// </summary>
             [EnumMember(Value = "in")]
-            In = 7
+            In = 7,
+
+            /// <summary>
+            /// Enum UnknownDefaultOpenApi for value: unknown_default_open_api
+            /// </summary>
+            [EnumMember(Value = "unknown_default_open_api")]
+            UnknownDefaultOpenApi = 8
         }
 
 

@@ -72,7 +72,13 @@ namespace Gemina.Sdk.Model
         /// Enum Filetag for value: filetag
         /// </summary>
         [EnumMember(Value = "filetag")]
-        Filetag = 7
+        Filetag = 7,
+
+        /// <summary>
+        /// Enum UnknownDefaultOpenApi for value: unknown_default_open_api
+        /// </summary>
+        [EnumMember(Value = "unknown_default_open_api")]
+        UnknownDefaultOpenApi = 8
     }
 
 }

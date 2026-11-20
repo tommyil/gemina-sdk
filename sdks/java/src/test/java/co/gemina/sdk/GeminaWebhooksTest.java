@@ -169,7 +169,7 @@ class GeminaWebhooksTest {
         // A truncated or mis-copied file would otherwise shrink the parameterized cases silently.
         assertEquals(12, SHARED.get("valid").size());
         assertEquals(30, SHARED.get("invalid").size());
-        assertEquals(2, TYPED.get("valid").size());
+        assertEquals(3, TYPED.get("valid").size());
         assertEquals(3, TYPED.get("invalid").size());
     }
 
@@ -244,6 +244,18 @@ class GeminaWebhooksTest {
         assertNull(meta.getPurgeReason());
         assertEquals(java.time.OffsetDateTime.of(2026, 8, 3, 17, 20, 13, 180_624_000, java.time.ZoneOffset.UTC), meta.getPurgeAt());
         assertEquals("28677df7-033a-409f-8b70-1568ddd17ea0", data.getResult().getMeta().getDocumentId().toString());
+    }
+
+    @Test
+    void anEnumValueAddedToTheApiLaterReadsAsUnknownLikePolling() throws IOException {
+        WebhookEvent event = unwrap(named(TYPED.get("valid"), "extraction-completed-with-unknown-enum-values"));
+        DocumentProcessingResultOutDTO result = ((ExtractionCompletedEventData) event.getData()).getResult();
+        assertEquals(co.gemina.sdk.generated.model.ResponseStatus.UNKNOWN_DEFAULT_OPEN_API, result.getStatus());
+        assertEquals(co.gemina.sdk.generated.model.ModelType.UNKNOWN_DEFAULT_OPEN_API,
+                result.getData().getExtractions().get(0).getMeta().getModelType());
+        JsonObject raw = event.getRaw().getAsJsonObject("data").getAsJsonObject("result"); // the value sent stays in raw
+        assertEquals("queued", raw.get("status").getAsString());
+        assertEquals(DocumentProcessingResultOutDTO.fromJson(raw.toString()), result);      // polling reads it the same way
     }
 
     @Test

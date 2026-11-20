@@ -65,7 +65,13 @@ namespace Gemina.Sdk.Model
         /// Enum PrevMonth for value: prev_month
         /// </summary>
         [EnumMember(Value = "prev_month")]
-        PrevMonth = 6
+        PrevMonth = 6,
+
+        /// <summary>
+        /// Enum UnknownDefaultOpenApi for value: unknown_default_open_api
+        /// </summary>
+        [EnumMember(Value = "unknown_default_open_api")]
+        UnknownDefaultOpenApi = 7
     }
 
 }
