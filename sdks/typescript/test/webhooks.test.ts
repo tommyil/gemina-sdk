@@ -254,11 +254,21 @@ describe('unwrapWebhook', () => {
     expect((await unwrap(utf8, {}, same)).type).toBe('extraction.completed');
   });
 
-  it('reads a Map whose get() answers undefined for a missing header', async () => {
-    const all = new Map(Object.entries(utf8.headers));
-    expect((await unwrap(utf8, {}, all as unknown as WebhookHeaders)).type).toBe('extraction.completed');
+  it('reads a Map, and answers missing_header when it lacks a header', async () => {
+    const all: Map<string, string> = new Map(Object.entries(utf8.headers)); // typed as a caller would, no cast
+    expect((await unwrap(utf8, {}, all)).type).toBe('extraction.completed');
     all.delete('webhook-id');
-    expect(await reasonOf(unwrap(utf8, {}, all as unknown as WebhookHeaders))).toBe('missing_header');
+    expect(await reasonOf(unwrap(utf8, {}, all))).toBe('missing_header');
+  });
+
+  it('folds the names in a Map by ASCII case, as for a plain object', async () => {
+    const { 'webhook-id': id, ...rest } = utf8.headers;
+    const mixed = new Map<string, string>([['Webhook-Id', id], ...Object.entries(rest)]);
+    expect((await unwrap(utf8, {}, mixed)).id).toBe(id);
+    const conflicting = new Map<string, string>([['webhook-id', id], ['Webhook-Id', 'evt_other'], ...Object.entries(rest)]);
+    expect(await reasonOf(unwrap(utf8, {}, conflicting))).toBe('ambiguous_header');
+    const repeated = new Map<string, string[]>([['webhook-id', [id, id]], ...Object.entries(rest).map(([k, v]) => [k, [v]] as [string, string[]])]);
+    expect((await unwrap(utf8, {}, repeated)).id).toBe(id);
   });
 
   it('treats options: null like no options', async () => {

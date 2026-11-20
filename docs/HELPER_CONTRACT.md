@@ -200,8 +200,9 @@ unwrapWebhook(body, headers, secret, options?) -> WebhookEvent
   joined with ", " by an HTTP library. (Python also takes `(name, value)`
   pairs, in text or bytes; header bytes that are not UTF-8 are read with
   `surrogateescape`, as aiohttp does, and encoded back the same way for the
-  signature. TypeScript also takes anything with a `get(name)`, a fetch
-  `Headers` object or a `Map`.) A value that cannot be read as text is not a
+  signature. TypeScript also takes a fetch `Headers` object, read through
+  `get(name)`, and a `Map`, whose entries are read and folded like a plain
+  object's.) A value that cannot be read as text is not a
   header value.
 - `secret`: the endpoint's signing secret, `whsec_...`.
 - `options`: `toleranceSeconds` (default **300**), and an injectable clock so
@@ -274,7 +275,9 @@ An unknown `type` is NOT an error. A new event type must not break an old SDK.
 
 An unknown enum value inside `data` (a `modelType` or a result `status` the
 API added later) is not an error either, and the polling path reads it the
-same way. Python, Java and PHP read it as the enum's generated
+same way. Only a string can be such a value: a number, an object or an array
+where an enum belongs is still refused (`invalid_body`), and a null keeps
+the nullability the field already had. Python, Java and PHP read it as the enum's generated
 `UNKNOWN_DEFAULT_OPEN_API` case (PHP: the string `unknown_default_open_api`),
 C# as `UnknownDefaultOpenApi`; TypeScript keeps the string as sent. `raw`
 always holds the value as sent. The typed vector

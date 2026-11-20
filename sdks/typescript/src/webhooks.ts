@@ -11,9 +11,13 @@ const DEFAULT_TOLERANCE_SECONDS = 300;
 const BASE64 = /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/;
 const TIMESTAMP = /^[0-9]{1,12}$/;
 
-/** Request headers: a fetch `Headers` object, Node's `IncomingHttpHeaders`, or a plain object. */
+/**
+ * Request headers: a fetch `Headers` object, a `Map`, Node's `IncomingHttpHeaders`, or a
+ * plain object. Names are matched ignoring ASCII case in every form.
+ */
 export type WebhookHeaders =
   | { get(name: string): string | null }
+  | ReadonlyMap<string, string | readonly string[] | undefined>
   | Record<string, string | string[] | undefined>;
 
 export interface UnwrapWebhookOptions {
@@ -92,17 +96,23 @@ function header(headers: WebhookHeaders, name: string): string {
   const add = (value: string) => {
     for (const part of value.split(', ')) if (!values.includes(part)) values.push(part);
   };
+  const fromEntries = (entries: Iterable<[string, unknown]>) => {
+    for (const [key, value] of entries) {
+      if (asciiLower(String(key)) !== name || value === undefined || value === null) continue;
+      for (const item of Array.isArray(value) ? value : [value]) add(String(item));
+    }
+  };
   if (headers === null || headers === undefined) {
     // No headers at all (possible from plain JavaScript): judged like an empty set.
+  } else if (headers instanceof Map) {
+    // Map.get is case-sensitive: read every entry, as for a plain object.
+    fromEntries(headers.entries());
   } else if (typeof (headers as { get?: unknown }).get === 'function') {
-    // `!= null`: a Map answers undefined for a missing name, a fetch Headers object null.
+    // A fetch Headers object: get() ignores case and joins a repeat with ", ".
     const value = (headers as { get(n: string): string | null | undefined }).get(name);
     if (value != null) add(String(value));
   } else {
-    for (const [key, value] of Object.entries(headers as Record<string, string | string[] | undefined>)) {
-      if (asciiLower(key) !== name || value === undefined || value === null) continue;
-      for (const item of Array.isArray(value) ? value : [value]) add(String(item));
-    }
+    fromEntries(Object.entries(headers as Record<string, string | string[] | undefined>));
   }
   if (values.length === 0) throw fail('missing_header', `The ${name} header is missing.`);
   if (values.length > 1) throw fail('ambiguous_header', `The ${name} header was sent more than once with different values.`);
