@@ -22,6 +22,9 @@ Spec snapshot `gemina-1.12.0.json`.
 - New generated API group `webhooks` for managing endpoints, exposed on
   `GeminaClient`. These routes need your account-login token, not an API key
   and not a retrieval session token.
+- A delivery-log event (`WebhookEventOutDTO`) has `manual`: true for a test
+  event or a resend, which is sent once and never retried. The API added it
+  without raising `info.version`, so `gemina-1.12.0.json` was frozen again.
 - No breaking changes.
 
 NuGet uses GitHub trusted publishing. The Release workflow can recover only the

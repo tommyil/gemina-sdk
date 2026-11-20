@@ -68,6 +68,7 @@ class WebhookEventOutDTO implements ModelInterface, ArrayAccess, \JsonSerializab
         'external_id' => 'string',
         'failure_reason' => 'string',
         'id' => 'string',
+        'manual' => 'bool',
         'next_attempt_at' => '\DateTime',
         'occurred_at' => '\DateTime',
         'outcome' => 'string',
@@ -95,6 +96,7 @@ class WebhookEventOutDTO implements ModelInterface, ArrayAccess, \JsonSerializab
         'external_id' => null,
         'failure_reason' => null,
         'id' => 'uuid',
+        'manual' => null,
         'next_attempt_at' => 'date-time',
         'occurred_at' => 'date-time',
         'outcome' => null,
@@ -120,6 +122,7 @@ class WebhookEventOutDTO implements ModelInterface, ArrayAccess, \JsonSerializab
         'external_id' => true,
         'failure_reason' => true,
         'id' => false,
+        'manual' => false,
         'next_attempt_at' => true,
         'occurred_at' => false,
         'outcome' => true,
@@ -225,6 +228,7 @@ class WebhookEventOutDTO implements ModelInterface, ArrayAccess, \JsonSerializab
         'external_id' => 'externalId',
         'failure_reason' => 'failureReason',
         'id' => 'id',
+        'manual' => 'manual',
         'next_attempt_at' => 'nextAttemptAt',
         'occurred_at' => 'occurredAt',
         'outcome' => 'outcome',
@@ -250,6 +254,7 @@ class WebhookEventOutDTO implements ModelInterface, ArrayAccess, \JsonSerializab
         'external_id' => 'setExternalId',
         'failure_reason' => 'setFailureReason',
         'id' => 'setId',
+        'manual' => 'setManual',
         'next_attempt_at' => 'setNextAttemptAt',
         'occurred_at' => 'setOccurredAt',
         'outcome' => 'setOutcome',
@@ -275,6 +280,7 @@ class WebhookEventOutDTO implements ModelInterface, ArrayAccess, \JsonSerializab
         'external_id' => 'getExternalId',
         'failure_reason' => 'getFailureReason',
         'id' => 'getId',
+        'manual' => 'getManual',
         'next_attempt_at' => 'getNextAttemptAt',
         'occurred_at' => 'getOccurredAt',
         'outcome' => 'getOutcome',
@@ -410,6 +416,7 @@ class WebhookEventOutDTO implements ModelInterface, ArrayAccess, \JsonSerializab
         $this->setIfExists('external_id', $data ?? [], null);
         $this->setIfExists('failure_reason', $data ?? [], null);
         $this->setIfExists('id', $data ?? [], null);
+        $this->setIfExists('manual', $data ?? [], null);
         $this->setIfExists('next_attempt_at', $data ?? [], null);
         $this->setIfExists('occurred_at', $data ?? [], null);
         $this->setIfExists('outcome', $data ?? [], null);
@@ -462,6 +469,9 @@ class WebhookEventOutDTO implements ModelInterface, ArrayAccess, \JsonSerializab
 
         if ($this->container['id'] === null) {
             $invalidProperties[] = "'id' can't be null";
+        }
+        if ($this->container['manual'] === null) {
+            $invalidProperties[] = "'manual' can't be null";
         }
         if ($this->container['occurred_at'] === null) {
             $invalidProperties[] = "'occurred_at' can't be null";
@@ -860,6 +870,33 @@ class WebhookEventOutDTO implements ModelInterface, ArrayAccess, \JsonSerializab
             throw new \InvalidArgumentException('non-nullable id cannot be null');
         }
         $this->container['id'] = $id;
+
+        return $this;
+    }
+
+    /**
+     * Gets manual
+     *
+     * @return bool
+     */
+    public function getManual()
+    {
+        return $this->container['manual'];
+    }
+
+    /**
+     * Sets manual
+     *
+     * @param bool $manual True for a test event or a resend: it is sent once and never retried. While it is pending it is waiting to be sent, not waiting for a retry.
+     *
+     * @return self
+     */
+    public function setManual($manual)
+    {
+        if (is_null($manual)) {
+            throw new \InvalidArgumentException('non-nullable manual cannot be null');
+        }
+        $this->container['manual'] = $manual;
 
         return $this;
     }

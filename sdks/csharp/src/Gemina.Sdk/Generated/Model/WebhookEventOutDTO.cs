@@ -167,17 +167,19 @@ namespace Gemina.Sdk.Model
         /// <param name="externalId">externalId.</param>
         /// <param name="failureReason">failureReason.</param>
         /// <param name="id">id (required).</param>
+        /// <param name="manual">True for a test event or a resend: it is sent once and never retried. While it is pending it is waiting to be sent, not waiting for a retry. (required).</param>
         /// <param name="nextAttemptAt">nextAttemptAt.</param>
         /// <param name="occurredAt">occurredAt (required).</param>
         /// <param name="outcome">The request&#39;s settled status: success, partial or failed..</param>
         /// <param name="status">status (required).</param>
         /// <param name="type">type (required).</param>
         /// <param name="webhookId">The value sent in the &#x60;webhook-id&#x60; header. (required).</param>
-        public WebhookEventOutDTO(int attemptCount = default, List<WebhookAttemptOutDTO> attempts = default, Guid? correlationId = default, DateTime? createdAt = default, decimal? createdAtTimestamp = default, DateTime? deliveredAt = default, Guid? documentId = default, Guid endpointId = default, string externalId = default, FailureReasonEnum? failureReason = default, Guid id = default, DateTime? nextAttemptAt = default, DateTime occurredAt = default, string outcome = default, StatusEnum status = default, TypeEnum type = default, string webhookId = default)
+        public WebhookEventOutDTO(int attemptCount = default, List<WebhookAttemptOutDTO> attempts = default, Guid? correlationId = default, DateTime? createdAt = default, decimal? createdAtTimestamp = default, DateTime? deliveredAt = default, Guid? documentId = default, Guid endpointId = default, string externalId = default, FailureReasonEnum? failureReason = default, Guid id = default, bool manual = default, DateTime? nextAttemptAt = default, DateTime occurredAt = default, string outcome = default, StatusEnum status = default, TypeEnum type = default, string webhookId = default)
         {
             this.AttemptCount = attemptCount;
             this.EndpointId = endpointId;
             this.Id = id;
+            this.Manual = manual;
             this.OccurredAt = occurredAt;
             this.Status = status;
             this.Type = type;
@@ -260,6 +262,13 @@ namespace Gemina.Sdk.Model
         public Guid Id { get; set; }
 
         /// <summary>
+        /// True for a test event or a resend: it is sent once and never retried. While it is pending it is waiting to be sent, not waiting for a retry.
+        /// </summary>
+        /// <value>True for a test event or a resend: it is sent once and never retried. While it is pending it is waiting to be sent, not waiting for a retry.</value>
+        [DataMember(Name = "manual", IsRequired = true, EmitDefaultValue = true)]
+        public bool Manual { get; set; }
+
+        /// <summary>
         /// Gets or Sets NextAttemptAt
         /// </summary>
         [DataMember(Name = "nextAttemptAt", EmitDefaultValue = true)]
@@ -304,6 +313,7 @@ namespace Gemina.Sdk.Model
             sb.Append("  ExternalId: ").Append(ExternalId).Append("\n");
             sb.Append("  FailureReason: ").Append(FailureReason).Append("\n");
             sb.Append("  Id: ").Append(Id).Append("\n");
+            sb.Append("  Manual: ").Append(Manual).Append("\n");
             sb.Append("  NextAttemptAt: ").Append(NextAttemptAt).Append("\n");
             sb.Append("  OccurredAt: ").Append(OccurredAt).Append("\n");
             sb.Append("  Outcome: ").Append(Outcome).Append("\n");

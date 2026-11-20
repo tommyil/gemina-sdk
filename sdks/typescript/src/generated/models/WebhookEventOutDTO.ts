@@ -94,6 +94,12 @@ export interface WebhookEventOutDTO {
      */
     id: string;
     /**
+     * True for a test event or a resend: it is sent once and never retried. While it is pending it is waiting to be sent, not waiting for a retry.
+     * @type {boolean}
+     * @memberof WebhookEventOutDTO
+     */
+    manual: boolean;
+    /**
      * 
      * @type {Date}
      * @memberof WebhookEventOutDTO
@@ -174,6 +180,7 @@ export function instanceOfWebhookEventOutDTO(value: object): value is WebhookEve
     if (!('attemptCount' in value) || value['attemptCount'] === undefined) return false;
     if (!('endpointId' in value) || value['endpointId'] === undefined) return false;
     if (!('id' in value) || value['id'] === undefined) return false;
+    if (!('manual' in value) || value['manual'] === undefined) return false;
     if (!('occurredAt' in value) || value['occurredAt'] === undefined) return false;
     if (!('status' in value) || value['status'] === undefined) return false;
     if (!('type' in value) || value['type'] === undefined) return false;
@@ -202,6 +209,7 @@ export function WebhookEventOutDTOFromJSONTyped(json: any, ignoreDiscriminator: 
         'externalId': json['externalId'] == null ? undefined : json['externalId'],
         'failureReason': json['failureReason'] == null ? undefined : json['failureReason'],
         'id': json['id'],
+        'manual': json['manual'],
         'nextAttemptAt': json['nextAttemptAt'] == null ? undefined : (new Date(json['nextAttemptAt'])),
         'occurredAt': (new Date(json['occurredAt'])),
         'outcome': json['outcome'] == null ? undefined : json['outcome'],
@@ -233,6 +241,7 @@ export function WebhookEventOutDTOToJSONTyped(value?: WebhookEventOutDTO | null,
         'externalId': value['externalId'],
         'failureReason': value['failureReason'],
         'id': value['id'],
+        'manual': value['manual'],
         'nextAttemptAt': value['nextAttemptAt'] == null ? value['nextAttemptAt'] : value['nextAttemptAt'].toISOString(),
         'occurredAt': value['occurredAt'].toISOString(),
         'outcome': value['outcome'],

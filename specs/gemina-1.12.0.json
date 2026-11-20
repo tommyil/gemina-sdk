@@ -10261,6 +10261,11 @@
             "title": "Id",
             "type": "string"
           },
+          "manual": {
+            "description": "True for a test event or a resend: it is sent once and never retried. While it is pending it is waiting to be sent, not waiting for a retry.",
+            "title": "Manual",
+            "type": "boolean"
+          },
           "nextAttemptAt": {
             "anyOf": [
               {
@@ -10321,6 +10326,7 @@
           "type",
           "status",
           "attemptCount",
+          "manual",
           "occurredAt"
         ],
         "title": "WebhookEventOutDTO",

@@ -174,6 +174,11 @@ public class WebhookEventOutDTO {
   @javax.annotation.Nonnull
   private UUID id;
 
+  public static final String SERIALIZED_NAME_MANUAL = "manual";
+  @SerializedName(SERIALIZED_NAME_MANUAL)
+  @javax.annotation.Nonnull
+  private Boolean manual;
+
   public static final String SERIALIZED_NAME_NEXT_ATTEMPT_AT = "nextAttemptAt";
   @SerializedName(SERIALIZED_NAME_NEXT_ATTEMPT_AT)
   @javax.annotation.Nullable
@@ -532,6 +537,25 @@ public class WebhookEventOutDTO {
   }
 
 
+  public WebhookEventOutDTO manual(@javax.annotation.Nonnull Boolean manual) {
+    this.manual = manual;
+    return this;
+  }
+
+  /**
+   * True for a test event or a resend: it is sent once and never retried. While it is pending it is waiting to be sent, not waiting for a retry.
+   * @return manual
+   */
+  @javax.annotation.Nonnull
+  public Boolean getManual() {
+    return manual;
+  }
+
+  public void setManual(@javax.annotation.Nonnull Boolean manual) {
+    this.manual = manual;
+  }
+
+
   public WebhookEventOutDTO nextAttemptAt(@javax.annotation.Nullable OffsetDateTime nextAttemptAt) {
     this.nextAttemptAt = nextAttemptAt;
     return this;
@@ -711,6 +735,7 @@ public class WebhookEventOutDTO {
         Objects.equals(this.externalId, webhookEventOutDTO.externalId) &&
         Objects.equals(this.failureReason, webhookEventOutDTO.failureReason) &&
         Objects.equals(this.id, webhookEventOutDTO.id) &&
+        Objects.equals(this.manual, webhookEventOutDTO.manual) &&
         Objects.equals(this.nextAttemptAt, webhookEventOutDTO.nextAttemptAt) &&
         Objects.equals(this.occurredAt, webhookEventOutDTO.occurredAt) &&
         Objects.equals(this.outcome, webhookEventOutDTO.outcome) &&
@@ -726,7 +751,7 @@ public class WebhookEventOutDTO {
 
   @Override
   public int hashCode() {
-    return Objects.hash(attemptCount, attempts, correlationId, createdAt, createdAtTimestamp, deliveredAt, documentId, endpointId, externalId, failureReason, id, nextAttemptAt, occurredAt, outcome, status, type, webhookId, additionalProperties);
+    return Objects.hash(attemptCount, attempts, correlationId, createdAt, createdAtTimestamp, deliveredAt, documentId, endpointId, externalId, failureReason, id, manual, nextAttemptAt, occurredAt, outcome, status, type, webhookId, additionalProperties);
   }
 
   private static <T> int hashCodeNullable(JsonNullable<T> a) {
@@ -751,6 +776,7 @@ public class WebhookEventOutDTO {
     sb.append("    externalId: ").append(toIndentedString(externalId)).append("\n");
     sb.append("    failureReason: ").append(toIndentedString(failureReason)).append("\n");
     sb.append("    id: ").append(toIndentedString(id)).append("\n");
+    sb.append("    manual: ").append(toIndentedString(manual)).append("\n");
     sb.append("    nextAttemptAt: ").append(toIndentedString(nextAttemptAt)).append("\n");
     sb.append("    occurredAt: ").append(toIndentedString(occurredAt)).append("\n");
     sb.append("    outcome: ").append(toIndentedString(outcome)).append("\n");
@@ -776,10 +802,10 @@ public class WebhookEventOutDTO {
 
   static {
     // a set of all properties/fields (JSON key names)
-    openapiFields = new HashSet<String>(Arrays.asList("attemptCount", "attempts", "correlationId", "createdAt", "createdAtTimestamp", "deliveredAt", "documentId", "endpointId", "externalId", "failureReason", "id", "nextAttemptAt", "occurredAt", "outcome", "status", "type", "webhookId"));
+    openapiFields = new HashSet<String>(Arrays.asList("attemptCount", "attempts", "correlationId", "createdAt", "createdAtTimestamp", "deliveredAt", "documentId", "endpointId", "externalId", "failureReason", "id", "manual", "nextAttemptAt", "occurredAt", "outcome", "status", "type", "webhookId"));
 
     // a set of required properties/fields (JSON key names)
-    openapiRequiredFields = new HashSet<String>(Arrays.asList("attemptCount", "endpointId", "id", "occurredAt", "status", "type", "webhookId"));
+    openapiRequiredFields = new HashSet<String>(Arrays.asList("attemptCount", "endpointId", "id", "manual", "occurredAt", "status", "type", "webhookId"));
   }
 
   /**

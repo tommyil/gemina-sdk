@@ -18,7 +18,7 @@ import re  # noqa: F401
 import json
 
 from datetime import datetime
-from pydantic import BaseModel, ConfigDict, Field, StrictFloat, StrictInt, StrictStr, field_validator
+from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictFloat, StrictInt, StrictStr, field_validator
 from typing import Any, ClassVar, Dict, List, Optional, Union
 from uuid import UUID
 from gemina.generated.models.webhook_attempt_out_dto import WebhookAttemptOutDTO
@@ -41,13 +41,14 @@ class WebhookEventOutDTO(BaseModel):
     external_id: Optional[StrictStr] = Field(default=None, alias="externalId")
     failure_reason: Optional[StrictStr] = Field(default=None, alias="failureReason")
     id: UUID
+    manual: StrictBool = Field(description="True for a test event or a resend: it is sent once and never retried. While it is pending it is waiting to be sent, not waiting for a retry.")
     next_attempt_at: Optional[datetime] = Field(default=None, alias="nextAttemptAt")
     occurred_at: datetime = Field(alias="occurredAt")
     outcome: Optional[StrictStr] = Field(default=None, description="The request's settled status: success, partial or failed.")
     status: StrictStr
     type: StrictStr
     webhook_id: StrictStr = Field(description="The value sent in the `webhook-id` header.", alias="webhookId")
-    __properties: ClassVar[List[str]] = ["attemptCount", "attempts", "correlationId", "createdAt", "createdAtTimestamp", "deliveredAt", "documentId", "endpointId", "externalId", "failureReason", "id", "nextAttemptAt", "occurredAt", "outcome", "status", "type", "webhookId"]
+    __properties: ClassVar[List[str]] = ["attemptCount", "attempts", "correlationId", "createdAt", "createdAtTimestamp", "deliveredAt", "documentId", "endpointId", "externalId", "failureReason", "id", "manual", "nextAttemptAt", "occurredAt", "outcome", "status", "type", "webhookId"]
 
     @field_validator('failure_reason')
     def failure_reason_validate_enum(cls, value):
@@ -187,6 +188,7 @@ class WebhookEventOutDTO(BaseModel):
             "externalId": obj.get("externalId"),
             "failureReason": obj.get("failureReason"),
             "id": obj.get("id"),
+            "manual": obj.get("manual"),
             "nextAttemptAt": obj.get("nextAttemptAt"),
             "occurredAt": obj.get("occurredAt"),
             "outcome": obj.get("outcome"),
