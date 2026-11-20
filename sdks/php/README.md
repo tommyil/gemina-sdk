@@ -319,14 +319,10 @@ use Gemina\Sdk\GeminaWebhookVerificationException;
 
 const MAX_BODY_BYTES = 2 * 1024 * 1024; // Gemina's bodies stay near 1 MB
 
-// A failing file call raises an exception instead of printing a warning: a warning
-// printed into the response would send a 200 before the error could answer 500.
-set_error_handler(static function (int $severity, string $message, string $file, int $line): bool {
-    if (!(error_reporting() & $severity)) {
-        return false;
-    }
-    throw new ErrorException($message, 0, $severity, $file, $line);
-});
+// Never print a PHP warning into the response: once anything is printed, PHP sends a 200
+// and a later failure can no longer answer 500. Warnings still go to the error log, and
+// every file call below checks its own result, whatever the warning settings are.
+ini_set('display_errors', '0');
 
 /** Ends the request with a status code, logging why when there is a reason. */
 function answer(int $status, ?string $logLine = null): never
@@ -338,41 +334,43 @@ function answer(int $status, ?string $logLine = null): never
     exit;
 }
 
+/** What failed, with the reason PHP gave, for the error log. */
+function failure(string $what): string
+{
+    return $what . ': ' . (error_get_last()['message'] ?? 'no reason given');
+}
+
 /**
  * Store the event under its id. Write a private file first, then publish it
  * under the event's id. The link fails if that id is already stored, and a
- * half-written file never carries the id.
+ * half-written file never carries the id. Throws when the event is not stored.
  */
 function store(string $inbox, string $id, string $body): void
 {
-    if (!is_dir($inbox)) {
-        try {
-            mkdir($inbox, 0700, true); // private: events hold extracted data
-        } catch (ErrorException $e) {
-            if (!is_dir($inbox)) {
-                throw $e;
-            }
-        }
+    if (!is_dir($inbox) && !mkdir($inbox, 0700, true) && !is_dir($inbox)) { // private: events hold extracted data
+        throw new RuntimeException(failure("cannot create {$inbox}"));
     }
     $final = "{$inbox}/{$id}.json";
     $partial = "{$inbox}/.{$id}." . bin2hex(random_bytes(16)) . '.part';
+    error_clear_last();
     $file = fopen($partial, 'xb');
-    try {
-        if (fwrite($file, $body) !== strlen($body) || !fflush($file) || !fsync($file)) {
-            throw new RuntimeException("cannot write {$partial}");
-        }
-    } finally {
-        fclose($file);
+    if ($file === false) {
+        throw new RuntimeException(failure("cannot create {$partial}"));
     }
     try {
-        link($partial, $final);
-    } catch (ErrorException $e) {
-        if (!is_file($final)) {
-            throw $e;
+        $written = fwrite($file, $body) === strlen($body) && fflush($file) && fsync($file);
+        if (!fclose($file) || !$written) {
+            throw new RuntimeException(failure("cannot write {$partial}"));
         }
-        // the id is already stored: a repeat of an event you already have
+        error_clear_last();
+        // @: a link that fails because the event is already stored is a repeat, not a warning.
+        if (!@link($partial, $final) && !is_file($final)) {
+            throw new RuntimeException(failure("cannot store {$final}"));
+        }
     } finally {
-        unlink($partial);
+        if (file_exists($partial) && !unlink($partial)) { // whatever happened, the temporary file goes
+            error_log(failure("cannot remove {$partial}"));
+        }
     }
 }
 
@@ -405,8 +403,8 @@ if ($event->type !== 'extraction.completed') {
 
 try {
     store($inbox, $event->id, $body);
-} catch (ErrorException | RuntimeException $e) {
-    answer(500, 'Gemina webhook not stored: ' . $e->getMessage()); // a normal delivery is retried; a test or a resend is not
+} catch (RuntimeException $e) {
+    answer(500, 'Gemina webhook not stored: ' . $e->getMessage()); // a normal delivery is sent again; a test or a resend is not
 }
 answer(200);
 ```

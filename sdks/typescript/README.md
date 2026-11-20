@@ -293,7 +293,7 @@ The sample needs nothing beyond Node.js 18 or later and this package. Save it as
 
 ```js
 import { randomUUID } from 'node:crypto';
-import { closeSync, fsyncSync, linkSync, mkdirSync, openSync, rmSync, writeFileSync } from 'node:fs';
+import { closeSync, fsyncSync, linkSync, mkdirSync, openSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { join } from 'node:path';
 import { GeminaWebhookVerificationError, unwrapWebhook } from '@gemina/sdk';
@@ -311,7 +311,7 @@ const PORT = Number(process.env.PORT ?? 8099);
 
 // Store the event under its id BEFORE answering. Write a private file first, then
 // publish it under the event's id. The link fails if that id is already stored,
-// and a half-written file never carries the id.
+// and a half-written file never carries the id. Any other failure is thrown.
 function store(id, body) {
   const final = join(INBOX, `${id}.json`);
   const partial = join(INBOX, `.${id}.${randomUUID()}.part`);
@@ -325,9 +325,10 @@ function store(id, body) {
     }
     linkSync(partial, final);
   } catch (error) {
-    if (error.code !== 'EEXIST') throw error; // EEXIST: a repeat of an event you already have
+    // EEXIST with the event stored under that name is a repeat of an event you already have.
+    if (error.code !== 'EEXIST' || !statSync(final, { throwIfNoEntry: false })?.isFile()) throw error;
   } finally {
-    rmSync(partial, { force: true });
+    rmSync(partial, { force: true }); // whatever happened, the temporary file goes
   }
 }
 

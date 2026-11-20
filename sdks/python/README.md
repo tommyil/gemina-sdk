@@ -416,7 +416,9 @@ async def gemina_webhook(request: Request) -> Response:
 
     # Store the event under its id BEFORE answering. Write a private file first,
     # then publish it under the event's id. The link fails if that id is already
-    # stored, and a half-written file never carries the id.
+    # stored, and a half-written file never carries the id. Any other failure is
+    # raised: the server logs it and answers 500, and Gemina sends the event again
+    # (a test event or a resend is not sent again).
     final = INBOX / f"{event.id}.json"
     partial = INBOX / f".{event.id}.{uuid.uuid4().hex}.part"
     try:
@@ -426,11 +428,11 @@ async def gemina_webhook(request: Request) -> Response:
             os.fsync(inbox_file.fileno())
         os.link(partial, final)
     except FileExistsError:
-        pass                                          # a repeat of an event you already have
-    except OSError:
-        return Response(status_code=500)              # not stored. A normal delivery is retried; a test or a resend is not
+        if not final.is_file():                       # the name is taken by something that is not the event
+            raise
+        # otherwise a repeat of an event you already have
     finally:
-        partial.unlink(missing_ok=True)
+        partial.unlink(missing_ok=True)               # whatever happened, the temporary file goes
     return Response(status_code=200)
 ```
 

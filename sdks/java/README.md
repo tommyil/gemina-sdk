@@ -427,18 +427,21 @@ public class GeminaWebhookController {
 
         // Store the event under its id BEFORE answering. Write a private file first,
         // then publish it under the event's id. The link fails if that id is already
-        // stored, and a half-written file never carries the id.
+        // stored, and a half-written file never carries the id. Any other failure is
+        // thrown: Spring logs it and answers 500, and Gemina sends the event again
+        // (a test event or a resend is not sent again).
         Path published = inbox.resolve(event.getId() + ".json");
         Path partial = inbox.resolve("." + event.getId() + "." + UUID.randomUUID() + ".part");
         try {
             Files.write(partial, body, StandardOpenOption.CREATE_NEW, StandardOpenOption.SYNC);
             Files.createLink(published, partial);
         } catch (FileAlreadyExistsException e) {
-            // a repeat of an event you already have
-        } catch (IOException e) {
-            return ResponseEntity.status(500).build(); // not stored. A normal delivery is retried; a test or a resend is not
+            if (!Files.isRegularFile(published)) {
+                throw e; // the name is taken by something that is not the event
+            }
+            // otherwise a repeat of an event you already have
         } finally {
-            Files.deleteIfExists(partial);
+            Files.deleteIfExists(partial); // whatever happened, the temporary file goes
         }
         return ResponseEntity.ok().build();
     }
