@@ -534,11 +534,16 @@ class ObjectSerializer
                     $propertyValue = $data->{$instance::attributeMap()[$property]};
                     {{#enumUnknownDefaultCase}}
                     // Gemina: an inline enum is typed string, so deserialize() below would turn 42
-                    // into "42" and the setter would read it as UNKNOWN_DEFAULT_OPEN_API. Only a
-                    // string may be an enum value, so the raw value is checked first
+                    // (or an array) into a string and the setter would read it as
+                    // UNKNOWN_DEFAULT_OPEN_API. Only a string may be an enum value, so the raw value
+                    // is checked first, against the declared type: a scalar enum takes one string,
+                    // and only a declared enum array (`string[]`) takes a list of strings
                     // (config/templates/php).
                     if (method_exists($instance, 'get' . substr($propertySetter, 3) . 'AllowableValues')) {
-                        foreach (is_array($propertyValue) ? $propertyValue : [$propertyValue] as $enumValue) {
+                        $enumValues = str_ends_with($type, '[]')
+                            ? (is_array($propertyValue) ? $propertyValue : [null]) // a declared enum array takes a list
+                            : [$propertyValue];                                     // a scalar enum takes one value
+                        foreach ($enumValues as $enumValue) {
                             if (!is_string($enumValue)) {
                                 throw new \InvalidArgumentException("Invalid value for enum '$property' of " . get_class($instance) . ': not a string');
                             }

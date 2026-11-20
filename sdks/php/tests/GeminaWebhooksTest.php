@@ -11,6 +11,7 @@ use Gemina\Sdk\Model\DocumentProcessingResultOutDTO;
 use Gemina\Sdk\Model\ExtractionCompletedEventData;
 use Gemina\Sdk\Model\ModelType;
 use Gemina\Sdk\Model\ResponseStatus;
+use Gemina\Sdk\Model\RetrievalAggregateInDTO;
 use Gemina\Sdk\Model\VerifiedDiffEntryOutDTO;
 use Gemina\Sdk\Model\WebhookEventOutDTO;
 use Gemina\Sdk\Model\WebhookTestEventData;
@@ -227,6 +228,30 @@ final class GeminaWebhooksTest extends TestCase
         $event = GeminaWebhooks::unwrap($raw, self::signed($vector, $raw), $vector['secret'], 300, fn () => $vector['now']);
         $entry = $event->data->getResult()->getData()->getExtractions()[0]->getVerifiedDiff()[0];
         $this->assertSame(VerifiedDiffEntryOutDTO::STATUS_UNKNOWN_DEFAULT_OPEN_API, $entry->getStatus());
+    }
+
+    public static function arraysForAScalarEnum(): array
+    {
+        return ['empty array' => [[]], 'array holding a known value' => [['corrected']]];
+    }
+
+    #[DataProvider('arraysForAScalarEnum')]
+    public function testAScalarInlineEnumRefusesAnArray(array $status): void
+    {
+        [$vector, $raw, $body] = self::withDiffStatus($status);
+        $this->assertSame('invalid_body', $this->reasonOf(
+            fn () => GeminaWebhooks::unwrap($raw, self::signed($vector, $raw), $vector['secret'], 300, fn () => $vector['now'])));
+        $this->expectException(\InvalidArgumentException::class);
+        ObjectSerializer::deserialize(json_decode(json_encode($body->data->result)), DocumentProcessingResultOutDTO::class);
+    }
+
+    public function testADeclaredEnumArrayStillReadsItsElements(): void
+    {
+        $read = fn (array $groupBy) => ObjectSerializer::deserialize(
+            json_decode(json_encode(['metrics' => [['op' => 'count']], 'groupBy' => $groupBy])), RetrievalAggregateInDTO::class);
+        $this->assertSame(['vendor_name', 'month'], $read(['vendor_name', 'month'])->getGroupBy());
+        $this->expectException(\InvalidArgumentException::class);
+        $read(['vendor_name', 42]);
     }
 
     public function testANullableEnumReadsAnUnknownStringAsUnknownAndNullAsNull(): void
