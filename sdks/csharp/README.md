@@ -95,7 +95,7 @@ own endpoints (`client.FileTag`), and the upload endpoints reject it.
 | `document_line_items_hebrew` | `UploadExtractionTypeEnum.DocumentLineItemsHebrew` | Hebrew document line items |
 | `custom_template` | `UploadExtractionTypeEnum.CustomTemplate` | Your own template fields (pass `TemplateId`) |
 
-**Values added to the API later.** An enum value this version of the SDK does not know yet (a new `modelType` or `status`, say) does not fail the result: it reads as that enum's `UnknownDefaultOpenApi` member. This holds for polling results and for webhook events alike; a webhook's `Raw` keeps the value as it was sent. (Calls made through the generated API groups directly still refuse an unknown enum value.)
+**Values added to the API later.** An enum value this version of the SDK does not know yet (a new `modelType` or `status`, say) does not fail the result: it reads as that enum's `UnknownDefaultOpenApi` member. This holds for polling results, for webhook events, and for every API group `GeminaClient` gives you (`client.Webhooks`, `client.Documents`, ...); a webhook's `Raw` keeps the value as it was sent. A generated API class you construct yourself (`new WebhooksApi(...)`) keeps the generator's strict reading.
 
 ## What did an extraction cost?
 

@@ -63,9 +63,11 @@ fix these by editing generated code):
   contained here: `config/templates/python` (`model_enum.mustache` adds
   `_missing_`, `model_generic.mustache` maps inline enums instead of raising),
   `config/templates/php/ObjectSerializer.mustache` (maps instead of throwing),
-  and the C# helper's `UnknownEnumValueContractResolver`, which polling and
-  webhooks read with. The generated C# API groups used directly still refuse
-  an unknown value. typescript-fetch already passes unknown strings through.
+  and the C# helper's `UnknownEnumValueContractResolver`, which polling,
+  webhooks and every group the C# facade builds read with (the facade sets it
+  on each group's own ApiClient; a group constructed by hand keeps the
+  generator's strict settings). typescript-fetch already passes unknown
+  strings through.
   The three template files are copies of the v7.23.0 originals with those
   edits only: re-copy and re-apply them when the generator is bumped.
 - **Java datetime parsing**: the API emits naive datetimes (`servedAt` without

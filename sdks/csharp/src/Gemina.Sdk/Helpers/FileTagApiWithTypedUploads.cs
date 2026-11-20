@@ -34,7 +34,7 @@ namespace Gemina.Sdk
 
         internal FileTagApiWithTypedUploads(Configuration configuration)
         {
-            _inner = new FileTagApi(configuration);
+            _inner = UnknownEnumValues.Tolerate(new FileTagApi(configuration));
             _transport = new FileTagTransport(_inner.Configuration);
         }
 

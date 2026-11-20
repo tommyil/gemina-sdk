@@ -1,4 +1,5 @@
 using System;
+using Gemina.Sdk.Client;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Converters;
 using Newtonsoft.Json.Serialization;
@@ -47,4 +48,70 @@ namespace Gemina.Sdk
             }
         }
     }
+
+    /// <summary>The HTTP clients of a generated API group (public properties of every group).</summary>
+    internal interface IGeneratedApiClients
+    {
+        ISynchronousClient Client { get; }
+
+        IAsynchronousClient AsynchronousClient { get; }
+    }
+
+    /// <summary>Gives the generated groups the facade builds the same unknown-enum tolerance.</summary>
+    internal static class UnknownEnumValues
+    {
+        /// <summary>
+        /// The same settings the generated <c>ApiClient</c> starts with, read through
+        /// <see cref="UnknownEnumValueContractResolver"/>.
+        /// </summary>
+        internal static UnknownEnumValueContractResolver NewContractResolver() => new UnknownEnumValueContractResolver
+        {
+            NamingStrategy = new CamelCaseNamingStrategy
+            {
+                OverrideSpecifiedNames = false,
+            },
+        };
+
+        /// <summary>Points the group's own HTTP clients at the tolerant contract resolver.</summary>
+        internal static T Tolerate<T>(T api) where T : IGeneratedApiClients
+        {
+            Apply(api.Client);
+            Apply(api.AsynchronousClient);
+            return api;
+        }
+
+        private static void Apply(object client)
+        {
+            // A group built with a caller's own client keeps that client as it is.
+            if (client is ApiClient generated)
+            {
+                generated.SerializerSettings.ContractResolver = NewContractResolver();
+            }
+        }
+    }
+}
+
+namespace Gemina.Sdk.Api
+{
+    // The generated groups are partial classes, and each already has public Client and
+    // AsynchronousClient properties; these declarations only name them for the facade.
+    public partial class BillingApi : IGeneratedApiClients { }
+
+    public partial class ChatApi : IGeneratedApiClients { }
+
+    public partial class DocumentApi : IGeneratedApiClients { }
+
+    public partial class FileTagApi : IGeneratedApiClients { }
+
+    public partial class FilesApi : IGeneratedApiClients { }
+
+    public partial class RetrievalApi : IGeneratedApiClients { }
+
+    public partial class SessionsApi : IGeneratedApiClients { }
+
+    public partial class SubscriptionsApi : IGeneratedApiClients { }
+
+    public partial class TemplatesApi : IGeneratedApiClients { }
+
+    public partial class WebhooksApi : IGeneratedApiClients { }
 }
