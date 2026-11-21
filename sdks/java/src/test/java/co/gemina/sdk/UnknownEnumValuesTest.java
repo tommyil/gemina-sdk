@@ -17,7 +17,7 @@ class UnknownEnumValuesTest {
 
     @BeforeAll
     static void lenientDates() {
-        GeminaClient.installLenientJson();
+        LenientJson.install();
     }
 
     private static String event(String failureReason) {

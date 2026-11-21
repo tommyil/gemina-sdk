@@ -6,7 +6,6 @@ using System.Threading.Tasks;
 using Gemina.Sdk.Client;
 using Gemina.Sdk.Model;
 using Newtonsoft.Json;
-using Newtonsoft.Json.Serialization;
 using RestSharp;
 
 namespace Gemina.Sdk
@@ -70,18 +69,13 @@ namespace Gemina.Sdk
 
         // Mirrors the generated ApiClient's serializer settings, plus the
         // null-tolerance described on the class. Internal so that
-        // GeminaWebhooks reads a webhook's result exactly as polling does.
+        // FileTagTransport reads its results the same way, and GeminaWebhooks
+        // reads a webhook's result exactly as polling does.
         internal static readonly JsonSerializerSettings SerializerSettings = new JsonSerializerSettings
         {
             ConstructorHandling = ConstructorHandling.AllowNonPublicDefaultConstructor,
             // Reads an enum value the API added later as UnknownDefaultOpenApi.
-            ContractResolver = new UnknownEnumValueContractResolver
-            {
-                NamingStrategy = new CamelCaseNamingStrategy
-                {
-                    OverrideSpecifiedNames = false,
-                },
-            },
+            ContractResolver = UnknownEnumValues.NewContractResolver(),
             Error = (sender, args) =>
             {
                 var message = args.ErrorContext.Error?.Message;

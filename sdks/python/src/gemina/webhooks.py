@@ -59,8 +59,8 @@ class WebhookEvent:
     raw: Any
 
 
-def _fail(reason: str, message: str) -> NoReturn:
-    raise GeminaWebhookVerificationError(reason, message)
+def _fail(reason: str, message: str, cause: Optional[BaseException] = None) -> NoReturn:
+    raise GeminaWebhookVerificationError(reason, message) from cause
 
 
 def _text(value: Any) -> str:
@@ -129,6 +129,61 @@ def _is_complete(event_type: str, data: Any) -> bool:
     return error is None or (isinstance(error, dict) and type(error.get("status")) is str)
 
 
+def _verify_signature(raw_body: bytes, event_id: str, timestamp_text: str, signature_header: str,
+                      secret: Any) -> None:
+    """Steps 5 to 8: decode the secret, sign the received bytes, and find a matching v1 signature."""
+    key = None
+    if isinstance(secret, str):
+        key = _decode_base64(secret[len(SECRET_PREFIX):] if secret.startswith(SECRET_PREFIX) else secret)
+    if not key:                                    # not set, not base64, or an empty key anyone could sign with
+        _fail("invalid_secret", "The signing secret is not valid: expected whsec_ followed by base64.")
+
+    try:
+        # A header that was not UTF-8 on the wire arrives surrogate-escaped (aiohttp decodes headers
+        # that way): encoding it back the same way signs exactly the bytes that were sent.
+        prefix = f"{event_id}.{timestamp_text}.".encode("utf-8", errors="surrogateescape")
+    except UnicodeEncodeError as exc:            # a lone surrogate no received bytes decode to
+        _fail("no_matching_signature", "The webhook-id header holds text that was never received bytes.", exc)
+    expected = hmac.new(key, prefix + raw_body, hashlib.sha256).digest()
+
+    matched = False
+    for entry in signature_header.split(" "):
+        version, _, signature = entry.partition(",")
+        if version != "v1":
+            continue
+        candidate = _decode_base64(signature)
+        if candidate is not None and hmac.compare_digest(candidate, expected):
+            matched = True          # no early exit: keep the comparison count independent of position
+    if not matched:
+        _fail("no_matching_signature", "No signature in the webhook-signature header matches.")
+
+
+def _parse_body(raw_body: bytes) -> dict:
+    """Step 9: exactly one JSON object, in UTF-8 without a byte order mark."""
+    if raw_body.startswith(_BYTE_ORDER_MARK):
+        _fail("invalid_body", "The webhook body starts with a byte order mark.")
+    try:
+        parsed = json.loads(raw_body.decode("utf-8"), parse_constant=_reject_constant)
+    except (ValueError, RecursionError) as exc:   # UnicodeDecodeError and JSONDecodeError are ValueErrors
+        _fail("invalid_body", "The webhook body is not valid JSON.", exc)
+    if not isinstance(parsed, dict):
+        _fail("invalid_body", "The webhook body is not a JSON object.")
+    return parsed
+
+
+def _type_data(event_type: Optional[str], data: Any) -> Any:
+    """Step 10: a known event's data as its generated model; any other event's data as parsed."""
+    if event_type not in _KNOWN:
+        return data
+    if not _is_complete(event_type, data):
+        _fail("invalid_body", f"The data of this {event_type} event is missing a required field.")
+    model = _KNOWN[event_type][0]
+    try:
+        return model.from_dict(data)
+    except Exception as exc:  # noqa: BLE001 - the generated converter documents no error set; the contract allows one type out
+        _fail("invalid_body", f"The data of this {event_type} event could not be read.", exc)
+
+
 def unwrap_webhook(
     body: Union[bytes, bytearray, memoryview, str],
     headers: Union[Mapping[str, Any], Iterable[Tuple[Any, Any]]],
@@ -165,7 +220,7 @@ def unwrap_webhook(
     try:
         raw_body = body.encode("utf-8") if isinstance(body, str) else bytes(body)
     except UnicodeEncodeError as exc:              # an unpaired surrogate: this text was never a UTF-8 body
-        raise GeminaWebhookVerificationError("invalid_body", "The webhook body is not well-formed text.") from exc
+        _fail("invalid_body", "The webhook body is not well-formed text.", exc)
 
     event_id = _header(entries, "webhook-id")
     timestamp_text = _header(entries, "webhook-timestamp")
@@ -182,52 +237,10 @@ def unwrap_webhook(
         _fail("timestamp_out_of_tolerance",
               f"The webhook timestamp is more than {tolerance_seconds} seconds from the current time.")
 
-    key = None
-    if isinstance(secret, str):
-        key = _decode_base64(secret[len(SECRET_PREFIX):] if secret.startswith(SECRET_PREFIX) else secret)
-    if not key:                                    # not set, not base64, or an empty key anyone could sign with
-        _fail("invalid_secret", "The signing secret is not valid: expected whsec_ followed by base64.")
-
-    try:
-        # A header that was not UTF-8 on the wire arrives surrogate-escaped (aiohttp decodes headers
-        # that way): encoding it back the same way signs exactly the bytes that were sent.
-        prefix = f"{event_id}.{timestamp_text}.".encode("utf-8", errors="surrogateescape")
-    except UnicodeEncodeError as exc:            # a lone surrogate no received bytes decode to
-        raise GeminaWebhookVerificationError(
-            "no_matching_signature", "The webhook-id header holds text that was never received bytes.") from exc
-    expected = hmac.new(key, prefix + raw_body, hashlib.sha256).digest()
-
-    matched = False
-    for entry in signature_header.split(" "):
-        version, _, signature = entry.partition(",")
-        if version != "v1":
-            continue
-        candidate = _decode_base64(signature)
-        if candidate is not None and hmac.compare_digest(candidate, expected):
-            matched = True          # no early exit: keep the comparison count independent of position
-    if not matched:
-        _fail("no_matching_signature", "No signature in the webhook-signature header matches.")
-
-    if raw_body.startswith(_BYTE_ORDER_MARK):
-        _fail("invalid_body", "The webhook body starts with a byte order mark.")
-    try:
-        parsed = json.loads(raw_body.decode("utf-8"), parse_constant=_reject_constant)
-    except (ValueError, RecursionError) as exc:   # UnicodeDecodeError and JSONDecodeError are ValueErrors
-        raise GeminaWebhookVerificationError("invalid_body", "The webhook body is not valid JSON.") from exc
-    if not isinstance(parsed, dict):
-        _fail("invalid_body", "The webhook body is not a JSON object.")
-
+    _verify_signature(raw_body, event_id, timestamp_text, signature_header, secret)
+    parsed = _parse_body(raw_body)
     event_type = parsed.get("type") if isinstance(parsed.get("type"), str) else None
     timestamp = parsed.get("timestamp") if isinstance(parsed.get("timestamp"), str) else None
-    data = parsed.get("data")
-    if event_type in _KNOWN:
-        if not _is_complete(event_type, data):
-            _fail("invalid_body", f"The data of this {event_type} event is missing a required field.")
-        model = _KNOWN[event_type][0]
-        try:
-            data = model.from_dict(data)
-        except Exception as exc:  # noqa: BLE001 - the generated converter documents no error set; the contract allows one type out
-            raise GeminaWebhookVerificationError(
-                "invalid_body", f"The data of this {event_type} event could not be read.") from exc
+    data = _type_data(event_type, parsed.get("data"))
 
     return WebhookEvent(id=event_id, type=event_type, timestamp=timestamp, data=data, raw=parsed)

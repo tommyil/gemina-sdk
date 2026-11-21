@@ -56,9 +56,13 @@ export function isWebhookTest(event: WebhookEvent): event is WebhookTestWebhookE
   return event.type === 'webhook.test';
 }
 
-const REQUIRED: Record<string, Record<string, 'string' | 'boolean'>> = {
-  'extraction.completed': { correlationId: 'string', status: 'string', resultIncluded: 'boolean', resultPath: 'string' },
-  'webhook.test': { message: 'string' },
+// Each known event type: the fields its data must hold, and the generated converter that types it.
+const KNOWN: Record<string, { required: Record<string, 'string' | 'boolean'>; read: (json: unknown) => unknown }> = {
+  'extraction.completed': {
+    required: { correlationId: 'string', status: 'string', resultIncluded: 'boolean', resultPath: 'string' },
+    read: ExtractionCompletedEventDataFromJSON,
+  },
+  'webhook.test': { required: { message: 'string' }, read: WebhookTestEventDataFromJSON },
 };
 
 const fail = (reason: GeminaWebhookVerificationReason, message: string) =>
@@ -76,7 +80,7 @@ const asciiLower = (text: string) => text.replace(/[A-Z]/g, (c) => String.fromCh
 // The generated FromJSON functions do not check this: a result of {} comes back with holes.
 function isComplete(type: string, data: unknown): boolean {
   if (!isObject(data)) return false;
-  if (Object.entries(REQUIRED[type]).some(([field, kind]) => typeof data[field] !== kind)) return false;
+  if (Object.entries(KNOWN[type].required).some(([field, kind]) => typeof data[field] !== kind)) return false;
   if (type !== 'extraction.completed') return true;
   const result = data.result ?? null;
   const error = data.error ?? null;
@@ -159,6 +163,72 @@ async function subtleCrypto(): Promise<SubtleCrypto> {
   return (module.webcrypto as Crypto).subtle;
 }
 
+// Steps 5 to 8: decode the secret, sign the received bytes, and find a matching v1 signature.
+// Returns the bytes that were signed, the only copy of the body read from here on.
+async function verifySignature(
+  rawBody: Uint8Array<ArrayBuffer>, id: string, timestampText: string, signatureHeader: string, secret: string,
+): Promise<Uint8Array<ArrayBuffer>> {
+  const key = typeof secret === 'string'
+    ? decodeBase64(secret.startsWith(SECRET_PREFIX) ? secret.slice(SECRET_PREFIX.length) : secret)
+    : undefined;
+  if (key === undefined || key.length === 0) {   // not set, not base64, or an empty key anyone could sign with
+    throw fail('invalid_secret', 'The signing secret is not valid: expected whsec_ followed by base64.');
+  }
+
+  const prefix = new TextEncoder().encode(`${id}.${timestampText}.`);
+  const signed = new Uint8Array(prefix.length + rawBody.length);
+  signed.set(prefix, 0);
+  signed.set(rawBody, prefix.length);
+
+  const subtle = await subtleCrypto();
+  const cryptoKey = await subtle.importKey('raw', key, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+  const expected = new Uint8Array(await subtle.sign('HMAC', cryptoKey, signed));
+
+  let matched = false;
+  for (const entry of signatureHeader.split(' ')) {
+    const comma = entry.indexOf(',');
+    if (comma < 0 || entry.slice(0, comma) !== 'v1') continue;
+    const candidate = decodeBase64(entry.slice(comma + 1));
+    // No early exit: keep the comparison count independent of position.
+    if (candidate !== undefined && constantTimeEqual(candidate, expected)) matched = true;
+  }
+  if (!matched) throw fail('no_matching_signature', 'No signature in the webhook-signature header matches.');
+  return signed.subarray(prefix.length);
+}
+
+// Step 9: exactly one JSON object, in UTF-8 without a byte order mark.
+function parseBody(verifiedBody: Uint8Array): Record<string, unknown> {
+  if (verifiedBody.length >= 3 && verifiedBody[0] === 0xef && verifiedBody[1] === 0xbb && verifiedBody[2] === 0xbf) {
+    throw fail('invalid_body', 'The webhook body starts with a byte order mark.');
+  }
+  let parsed: unknown;
+  try {
+    // ignoreBOM keeps a byte order mark in the text instead of silently dropping it.
+    parsed = JSON.parse(new TextDecoder('utf-8', { fatal: true, ignoreBOM: true }).decode(verifiedBody));
+  } catch {
+    // These two calls read nothing but the body: whatever they throw (a TypeError for bytes
+    // that are not UTF-8, a SyntaxError for text that is not JSON) is about the body.
+    throw fail('invalid_body', 'The webhook body is not valid JSON.');
+  }
+  if (!isObject(parsed)) throw fail('invalid_body', 'The webhook body is not a JSON object.');
+  return parsed;
+}
+
+// Step 10: a known event's data as its generated model; any other event's data as parsed.
+function typeData(type: string | null, data: unknown): unknown {
+  // hasOwnProperty: a body whose type is "constructor" must not find an inherited property.
+  if (type === null || !Object.prototype.hasOwnProperty.call(KNOWN, type)) return data;
+  if (!isComplete(type, data)) {
+    throw fail('invalid_body', `The data of this ${type} event is missing a required field.`);
+  }
+  try {
+    return KNOWN[type].read(data);
+  } catch {
+    // The generated converters document no error set; the contract allows one type out.
+    throw fail('invalid_body', `The data of this ${type} event could not be read.`);
+  }
+}
+
 /**
  * Verify a webhook's signature and timestamp, then parse it.
  *
@@ -206,64 +276,9 @@ export async function unwrapWebhook(
       `The webhook timestamp is more than ${tolerance} seconds from the current time.`);
   }
 
-  const key = typeof secret === 'string'
-    ? decodeBase64(secret.startsWith(SECRET_PREFIX) ? secret.slice(SECRET_PREFIX.length) : secret)
-    : undefined;
-  if (key === undefined || key.length === 0) {   // not set, not base64, or an empty key anyone could sign with
-    throw fail('invalid_secret', 'The signing secret is not valid: expected whsec_ followed by base64.');
-  }
-
-  const prefix = new TextEncoder().encode(`${id}.${timestampText}.`);
-  const signed = new Uint8Array(prefix.length + rawBody.length);
-  signed.set(prefix, 0);
-  signed.set(rawBody, prefix.length);
-
-  const subtle = await subtleCrypto();
-  // From here on only `signed` is read: the bytes the HMAC covers are the bytes that are parsed.
-  const verifiedBody = signed.subarray(prefix.length);
-  const cryptoKey = await subtle.importKey('raw', key, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
-  const expected = new Uint8Array(await subtle.sign('HMAC', cryptoKey, signed));
-
-  let matched = false;
-  for (const entry of signatureHeader.split(' ')) {
-    const comma = entry.indexOf(',');
-    if (comma < 0 || entry.slice(0, comma) !== 'v1') continue;
-    const candidate = decodeBase64(entry.slice(comma + 1));
-    // No early exit: keep the comparison count independent of position.
-    if (candidate !== undefined && constantTimeEqual(candidate, expected)) matched = true;
-  }
-  if (!matched) throw fail('no_matching_signature', 'No signature in the webhook-signature header matches.');
-
-  if (verifiedBody.length >= 3 && verifiedBody[0] === 0xef && verifiedBody[1] === 0xbb && verifiedBody[2] === 0xbf) {
-    throw fail('invalid_body', 'The webhook body starts with a byte order mark.');
-  }
-  let parsed: unknown;
-  try {
-    // ignoreBOM keeps a byte order mark in the text instead of silently dropping it.
-    parsed = JSON.parse(new TextDecoder('utf-8', { fatal: true, ignoreBOM: true }).decode(verifiedBody));
-  } catch {
-    // These two calls read nothing but the body: whatever they throw (a TypeError for bytes
-    // that are not UTF-8, a SyntaxError for text that is not JSON) is about the body.
-    throw fail('invalid_body', 'The webhook body is not valid JSON.');
-  }
-  if (!isObject(parsed)) throw fail('invalid_body', 'The webhook body is not a JSON object.');
-
+  const verifiedBody = await verifySignature(rawBody, id, timestampText, signatureHeader, secret);
+  const parsed = parseBody(verifiedBody);
   const type = typeof parsed.type === 'string' ? parsed.type : null;
   const timestamp = typeof parsed.timestamp === 'string' ? parsed.timestamp : null;
-  let data: unknown = parsed.data;
-  // hasOwnProperty: a body whose type is "constructor" must not find an inherited property.
-  if (type !== null && Object.prototype.hasOwnProperty.call(REQUIRED, type)) {
-    if (!isComplete(type, data)) {
-      throw fail('invalid_body', `The data of this ${type} event is missing a required field.`);
-    }
-    try {
-      data = type === 'extraction.completed'
-        ? ExtractionCompletedEventDataFromJSON(data)
-        : WebhookTestEventDataFromJSON(data);
-    } catch {
-      // The generated converters document no error set; the contract allows one type out.
-      throw fail('invalid_body', `The data of this ${type} event could not be read.`);
-    }
-  }
-  return { id, type, timestamp, data, raw: parsed };
+  return { id, type, timestamp, data: typeData(type, parsed.data), raw: parsed };
 }

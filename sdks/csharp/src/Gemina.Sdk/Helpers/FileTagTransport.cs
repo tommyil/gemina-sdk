@@ -7,7 +7,6 @@ using Gemina.Sdk.Client;
 using Gemina.Sdk.Client.Auth;
 using Gemina.Sdk.Model;
 using Newtonsoft.Json;
-using Newtonsoft.Json.Serialization;
 using RestSharp;
 
 namespace Gemina.Sdk
@@ -69,24 +68,6 @@ namespace Gemina.Sdk
     {
         private const string TagDocumentPath = "/api/v1/filetag";
         private const string TagDocumentByUserPath = "/api/v1/filetag/user";
-
-        // Mirrors the generated ApiClient's serializer settings, with the same
-        // defensive null-tolerance DocumentTransport uses for members the
-        // generated models wrongly type as non-nullable.
-        private static readonly JsonSerializerSettings SerializerSettings = new JsonSerializerSettings
-        {
-            ConstructorHandling = ConstructorHandling.AllowNonPublicDefaultConstructor,
-            // Reads an enum value the API added later as UnknownDefaultOpenApi.
-            ContractResolver = UnknownEnumValues.NewContractResolver(),
-            Error = (sender, args) =>
-            {
-                var message = args.ErrorContext.Error?.Message;
-                if (message != null && message.StartsWith("Cannot convert null value", StringComparison.Ordinal))
-                {
-                    args.ErrorContext.Handled = true;
-                }
-            },
-        };
 
         private readonly IReadableConfiguration _configuration;
 
@@ -208,7 +189,7 @@ namespace Gemina.Sdk
                     _configuration.OAuthClientSecret,
                     _configuration.OAuthScope,
                     _configuration.OAuthFlow,
-                    SerializerSettings,
+                    DocumentTransport.SerializerSettings,
                     _configuration);
             }
 
@@ -260,7 +241,7 @@ namespace Gemina.Sdk
                     $"Malformed server response: HTTP {statusCode} from {operationName} with an empty body.");
             }
 
-            var result = JsonConvert.DeserializeObject<FileTagResultOutDTO>(content, SerializerSettings);
+            var result = JsonConvert.DeserializeObject<FileTagResultOutDTO>(content, DocumentTransport.SerializerSettings);
             if (result == null)
             {
                 throw new GeminaException(

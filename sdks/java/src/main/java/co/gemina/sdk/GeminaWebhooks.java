@@ -17,7 +17,10 @@ import java.security.GeneralSecurityException;
 import java.security.MessageDigest;
 import java.util.Base64;
 import java.util.Collections;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.function.Predicate;
 import java.util.regex.Pattern;
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
@@ -35,8 +38,45 @@ public final class GeminaWebhooks {
             Pattern.compile("(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?");
     private static final Pattern TIMESTAMP = Pattern.compile("[0-9]{1,12}");
     private static final Gson GSON = new Gson();
+    private static final String EXTRACTION_COMPLETED = "extraction.completed";
+    private static final String WEBHOOK_TEST = "webhook.test";
+
+    /** Each known event type: the fields its data must hold, and the generated converter that types it. */
+    private static final Map<String, KnownEvent> KNOWN;
+
+    static {
+        // Read a webhook's result with the same lenient dates the polling path uses.
+        LenientJson.install();
+
+        Map<String, Predicate<JsonElement>> completed = new LinkedHashMap<>();
+        completed.put("correlationId", GeminaWebhooks::isString);
+        completed.put("status", GeminaWebhooks::isString);
+        completed.put("resultIncluded", GeminaWebhooks::isBoolean);
+        completed.put("resultPath", GeminaWebhooks::isString);
+        Map<String, KnownEvent> known = new HashMap<>();
+        known.put(EXTRACTION_COMPLETED, new KnownEvent(completed, ExtractionCompletedEventData::fromJson));
+        known.put(WEBHOOK_TEST, new KnownEvent(
+                Collections.<String, Predicate<JsonElement>>singletonMap("message", GeminaWebhooks::isString),
+                WebhookTestEventData::fromJson));
+        KNOWN = Collections.unmodifiableMap(known);
+    }
 
     private GeminaWebhooks() {
+    }
+
+    /** A generated model's {@code fromJson}. */
+    private interface Converter {
+        Object fromJson(String json) throws IOException;
+    }
+
+    private static final class KnownEvent {
+        final Map<String, Predicate<JsonElement>> required;
+        final Converter converter;
+
+        KnownEvent(Map<String, Predicate<JsonElement>> required, Converter converter) {
+            this.required = required;
+            this.converter = converter;
+        }
     }
 
     /**
@@ -75,8 +115,11 @@ public final class GeminaWebhooks {
         return new GeminaWebhookVerificationException(reason, message);
     }
 
+    private static GeminaWebhookVerificationException fail(String reason, String message, Throwable cause) {
+        return new GeminaWebhookVerificationException(reason, message, cause);
+    }
+
     private static WebhookEvent verify(byte[] body, Map<String, String> headers, String secret, WebhookOptions options) {
-        GeminaClient.installLenientJson();
         if (options == null) {
             options = new WebhookOptions();
         }
@@ -119,8 +162,7 @@ public final class GeminaWebhooks {
             expected = mac.doFinal(body);
         } catch (GeneralSecurityException e) {
             // HmacSHA256 is a required algorithm on every Java platform, and the key is non-empty.
-            throw new GeminaWebhookVerificationException("invalid_secret",
-                    "The signing secret cannot be used as an HMAC key.", e);
+            throw fail("invalid_secret", "The signing secret cannot be used as an HMAC key.", e);
         }
 
         boolean matched = false;
@@ -142,10 +184,8 @@ public final class GeminaWebhooks {
         JsonObject parsed = parseBody(body);
         String type = stringOrNull(parsed.get("type"));
         JsonElement data = parsed.get("data");
-        Object typed = data;
-        if ("webhook.test".equals(type) || "extraction.completed".equals(type)) {
-            typed = readKnownData(type, data);
-        }
+        KnownEvent known = type == null ? null : KNOWN.get(type);
+        Object typed = known == null ? data : readKnownData(type, known, data);
         return new WebhookEvent(id, type, stringOrNull(parsed.get("timestamp")), typed, parsed);
     }
 
@@ -169,7 +209,7 @@ public final class GeminaWebhooks {
             }
         } catch (IOException | JsonParseException | IllegalStateException e) {
             // CharacterCodingException and MalformedJsonException are IOExceptions.
-            throw new GeminaWebhookVerificationException("invalid_body", "The webhook body is not valid JSON.", e);
+            throw fail("invalid_body", "The webhook body is not valid JSON.", e);
         }
         if (element == null || !element.isJsonObject()) {
             throw fail("invalid_body", "The webhook body is not a JSON object.");
@@ -177,25 +217,24 @@ public final class GeminaWebhooks {
         return element.getAsJsonObject();
     }
 
-    private static Object readKnownData(String type, JsonElement data) {
-        boolean test = "webhook.test".equals(type);
+    private static Object readKnownData(String type, KnownEvent known, JsonElement data) {
         JsonObject object = data != null && data.isJsonObject() ? data.getAsJsonObject() : null;
-        boolean complete = object != null && (test
-                ? isString(object.get("message"))
-                : isString(object.get("correlationId")) && isString(object.get("status"))
-                        && isBoolean(object.get("resultIncluded")) && isString(object.get("resultPath"))
-                        && payloadIsWhole(object));
+        boolean complete = object != null;
+        for (Map.Entry<String, Predicate<JsonElement>> field : known.required.entrySet()) {
+            complete = complete && field.getValue().test(object.get(field.getKey()));
+        }
+        if (complete && EXTRACTION_COMPLETED.equals(type)) {
+            complete = payloadIsWhole(object);
+        }
         if (!complete) {
             throw fail("invalid_body", "The data of this " + type + " event is missing a required field.");
         }
         try {
             // The generated fromJson is what polling uses (GeminaClient), with the lenient dates installed above.
-            return test ? WebhookTestEventData.fromJson(object.toString())
-                    : ExtractionCompletedEventData.fromJson(object.toString());
+            return known.converter.fromJson(object.toString());
         } catch (IOException | RuntimeException e) {
             // The generated models document no exception set; the contract allows one type out.
-            throw new GeminaWebhookVerificationException("invalid_body",
-                    "The data of this " + type + " event could not be read.", e);
+            throw fail("invalid_body", "The data of this " + type + " event could not be read.", e);
         }
     }
 

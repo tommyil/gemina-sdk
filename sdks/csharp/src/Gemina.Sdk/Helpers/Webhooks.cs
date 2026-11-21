@@ -54,6 +54,24 @@ namespace Gemina.Sdk
     public static class GeminaWebhooks
     {
         private const string SecretPrefix = "whsec_";
+        private const string ExtractionCompleted = "extraction.completed";
+        private const string WebhookTest = "webhook.test";
+
+        // Each known event type: the generated model its data is read as, and the fields that data must hold.
+        private static readonly Dictionary<string, KnownEvent> Known = new Dictionary<string, KnownEvent>(StringComparer.Ordinal)
+        {
+            [ExtractionCompleted] = new KnownEvent(typeof(ExtractionCompletedEventData), new Dictionary<string, JTokenType>
+            {
+                ["correlationId"] = JTokenType.String,
+                ["status"] = JTokenType.String,
+                ["resultIncluded"] = JTokenType.Boolean,
+                ["resultPath"] = JTokenType.String,
+            }),
+            [WebhookTest] = new KnownEvent(typeof(WebhookTestEventData), new Dictionary<string, JTokenType>
+            {
+                ["message"] = JTokenType.String,
+            }),
+        };
 
         // Standard alphabet, padded, no whitespace. \z, not $: $ also matches before a final newline.
         private static readonly Regex Base64 = new Regex(
@@ -197,8 +215,8 @@ namespace Gemina.Sdk
             var type = parsed["type"]?.Type == JTokenType.String ? (string)parsed["type"] : null;
             var timestampField = parsed["timestamp"]?.Type == JTokenType.String ? (string)parsed["timestamp"] : null;
             object data = parsed["data"];
-            if (type == "extraction.completed" || type == "webhook.test")
-                data = ReadKnownData(type, parsed["data"] as JObject);
+            if (type != null && Known.TryGetValue(type, out var known))
+                data = ReadKnownData(type, known, parsed["data"] as JObject);
 
             return new WebhookEvent { Id = id, Type = type, Timestamp = timestampField, Data = data, Raw = parsed };
         }
@@ -232,13 +250,10 @@ namespace Gemina.Sdk
             return parsed;
         }
 
-        private static object ReadKnownData(string type, JObject data)
+        private static object ReadKnownData(string type, KnownEvent known, JObject data)
         {
-            var complete = data != null && (type == "webhook.test"
-                ? Is(data, "message", JTokenType.String)
-                : Is(data, "correlationId", JTokenType.String) && Is(data, "status", JTokenType.String)
-                  && Is(data, "resultIncluded", JTokenType.Boolean) && Is(data, "resultPath", JTokenType.String)
-                  && PayloadIsWhole(data));
+            var complete = data != null && known.Required.All(field => Is(data, field.Key, field.Value))
+                           && (type != ExtractionCompleted || PayloadIsWhole(data));
             if (!complete)
                 throw Fail("invalid_body", $"The data of this {type} event is missing a required field.");
 
@@ -252,9 +267,7 @@ namespace Gemina.Sdk
             object typed;
             try
             {
-                typed = type == "extraction.completed"
-                    ? (object)JsonConvert.DeserializeObject<ExtractionCompletedEventData>(dataJson, DocumentTransport.SerializerSettings)
-                    : JsonConvert.DeserializeObject<WebhookTestEventData>(dataJson, DocumentTransport.SerializerSettings);
+                typed = JsonConvert.DeserializeObject(dataJson, known.Model, DocumentTransport.SerializerSettings);
             }
             catch (Exception ex)   // the generated models document no exception set; the contract allows one type out
             {
@@ -281,6 +294,19 @@ namespace Gemina.Sdk
             }
             var envelope = error as JObject;
             return error == null || (envelope != null && Is(envelope, "status", JTokenType.String));
+        }
+
+        private sealed class KnownEvent
+        {
+            internal KnownEvent(Type model, Dictionary<string, JTokenType> required)
+            {
+                Model = model;
+                Required = required;
+            }
+
+            internal Type Model { get; }
+
+            internal Dictionary<string, JTokenType> Required { get; }
         }
 
         // netstandard2.0 has no CryptographicOperations.FixedTimeEquals.
