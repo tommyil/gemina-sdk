@@ -617,6 +617,8 @@ namespace Gemina.Sdk.Tests
             Assert.NotNull(client.Sessions);
             Assert.NotNull(client.Subscriptions);
             Assert.NotNull(client.Billing);
+            Assert.IsType<Gemina.Sdk.Api.WebhooksApi>(client.Webhooks);
+            Assert.Same(client.Webhooks, client.Webhooks);
         }
 
         [Fact]

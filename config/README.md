@@ -56,6 +56,30 @@ fix these by editing generated code):
   null-tolerant error handler and exposes `GetProcessingResultAsync`.
 - **typescript-fetch bearer tokens**: the oauth2 template sends `accessToken`
   verbatim (no `Bearer ` prefix); the TS facade prepends it.
+- **Unknown enum values** (`enumUnknownDefaultCase: true` in the Python, C#,
+  Java and PHP configs): every enum gains an `UNKNOWN_DEFAULT_OPEN_API` case so
+  a string the API adds to an enum later does not fail a whole response; a
+  number, object or array where an enum belongs is still refused. The option
+  alone only maps unknown values in Java (which also coerced numbers to
+  strings first) and in PHP's inline-enum setters. The rest is contained here:
+  `config/templates/python` (`model_enum.mustache` adds a string-only
+  `_missing_`, `model_generic.mustache` maps inline enums instead of raising),
+  `config/templates/php/ObjectSerializer.mustache` (maps a string instead of
+  throwing, and checks an inline enum's raw value before the string coercion
+  would turn 42 into "42"), `config/templates/java/libraries/okhttp-gson`
+  (both enum templates refuse a value that is not a JSON string, and map an
+  unknown string even for a nullable enum, where the stock template returned
+  null), and the C# helper's
+  `UnknownEnumValueContractResolver` (strings only; integers refused), which
+  polling, webhooks and every group the C# facade builds read with (the facade
+  sets it on each group's own ApiClient; a group constructed by hand keeps the
+  generator's strict settings). typescript-fetch checks no value's JSON type
+  at all (not for enums, not for any field): it keeps an unknown string, and
+  also a number, object or array, as sent. Adding enum-only checks there would
+  be inconsistent, so it is documented instead (contract section 6 and the
+  TypeScript README).
+  The five template files are copies of the v7.23.0 originals with those
+  edits only: re-copy and re-apply them when the generator is bumped.
 - **Java datetime parsing**: the API emits naive datetimes (`servedAt` without
   offset); the Java facade installs a lenient `OffsetDateTime` formatter.
   Root-cause fix belongs API-side (timezone-aware serialization).

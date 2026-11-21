@@ -58,3 +58,27 @@ export class GeminaTimeoutError extends GeminaError {
     Object.setPrototypeOf(this, new.target.prototype);
   }
 }
+
+/** Why `unwrapWebhook` refused a delivery (contract section 6). */
+export type GeminaWebhookVerificationReason =
+  | 'missing_header'
+  | 'ambiguous_header'
+  | 'invalid_timestamp'
+  | 'timestamp_out_of_tolerance'
+  | 'invalid_secret'
+  | 'no_matching_signature'
+  | 'invalid_body';
+
+/**
+ * Thrown by `unwrapWebhook` when an incoming webhook cannot be verified or
+ * parsed. `reason` says why; no other error type leaves the helper.
+ */
+export class GeminaWebhookVerificationError extends GeminaError {
+  readonly reason: GeminaWebhookVerificationReason;
+
+  constructor(reason: GeminaWebhookVerificationReason, message: string) {
+    super(message);
+    this.reason = reason;
+    Object.setPrototypeOf(this, new.target.prototype);
+  }
+}

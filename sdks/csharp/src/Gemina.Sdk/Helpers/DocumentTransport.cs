@@ -69,11 +69,13 @@ namespace Gemina.Sdk
         private const string AddExtractionsPathTemplate = "/api/v1/documents/{0}/extractions";
 
         // Mirrors the generated ApiClient's serializer settings, plus the
-        // null-tolerance described on the class.
-        private static readonly JsonSerializerSettings SerializerSettings = new JsonSerializerSettings
+        // null-tolerance described on the class. Internal so that
+        // GeminaWebhooks reads a webhook's result exactly as polling does.
+        internal static readonly JsonSerializerSettings SerializerSettings = new JsonSerializerSettings
         {
             ConstructorHandling = ConstructorHandling.AllowNonPublicDefaultConstructor,
-            ContractResolver = new DefaultContractResolver
+            // Reads an enum value the API added later as UnknownDefaultOpenApi.
+            ContractResolver = new UnknownEnumValueContractResolver
             {
                 NamingStrategy = new CamelCaseNamingStrategy
                 {

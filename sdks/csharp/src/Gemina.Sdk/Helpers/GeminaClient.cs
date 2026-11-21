@@ -115,6 +115,7 @@ namespace Gemina.Sdk
         private ISessionsApi _sessions;
         private ISubscriptionsApi _subscriptions;
         private IBillingApi _billing;
+        private IWebhooksApi _webhooks;
         private IDocumentTransport _documentTransport;
 
         private static readonly Random SharedRandom = new Random();
@@ -152,8 +153,11 @@ namespace Gemina.Sdk
         /// Creates a client authenticating with a short-lived session token
         /// (sent as a bearer <c>Authorization</c> header) instead of an API
         /// key — used by browser/session contexts.
+        /// The factory sends whatever bearer token it is given. A retrieval token
+        /// from <c>Sessions</c> does not reach the <see cref="Webhooks"/> group,
+        /// which needs the account-login JWT (the token the console signs in with).
         /// </summary>
-        /// <param name="token">Session token minted via <c>POST /v1/sessions/token</c>.</param>
+        /// <param name="token">Session token minted via <c>POST /v1/sessions/token</c>, or the account-login JWT for <see cref="Webhooks"/>.</param>
         /// <param name="baseUrl">API base URL; override for staging or self-hosted deployments.</param>
         public static GeminaClient WithSessionToken(string token, string baseUrl = DefaultBaseUrl)
         {
@@ -184,35 +188,35 @@ namespace Gemina.Sdk
         /// <summary>Document upload, processing results, views and purging.</summary>
         public IDocumentApi Documents
         {
-            get => _documents ?? (_documents = new DocumentApi(Configuration));
+            get => _documents ?? (_documents = UnknownEnumValues.Tolerate(new DocumentApi(Configuration)));
             internal set => _documents = value;
         }
 
         /// <summary>Search and aggregate over your processed documents.</summary>
         public IRetrievalApi Retrieval
         {
-            get => _retrieval ?? (_retrieval = new RetrievalApi(Configuration));
+            get => _retrieval ?? (_retrieval = UnknownEnumValues.Tolerate(new RetrievalApi(Configuration)));
             internal set => _retrieval = value;
         }
 
         /// <summary>Chat over your processed documents.</summary>
         public IChatApi Chat
         {
-            get => _chat ?? (_chat = new ChatApi(Configuration));
+            get => _chat ?? (_chat = UnknownEnumValues.Tolerate(new ChatApi(Configuration)));
             internal set => _chat = value;
         }
 
         /// <summary>Custom extraction template management.</summary>
         public ITemplatesApi Templates
         {
-            get => _templates ?? (_templates = new TemplatesApi(Configuration));
+            get => _templates ?? (_templates = UnknownEnumValues.Tolerate(new TemplatesApi(Configuration)));
             internal set => _templates = value;
         }
 
         /// <summary>File upload slots for the Files flow.</summary>
         public IFilesApi Files
         {
-            get => _files ?? (_files = new FilesApi(Configuration));
+            get => _files ?? (_files = UnknownEnumValues.Tolerate(new FilesApi(Configuration)));
             internal set => _files = value;
         }
 
@@ -233,22 +237,33 @@ namespace Gemina.Sdk
         /// <summary>Short-lived session tokens for browser embedding.</summary>
         public ISessionsApi Sessions
         {
-            get => _sessions ?? (_sessions = new SessionsApi(Configuration));
+            get => _sessions ?? (_sessions = UnknownEnumValues.Tolerate(new SessionsApi(Configuration)));
             internal set => _sessions = value;
         }
 
         /// <summary>Subscription plans and checkout.</summary>
         public ISubscriptionsApi Subscriptions
         {
-            get => _subscriptions ?? (_subscriptions = new SubscriptionsApi(Configuration));
+            get => _subscriptions ?? (_subscriptions = UnknownEnumValues.Tolerate(new SubscriptionsApi(Configuration)));
             internal set => _subscriptions = value;
         }
 
         /// <summary>Usage, credit transactions and invoices.</summary>
         public IBillingApi Billing
         {
-            get => _billing ?? (_billing = new BillingApi(Configuration));
+            get => _billing ?? (_billing = UnknownEnumValues.Tolerate(new BillingApi(Configuration)));
             internal set => _billing = value;
+        }
+
+        /// <summary>
+        /// Webhook endpoints and their delivery log. These routes need the
+        /// account-login token: build the client with <see cref="WithSessionToken"/>.
+        /// An API key is refused.
+        /// </summary>
+        public IWebhooksApi Webhooks
+        {
+            get => _webhooks ?? (_webhooks = UnknownEnumValues.Tolerate(new WebhooksApi(Configuration)));
+            internal set => _webhooks = value;
         }
 
         // ---- Stateful chat convenience ----

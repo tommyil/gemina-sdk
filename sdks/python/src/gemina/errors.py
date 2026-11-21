@@ -49,3 +49,17 @@ class GeminaTimeoutError(GeminaError):
             f"server-side; resume polling with client.documents."
             f"get_document_processing_result_by_correlation_id()."
         )
+
+
+class GeminaWebhookVerificationError(GeminaError):
+    """An incoming webhook could not be verified or parsed (contract section 6).
+
+    Attributes:
+        reason: One of ``missing_header``, ``ambiguous_header``,
+            ``invalid_timestamp``, ``timestamp_out_of_tolerance``,
+            ``invalid_secret``, ``no_matching_signature``, ``invalid_body``.
+    """
+
+    def __init__(self, reason: str, message: str) -> None:
+        super().__init__(message)
+        self.reason = reason

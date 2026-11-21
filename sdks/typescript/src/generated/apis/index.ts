@@ -14,3 +14,4 @@ export * from './RetrievalApi';
 export * from './SessionsApi';
 export * from './SubscriptionsApi';
 export * from './TemplatesApi';
+export * from './WebhooksApi';

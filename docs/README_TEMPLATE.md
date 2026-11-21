@@ -98,6 +98,14 @@ never the API key. Mention `@gemina/elements` for a drop-in chat UI (npm).
 - Server-side submit sample (`documents` group /
   `validate_document_extraction`) for hosts using their own review UI.
 
+## Receiving webhooks
+
+[2 sentences: what a webhook is here, and that the Webhooks page of the console is where the endpoint and its signing secret come from. The full first paragraph also covers polling as the safety net and add-on requests, tracked by their `newExtractionIds`.]
+[One line above the sample: what the sample needs besides the package and the exact command that starts it, with `GEMINA_WEBHOOK_SECRET` set in that command. The sample refuses to start without the secret (PHP: logs one line and answers 500).]
+[One code sample: a minimal HTTP handler in the language's most common framework that reads the RAW body up to a size limit, calls the helper, stores the event under its id, and only then answers 200. Storing must be "complete, and only if absent": a repeat is stored once, and a half-written event is never left where a retry would find it. A failure to store answers 500. No undefined functions: the sample runs as printed.]
+[One paragraph below the sample: what the step that works through the inbox does.]
+[Five bullets: pass the raw body; answer within 15 seconds; a webhook can arrive twice; the result may be left out, and which credential fetches it; managing endpoints needs the account-login JWT.]
+
 ## Going deeper
 
 - Full generated API surface via the group accessors (`client.documents`,

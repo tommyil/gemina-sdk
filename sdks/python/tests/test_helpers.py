@@ -649,6 +649,7 @@ def test_lazy_api_group_accessors(client):
     from gemina.generated.api.sessions_api import SessionsApi
     from gemina.generated.api.subscriptions_api import SubscriptionsApi
     from gemina.generated.api.templates_api import TemplatesApi
+    from gemina.generated.api.webhooks_api import WebhooksApi
 
     expected = {
         "documents": DocumentApi,
@@ -660,6 +661,7 @@ def test_lazy_api_group_accessors(client):
         "sessions": SessionsApi,
         "subscriptions": SubscriptionsApi,
         "billing": BillingApi,
+        "webhooks": WebhooksApi,
     }
     for name, cls in expected.items():
         group = getattr(client, name)

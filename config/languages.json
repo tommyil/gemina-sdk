@@ -19,7 +19,8 @@
           "from": "gemina/generated",
           "to": "sdks/python/src/gemina/generated"
         }
-      ]
+      ],
+      "templates": "config/templates/python"
     },
     "csharp": {
       "generator": "csharp",
@@ -42,7 +43,8 @@
           "from": "src/main/java/co/gemina/sdk/generated",
           "to": "sdks/java/src/main/java/co/gemina/sdk/generated"
         }
-      ]
+      ],
+      "templates": "config/templates/java"
     },
     "php": {
       "generator": "php",
@@ -52,7 +54,8 @@
           "from": "lib",
           "to": "sdks/php/lib"
         }
-      ]
+      ],
+      "templates": "config/templates/php"
     }
   }
 }

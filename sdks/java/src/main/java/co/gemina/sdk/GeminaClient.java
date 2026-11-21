@@ -21,6 +21,7 @@ import co.gemina.sdk.generated.api.RetrievalApi;
 import co.gemina.sdk.generated.api.SessionsApi;
 import co.gemina.sdk.generated.api.SubscriptionsApi;
 import co.gemina.sdk.generated.api.TemplatesApi;
+import co.gemina.sdk.generated.api.WebhooksApi;
 import co.gemina.sdk.generated.model.ChatQueryInDTO;
 import co.gemina.sdk.generated.model.ChatQueryOutDTO;
 import co.gemina.sdk.generated.model.AddExtractionsInDTO;
@@ -71,6 +72,8 @@ public class GeminaClient {
             .parseDefaulting(ChronoField.OFFSET_SECONDS, 0)
             .toFormatter();
 
+    private static boolean lenientJsonInstalled;
+
     static {
         // JSON's adapters are static/global, so installing once at class load
         // covers every construction path — including the
@@ -80,7 +83,19 @@ public class GeminaClient {
         // timestamps. Raw generated-client usage that never touches this
         // facade is out of scope, same as the multipart fix in
         // GeminaApiClient.
+        installLenientJson();
+    }
+
+    /**
+     * Idempotent. Also called by {@link GeminaWebhooks}, which must parse a
+     * webhook's result exactly as polling does without a client instance.
+     */
+    static synchronized void installLenientJson() {
+        if (lenientJsonInstalled) {
+            return;
+        }
         JSON.setOffsetDateTimeFormat(LENIENT_OFFSET_DATE_TIME);
+        lenientJsonInstalled = true;
     }
 
     private final ApiClient apiClient;
@@ -94,6 +109,7 @@ public class GeminaClient {
     private SessionsApi sessionsApi;
     private SubscriptionsApi subscriptionsApi;
     private BillingApi billingApi;
+    private WebhooksApi webhooksApi;
 
     /** API-key client against the production base URL ({@value #DEFAULT_BASE_URL}). */
     public GeminaClient(String apiKey) {
@@ -125,6 +141,10 @@ public class GeminaClient {
      * Session-token client (the {@code OAuth2PasswordBearer} bearer scheme)
      * against the production base URL. Used by browser/session contexts with
      * short-lived tokens minted via {@code POST /v1/sessions/token}.
+     *
+     * <p>The factory sends whatever bearer token it is given. A retrieval token
+     * from {@code sessions()} does not reach the {@link #webhooks()} group, which
+     * needs the account-login JWT (the token the console signs in with).</p>
      */
     public static GeminaClient withSessionToken(String token) {
         return withSessionToken(token, DEFAULT_BASE_URL);
@@ -228,6 +248,18 @@ public class GeminaClient {
         return billingApi;
     }
 
+    /**
+     * Webhook endpoints and their delivery log. These routes need the
+     * account-login token: build the client with {@link #withSessionToken(String)}.
+     * An API key is refused.
+     */
+    public synchronized WebhooksApi webhooks() {
+        if (webhooksApi == null) {
+            webhooksApi = new WebhooksApi(apiClient);
+        }
+        return webhooksApi;
+    }
+
     // Package-private setters so unit tests can swap in mocked API instances.
 
     synchronized void setDocumentsApi(DocumentApi documentApi) {
@@ -264,6 +296,10 @@ public class GeminaClient {
 
     synchronized void setBillingApi(BillingApi billingApi) {
         this.billingApi = billingApi;
+    }
+
+    synchronized void setWebhooksApi(WebhooksApi webhooksApi) {
+        this.webhooksApi = webhooksApi;
     }
 
     // ------------------------------------------------------------------

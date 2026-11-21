@@ -11,6 +11,7 @@ import {
   type DocumentApi,
   type DocumentProcessingResultOutDTO,
   type UploadExtractionTypeEnum,
+  WebhooksApi,
 } from '../src/index';
 
 const CORRELATION_ID = 'corr-123';
@@ -746,6 +747,8 @@ describe('GeminaClient construction', () => {
     expect(client.sessions).toBeDefined();
     expect(client.subscriptions).toBeDefined();
     expect(client.billing).toBeDefined();
+    expect(client.webhooks).toBeInstanceOf(WebhooksApi);
+    expect(client.webhooks).toBe(client.webhooks);
   });
 });
 

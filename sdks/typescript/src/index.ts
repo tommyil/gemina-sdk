@@ -10,5 +10,19 @@ export type {
   GeminaClientOptions,
   ProcessDocumentOptions,
 } from './helpers';
-export { GeminaError, GeminaProcessingError, GeminaTimeoutError } from './errors';
+export {
+  GeminaError,
+  GeminaProcessingError,
+  GeminaTimeoutError,
+  GeminaWebhookVerificationError,
+} from './errors';
+export type { GeminaWebhookVerificationReason } from './errors';
+export { unwrapWebhook, isExtractionCompleted, isWebhookTest } from './webhooks';
+export type {
+  ExtractionCompletedWebhookEvent,
+  UnwrapWebhookOptions,
+  WebhookEvent,
+  WebhookHeaders,
+  WebhookTestWebhookEvent,
+} from './webhooks';
 export { VERSION } from './version';

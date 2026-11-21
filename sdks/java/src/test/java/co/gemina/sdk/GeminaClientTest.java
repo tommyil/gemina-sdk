@@ -473,4 +473,13 @@ class GeminaClientTest {
         assertEquals(36, externalId.getValue().length());
         UUID.fromString(externalId.getValue());
     }
+
+    @Test
+    void webhooksGroupIsTheGeneratedApiAndIsCached() {
+        GeminaClient client = new GeminaClient("my-key");
+        co.gemina.sdk.generated.api.WebhooksApi webhooks = client.webhooks();
+        assertNotNull(webhooks);
+        assertSame(webhooks, client.webhooks());
+        assertSame(client.getApiClient(), webhooks.getApiClient());
+    }
 }

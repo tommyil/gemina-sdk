@@ -9,7 +9,29 @@ spec snapshot it was generated from where that matters.
 
 Pre-1.0: minor versions carry features and may change behaviour.
 
-## Unreleased
+## v0.17.0 — 2026-11-21
+
+Spec snapshot `gemina-1.12.0.json`.
+
+- **Webhooks.** `unwrapWebhook` (idiomatic name per language) verifies a
+  delivery's signature and timestamp per Standard Webhooks v1 and returns a
+  typed event. New error: `GeminaWebhookVerificationError` (`...Exception` in
+  C#, Java and PHP) with a `reason`. See "Receiving webhooks" in each README.
+- New generated models: `ExtractionCompletedEvent`, `ExtractionCompletedEventData`,
+  `WebhookTestEvent`, `WebhookTestEventData`.
+- New generated API group `webhooks` for managing endpoints, exposed on
+  `GeminaClient`. These routes need your account-login token, not an API key
+  and not a retrieval session token.
+- A delivery-log event (`WebhookEventOutDTO`) has `manual`: true for a test
+  event or a resend, which is sent once and never retried. The API added it
+  without raising `info.version`, so `gemina-1.12.0.json` was frozen again.
+- An enum value the API adds later no longer fails a whole result. It reads
+  as the unknown member: `UNKNOWN_DEFAULT_OPEN_API` in Python and Java,
+  `'unknown_default_open_api'` in PHP, `UnknownDefaultOpenApi` in C#;
+  TypeScript passes the string through as sent. This applies to polling
+  results as well as webhooks. A value that is not a string is still
+  refused.
+- No breaking changes.
 
 NuGet uses GitHub trusted publishing. The Release workflow can recover only the
 NuGet package from an existing immutable tag, without republishing other
