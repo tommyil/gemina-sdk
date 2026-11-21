@@ -143,10 +143,10 @@ namespace Gemina.Sdk
                 {
                     if (found == null) found = part;
                     else if (!string.Equals(found, part, StringComparison.Ordinal))
-                        throw Fail("ambiguous_header", $"The {name} header was sent more than once with different values.");
+                        throw Fail(GeminaWebhookVerificationReason.AmbiguousHeader, $"The {name} header was sent more than once with different values.");
                 }
             }
-            return found ?? throw Fail("missing_header", $"The {name} header is missing.");
+            return found ?? throw Fail(GeminaWebhookVerificationReason.MissingHeader, $"The {name} header is missing.");
         }
 
         private static byte[] DecodeBase64(string text)
@@ -170,25 +170,25 @@ namespace Gemina.Sdk
             var signatureHeader = Header(headerList, "webhook-signature");
 
             if (!IsTimestamp(timestampText))
-                throw Fail("invalid_timestamp", "The webhook-timestamp header is not a whole number of seconds.");
+                throw Fail(GeminaWebhookVerificationReason.InvalidTimestamp, "The webhook-timestamp header is not a whole number of seconds.");
             // At most 12 digits, so neither the parse nor the subtraction can overflow.
             var timestamp = long.Parse(timestampText, NumberStyles.None, CultureInfo.InvariantCulture);
             var clock = options.ReadClock();
             // "!(x < limit)" is also true for NaN and infinity. A clock beyond 13 digits is out of
             // tolerance for any 12-digit timestamp, and refusing it here keeps the cast to long defined.
             if (!(Math.Abs(clock) < 1e13) || options.ToleranceSeconds < 0)
-                throw Fail("timestamp_out_of_tolerance",
+                throw Fail(GeminaWebhookVerificationReason.TimestampOutOfTolerance,
                     "The clock or the tolerance is not usable, so the timestamp cannot be checked.");
             var now = (long)Math.Floor(clock);
             if (Math.Abs(now - timestamp) > options.ToleranceSeconds)
-                throw Fail("timestamp_out_of_tolerance",
+                throw Fail(GeminaWebhookVerificationReason.TimestampOutOfTolerance,
                     $"The webhook timestamp is more than {options.ToleranceSeconds} seconds from the current time.");
 
             secret = secret ?? string.Empty;
             var key = DecodeBase64(secret.StartsWith(SecretPrefix, StringComparison.Ordinal)
                 ? secret.Substring(SecretPrefix.Length) : secret);
             if (key == null || key.Length == 0)   // not set, not base64, or an empty key anyone could sign with
-                throw Fail("invalid_secret", "The signing secret is not valid: expected whsec_ followed by base64.");
+                throw Fail(GeminaWebhookVerificationReason.InvalidSecret, "The signing secret is not valid: expected whsec_ followed by base64.");
 
             var prefix = Encoding.UTF8.GetBytes($"{id}.{timestampText}.");
             var signed = new byte[prefix.Length + body.Length];
@@ -208,7 +208,7 @@ namespace Gemina.Sdk
                 if (candidate != null && ConstantTimeEquals(candidate, expected)) matched = true;
             }
             if (!matched)
-                throw Fail("no_matching_signature", "No signature in the webhook-signature header matches.");
+                throw Fail(GeminaWebhookVerificationReason.NoMatchingSignature, "No signature in the webhook-signature header matches.");
 
             var parsed = ParseBody(body);
 
@@ -224,7 +224,7 @@ namespace Gemina.Sdk
         private static JObject ParseBody(byte[] body)
         {
             if (body.Length >= 3 && body[0] == 0xEF && body[1] == 0xBB && body[2] == 0xBF)
-                throw Fail("invalid_body", "The webhook body starts with a byte order mark.");
+                throw Fail(GeminaWebhookVerificationReason.InvalidBody, "The webhook body starts with a byte order mark.");
             JObject parsed;
             try
             {
@@ -239,14 +239,14 @@ namespace Gemina.Sdk
             }
             catch (Exception ex) when (ex is JsonException || ex is ArgumentException)   // DecoderFallbackException is an ArgumentException
             {
-                throw new GeminaWebhookVerificationException("invalid_body", "The webhook body is not valid JSON.", ex);
+                throw new GeminaWebhookVerificationException(GeminaWebhookVerificationReason.InvalidBody, "The webhook body is not valid JSON.", ex);
             }
             if (parsed == null)
-                throw Fail("invalid_body", "The webhook body is not a JSON object.");
+                throw Fail(GeminaWebhookVerificationReason.InvalidBody, "The webhook body is not a JSON object.");
             // Newtonsoft reads NaN and Infinity as numbers. JSON has neither.
             foreach (var value in parsed.Descendants().OfType<JValue>())
                 if (value.Type == JTokenType.Float && (double.IsNaN((double)value) || double.IsInfinity((double)value)))
-                    throw Fail("invalid_body", "The webhook body is not valid JSON.");
+                    throw Fail(GeminaWebhookVerificationReason.InvalidBody, "The webhook body is not valid JSON.");
             return parsed;
         }
 
@@ -255,7 +255,7 @@ namespace Gemina.Sdk
             var complete = data != null && known.Required.All(field => Is(data, field.Key, field.Value))
                            && (type != ExtractionCompleted || PayloadIsWhole(data));
             if (!complete)
-                throw Fail("invalid_body", $"The data of this {type} event is missing a required field.");
+                throw Fail(GeminaWebhookVerificationReason.InvalidBody, $"The data of this {type} event is missing a required field.");
 
             // The SAME reader the polling path uses (DocumentTransport): JSON TEXT in, with its
             // settings. Not data.ToObject(...): the tree was read with DateParseHandling.None so that
@@ -271,9 +271,9 @@ namespace Gemina.Sdk
             }
             catch (Exception ex)   // the generated models document no exception set; the contract allows one type out
             {
-                throw new GeminaWebhookVerificationException("invalid_body", $"The data of this {type} event could not be read.", ex);
+                throw new GeminaWebhookVerificationException(GeminaWebhookVerificationReason.InvalidBody, $"The data of this {type} event could not be read.", ex);
             }
-            return typed ?? throw Fail("invalid_body", $"The data of this {type} event could not be read.");
+            return typed ?? throw Fail(GeminaWebhookVerificationReason.InvalidBody, $"The data of this {type} event could not be read.");
         }
 
         private static bool Is(JObject data, string field, JTokenType kind) => data[field]?.Type == kind;

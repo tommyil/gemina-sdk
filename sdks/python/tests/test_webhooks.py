@@ -11,6 +11,7 @@ import hashlib
 import hmac
 import json
 import pathlib
+import typing
 
 import pytest
 
@@ -20,6 +21,7 @@ from gemina import (
     ResponseStatus,
     GeminaError,
     GeminaWebhookVerificationError,
+    GeminaWebhookVerificationReason,
     WebhookEvent,
     unwrap_webhook,
 )
@@ -322,3 +324,64 @@ def test_only_the_verification_error_ever_leaves_the_helper():
         unwrap_webhook(vector["body"], None, vector["secret"])  # type: ignore[arg-type]
     with pytest.raises(GeminaWebhookVerificationError):
         unwrap_webhook(None, vector["headers"], vector["secret"], now=lambda: vector["now"])  # type: ignore[arg-type]
+
+
+@pytest.mark.parametrize("body", [{"type": "extraction.completed"}, -1, 5, 1e12, ["x"]],
+                         ids=["parsed object", "negative number", "number", "large number", "list"])
+def test_a_body_that_is_not_bytes_or_text_is_an_invalid_body(body):
+    # bytes(5) is five zero bytes and bytes(-1) a ValueError: neither is the body that was sent.
+    vector = named(VECTORS["valid"], "extraction-completed-utf8-body")
+    with pytest.raises(GeminaWebhookVerificationError) as error:
+        unwrap_webhook(body, vector["headers"], vector["secret"], now=lambda: vector["now"])  # type: ignore[arg-type]
+    assert error.value.reason == "invalid_body"
+    assert "not a parsed value" in str(error.value)
+
+
+def test_a_memoryview_body_verifies_and_a_released_one_is_an_invalid_body():
+    vector = named(VECTORS["valid"], "extraction-completed-utf8-body")
+    view = memoryview(vector["body"].encode("utf-8"))
+    assert unwrap_webhook(view, vector["headers"], vector["secret"], now=lambda: vector["now"]).type == "extraction.completed"
+    view.release()
+    with pytest.raises(GeminaWebhookVerificationError) as error:
+        unwrap_webhook(view, vector["headers"], vector["secret"], now=lambda: vector["now"])
+    assert error.value.reason == "invalid_body" and isinstance(error.value.__cause__, ValueError)
+
+
+class _Unprintable:
+    def __str__(self):
+        raise RuntimeError("no text")
+
+
+def test_header_values_that_are_not_text_are_skipped():
+    vector = named(VECTORS["valid"], "extraction-completed-utf8-body")
+    real = vector["headers"]["webhook-id"]
+    for extra in (None, 5, _Unprintable(), {"a": 1}):
+        # Read as "None" or "5", the extra item would make the header ambiguous.
+        assert unwrap({**vector, "headers": {**vector["headers"], "webhook-id": [real, extra]}}).id == real
+        with pytest.raises(GeminaWebhookVerificationError) as error:
+            unwrap({**vector, "headers": {**vector["headers"], "webhook-id": extra}})
+        assert error.value.reason == "missing_header"
+
+
+def test_header_names_that_are_not_text_are_skipped():
+    vector = named(VECTORS["valid"], "extraction-completed-utf8-body")
+    pairs = list(vector["headers"].items()) + [(_Unprintable(), "x"), (None, "x"), (5, "x")]
+    assert unwrap({**vector, "headers": pairs}).type == "extraction.completed"
+
+
+@pytest.mark.parametrize("clock, tolerance", [
+    (str, 300), (lambda now: None, 300), (lambda now: True, 300), (lambda now: 10 ** 400, 300),
+    (lambda now: now, "300"), (lambda now: now, True), (lambda now: now, None),
+], ids=["clock text", "clock None", "clock bool", "clock huge int", "tolerance text", "tolerance bool", "tolerance None"])
+def test_a_clock_or_tolerance_that_is_not_a_number_is_out_of_tolerance(clock, tolerance):
+    # A fresh, correctly signed delivery: only the wrongly typed clock or tolerance refuses it.
+    vector = named(VECTORS["valid"], "extraction-completed-utf8-body")
+    with pytest.raises(GeminaWebhookVerificationError) as error:
+        unwrap_webhook(vector["body"], vector["headers"], vector["secret"],
+                       tolerance_seconds=tolerance, now=lambda: clock(vector["now"]))
+    assert error.value.reason == "timestamp_out_of_tolerance"
+
+
+def test_the_reason_type_names_every_reason_the_vectors_assert():
+    reasons = {v["reason"] for v in VECTORS["invalid"] + TYPED["invalid"]}
+    assert set(typing.get_args(GeminaWebhookVerificationReason)) == reasons

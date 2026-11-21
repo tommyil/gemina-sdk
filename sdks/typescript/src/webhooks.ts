@@ -34,7 +34,7 @@ export interface WebhookEvent {
   type: string | null;
   /** When the event was recorded; the same on every retry. */
   timestamp: string | null;
-  /** Typed for the known event types (narrow with the guards below); the parsed value otherwise. */
+  /** Typed for the known event types (narrow with the guards below); the parsed value otherwise, or `null` when the body has no `data`. */
   data: unknown;
   /** The whole parsed body. */
   raw: Record<string, unknown>;
@@ -65,8 +65,8 @@ const KNOWN: Record<string, { required: Record<string, 'string' | 'boolean'>; re
   'webhook.test': { required: { message: 'string' }, read: WebhookTestEventDataFromJSON },
 };
 
-const fail = (reason: GeminaWebhookVerificationReason, message: string) =>
-  new GeminaWebhookVerificationError(reason, message);
+const fail = (reason: GeminaWebhookVerificationReason, message: string, cause?: unknown) =>
+  new GeminaWebhookVerificationError(reason, message, cause);
 
 function isObject(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
@@ -100,10 +100,11 @@ function header(headers: WebhookHeaders, name: string): string {
   const add = (value: string) => {
     for (const part of value.split(', ')) if (!values.includes(part)) values.push(part);
   };
-  const fromEntries = (entries: Iterable<[string, unknown]>) => {
+  // Only text is a header name or value: anything else (null, a number, an object) is skipped.
+  const fromEntries = (entries: Iterable<[unknown, unknown]>) => {
     for (const [key, value] of entries) {
-      if (asciiLower(String(key)) !== name || value === undefined || value === null) continue;
-      for (const item of Array.isArray(value) ? value : [value]) add(String(item));
+      if (typeof key !== 'string' || asciiLower(key) !== name) continue;
+      for (const item of Array.isArray(value) ? value : [value]) if (typeof item === 'string') add(item);
     }
   };
   if (headers === null || headers === undefined) {
@@ -113,8 +114,8 @@ function header(headers: WebhookHeaders, name: string): string {
     fromEntries(headers.entries());
   } else if (typeof (headers as { get?: unknown }).get === 'function') {
     // A fetch Headers object: get() ignores case and joins a repeat with ", ".
-    const value = (headers as { get(n: string): string | null | undefined }).get(name);
-    if (value != null) add(String(value));
+    const value: unknown = (headers as { get(n: string): unknown }).get(name);
+    if (typeof value === 'string') add(value);
   } else {
     fromEntries(Object.entries(headers as Record<string, string | string[] | undefined>));
   }
@@ -140,17 +141,27 @@ function constantTimeEqual(a: Uint8Array, b: Uint8Array): boolean {
   return difference === 0;
 }
 
-// One private copy of the body. `new Uint8Array(arrayBuffer)` would be a view over the
+// Step 1: one private copy of the body. `new Uint8Array(arrayBuffer)` would be a view over the
 // caller's memory, so an ArrayBuffer or a view is copied explicitly, and only the bytes it covers.
-function copyBody(body: string | ArrayBuffer | ArrayBufferView | null | undefined): Uint8Array<ArrayBuffer> {
+function copyBody(body: unknown): Uint8Array<ArrayBuffer> {
   if (typeof body === 'string') return new TextEncoder().encode(body);
   if (body == null) return new Uint8Array(0); // possible from plain JavaScript: judged like an empty body
-  const source = ArrayBuffer.isView(body)
-    ? new Uint8Array(body.buffer, body.byteOffset, body.byteLength)
-    : new Uint8Array(body as ArrayBuffer);
-  const copy = new Uint8Array(source.length);
-  copy.set(source);
-  return copy;
+  if (!(body instanceof ArrayBuffer) && !ArrayBuffer.isView(body)) {
+    // A parsed value is not the body: new Uint8Array(5) would be five zero bytes, and {} no bytes at all.
+    throw fail('invalid_body', 'The webhook body must be the raw request bytes or text, not a parsed value.');
+  }
+  try {
+    const source = ArrayBuffer.isView(body)
+      ? new Uint8Array(body.buffer, body.byteOffset, body.byteLength)
+      : new Uint8Array(body);
+    const copy = new Uint8Array(source.length);
+    copy.set(source);
+    return copy;
+  } catch (error) {
+    // A detached ArrayBuffer, or a view over one (a body transferred to a worker), throws a
+    // TypeError when read: there are no bytes left to verify.
+    throw fail('invalid_body', 'The webhook body cannot be read: its buffer was detached.', error);
+  }
 }
 
 async function subtleCrypto(): Promise<SubtleCrypto> {
@@ -205,10 +216,10 @@ function parseBody(verifiedBody: Uint8Array): Record<string, unknown> {
   try {
     // ignoreBOM keeps a byte order mark in the text instead of silently dropping it.
     parsed = JSON.parse(new TextDecoder('utf-8', { fatal: true, ignoreBOM: true }).decode(verifiedBody));
-  } catch {
+  } catch (error) {
     // These two calls read nothing but the body: whatever they throw (a TypeError for bytes
     // that are not UTF-8, a SyntaxError for text that is not JSON) is about the body.
-    throw fail('invalid_body', 'The webhook body is not valid JSON.');
+    throw fail('invalid_body', 'The webhook body is not valid JSON.', error);
   }
   if (!isObject(parsed)) throw fail('invalid_body', 'The webhook body is not a JSON object.');
   return parsed;
@@ -223,9 +234,9 @@ function typeData(type: string | null, data: unknown): unknown {
   }
   try {
     return KNOWN[type].read(data);
-  } catch {
+  } catch (error) {
     // The generated converters document no error set; the contract allows one type out.
-    throw fail('invalid_body', `The data of this ${type} event could not be read.`);
+    throw fail('invalid_body', `The data of this ${type} event could not be read.`, error);
   }
 }
 
@@ -246,15 +257,7 @@ export async function unwrapWebhook(
   options: UnwrapWebhookOptions = {},
 ): Promise<WebhookEvent> {
   // One private copy, taken BEFORE the first await: the caller may reuse its buffer at once.
-  let rawBody: Uint8Array<ArrayBuffer>;
-  try {
-    rawBody = copyBody(body);
-  } catch (error) {
-    // A detached ArrayBuffer, or a view over one (a body transferred to a worker), throws a
-    // TypeError when read: there are no bytes left to verify.
-    if (!(error instanceof TypeError)) throw error;
-    throw fail('invalid_body', 'The webhook body cannot be read: its buffer was detached.');
-  }
+  const rawBody = copyBody(body);
   options = options ?? {}; // null from plain JavaScript reads as no options
 
   const id = header(headers, 'webhook-id');
@@ -280,5 +283,5 @@ export async function unwrapWebhook(
   const parsed = parseBody(verifiedBody);
   const type = typeof parsed.type === 'string' ? parsed.type : null;
   const timestamp = typeof parsed.timestamp === 'string' ? parsed.timestamp : null;
-  return { id, type, timestamp, data: typeData(type, parsed.data), raw: parsed };
+  return { id, type, timestamp, data: typeData(type, parsed.data ?? null), raw: parsed };
 }

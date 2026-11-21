@@ -97,7 +97,8 @@ namespace Gemina.Sdk
         /// <summary>
         /// Why the delivery was refused: <c>missing_header</c>, <c>ambiguous_header</c>,
         /// <c>invalid_timestamp</c>, <c>timestamp_out_of_tolerance</c>, <c>invalid_secret</c>,
-        /// <c>no_matching_signature</c> or <c>invalid_body</c>.
+        /// <c>no_matching_signature</c> or <c>invalid_body</c>, the constants of
+        /// <see cref="GeminaWebhookVerificationReason"/>.
         /// </summary>
         public string Reason { get; }
 
@@ -119,5 +120,32 @@ namespace Gemina.Sdk
         {
             Reason = reason;
         }
+    }
+
+    /// <summary>
+    /// The values of <see cref="GeminaWebhookVerificationException.Reason"/> (contract §6).
+    /// </summary>
+    public static class GeminaWebhookVerificationReason
+    {
+        /// <summary>A <c>webhook-id</c>, <c>webhook-timestamp</c> or <c>webhook-signature</c> header is missing.</summary>
+        public const string MissingHeader = "missing_header";
+
+        /// <summary>A <c>webhook-id</c>, <c>webhook-timestamp</c> or <c>webhook-signature</c> header was sent more than once with different values.</summary>
+        public const string AmbiguousHeader = "ambiguous_header";
+
+        /// <summary>The <c>webhook-timestamp</c> header is not 1 to 12 ASCII digits.</summary>
+        public const string InvalidTimestamp = "invalid_timestamp";
+
+        /// <summary>The timestamp is too far from the clock, or the clock or the tolerance is not usable.</summary>
+        public const string TimestampOutOfTolerance = "timestamp_out_of_tolerance";
+
+        /// <summary>The signing secret is not <c>whsec_</c> followed by base64 of at least one byte.</summary>
+        public const string InvalidSecret = "invalid_secret";
+
+        /// <summary>No <c>v1</c> signature in the <c>webhook-signature</c> header matches the body.</summary>
+        public const string NoMatchingSignature = "no_matching_signature";
+
+        /// <summary>The body is not one JSON object, or a known event's data is incomplete or cannot be read.</summary>
+        public const string InvalidBody = "invalid_body";
     }
 }

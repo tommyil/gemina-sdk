@@ -15,7 +15,7 @@ import time
 from dataclasses import dataclass
 from typing import Any, Callable, Iterable, Mapping, NoReturn, Optional, Tuple, Union
 
-from .errors import GeminaWebhookVerificationError
+from .errors import GeminaWebhookVerificationError, GeminaWebhookVerificationReason
 from .generated.models.extraction_completed_event_data import ExtractionCompletedEventData
 from .generated.models.webhook_test_event_data import WebhookTestEventData
 
@@ -59,14 +59,19 @@ class WebhookEvent:
     raw: Any
 
 
-def _fail(reason: str, message: str, cause: Optional[BaseException] = None) -> NoReturn:
+def _fail(reason: GeminaWebhookVerificationReason, message: str, cause: Optional[BaseException] = None) -> NoReturn:
     raise GeminaWebhookVerificationError(reason, message) from cause
 
 
-def _text(value: Any) -> str:
-    # Header bytes (an ASGI scope's, say) are decoded the way aiohttp decodes them, so the
-    # signed prefix can be encoded back to the same bytes (see unwrap_webhook).
-    return value.decode("utf-8", errors="surrogateescape") if isinstance(value, (bytes, bytearray)) else str(value)
+def _text(value: Any) -> Optional[str]:
+    """A header name or value as text; None for anything else, which is not a header name or value."""
+    if isinstance(value, str):
+        return value
+    if isinstance(value, (bytes, bytearray)):
+        # Header bytes (an ASGI scope's, say) are decoded the way aiohttp decodes them, so the
+        # signed prefix can be encoded back to the same bytes (see _verify_signature).
+        return value.decode("utf-8", errors="surrogateescape")
+    return None
 
 
 def _entries(headers: Any) -> list:
@@ -82,10 +87,14 @@ def _entries(headers: Any) -> list:
 def _header(entries: list, name: str) -> str:
     values: list = []
     for key, value in entries:
-        if _text(key).translate(_ASCII_LOWER) != name or value is None:
+        key_text = _text(key)
+        if key_text is None or key_text.translate(_ASCII_LOWER) != name:
             continue
         for item in (value if isinstance(value, (list, tuple)) else (value,)):
-            for part in _text(item).split(", "):    # a repeat that an HTTP library already joined
+            text = _text(item)
+            if text is None:                        # None, a number or an object is not a header value
+                continue
+            for part in text.split(", "):           # a repeat that an HTTP library already joined
                 if part not in values:
                     values.append(part)
     if not values:
@@ -106,11 +115,33 @@ def _reject_constant(name: str) -> None:
 
 
 def _as_float(value: Any) -> float:
-    """The clock's or the tolerance's value as a float; NaN when it is not a number at all."""
+    """The clock's or the tolerance's value as a float; NaN when it is not an int or a float."""
+    # Not float(value): it would read the text "1000" as a number, and True as 1.
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return math.nan
     try:
         return float(value)
-    except (TypeError, ValueError, OverflowError):
+    except OverflowError:                          # an int too large for a float
         return math.nan
+
+
+def _copy_body(body: Any) -> bytes:
+    """Step 1: one private copy of the body's bytes. bytes() copies a bytearray or a memoryview,
+    so the caller's buffer is never read again."""
+    if body is None:                               # no body is judged like an empty one, as in the other SDKs
+        return b""
+    if isinstance(body, str):
+        try:
+            return body.encode("utf-8")
+        except UnicodeEncodeError as exc:          # an unpaired surrogate: this text was never a UTF-8 body
+            _fail("invalid_body", "The webhook body is not well-formed text.", exc)
+    if not isinstance(body, (bytes, bytearray, memoryview)):
+        # A parsed value (a dict, a number) is not the body: bytes(5) would be five zero bytes.
+        _fail("invalid_body", "The webhook body must be the raw request bytes or text, not a parsed value.")
+    try:
+        return bytes(body)
+    except ValueError as exc:                      # a released memoryview: there are no bytes left to verify
+        _fail("invalid_body", "The webhook body cannot be read: its memoryview was released.", exc)
 
 
 def _is_complete(event_type: str, data: Any) -> bool:
@@ -204,23 +235,19 @@ def unwrap_webhook(
             list, or several values already joined with ", ".
         secret: The endpoint's signing secret, ``whsec_...``.
         tolerance_seconds: The largest accepted distance between the clock and
-            the ``webhook-timestamp`` header. Default 300.
-        now: Clock in seconds since the epoch; may return a fraction.
+            the ``webhook-timestamp`` header, an int or a float. Default 300.
+        now: Clock in seconds since the epoch, returning an int or a float; may
+            return a fraction.
 
     Raises:
         GeminaWebhookVerificationError: the delivery is not verified or cannot
             be parsed; ``reason`` says why. No other error leaves this function
             for any body, header or secret.
     """
-    # No body and no headers are judged like empty ones, as in the other SDKs.
-    body = b"" if body is None else body
-    # Read once: an iterator or generator of pairs can only be read once.
+    raw_body = _copy_body(body)
+    # No headers are judged like empty ones, as in the other SDKs. Read once: an iterator or
+    # generator of pairs can only be read once.
     entries = _entries({} if headers is None else headers)
-    # One private copy. bytes() copies a bytearray, so the caller's buffer is never read again.
-    try:
-        raw_body = body.encode("utf-8") if isinstance(body, str) else bytes(body)
-    except UnicodeEncodeError as exc:              # an unpaired surrogate: this text was never a UTF-8 body
-        _fail("invalid_body", "The webhook body is not well-formed text.", exc)
 
     event_id = _header(entries, "webhook-id")
     timestamp_text = _header(entries, "webhook-timestamp")

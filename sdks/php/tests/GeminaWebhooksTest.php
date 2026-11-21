@@ -7,6 +7,7 @@ namespace Gemina\Sdk\Tests;
 use Gemina\Sdk\GeminaException;
 use Gemina\Sdk\GeminaWebhooks;
 use Gemina\Sdk\GeminaWebhookVerificationException;
+use Gemina\Sdk\GeminaWebhookVerificationReason;
 use Gemina\Sdk\Model\DocumentProcessingResultOutDTO;
 use Gemina\Sdk\Model\ExtractionCompletedEventData;
 use Gemina\Sdk\Model\ModelType;
@@ -426,5 +427,66 @@ final class GeminaWebhooksTest extends TestCase
         foreach ([[], ['webhook-id' => null], ['webhook-timestamp' => str_repeat('9', 400)]] as $headers) {
             $this->reasonOf(fn () => GeminaWebhooks::unwrap($vector['body'], $headers, $vector['secret']));
         }
+    }
+
+    public static function bodiesThatAreNotText(): array
+    {
+        return [
+            'a decoded array' => [['type' => 'extraction.completed']],
+            'a decoded object' => [(object) ['type' => 'extraction.completed']],
+            'a negative number' => [-1],
+            'a number' => [5],
+            'a large number' => [1.0e12],
+        ];
+    }
+
+    #[DataProvider('bodiesThatAreNotText')]
+    public function testABodyThatIsNotAStringIsAnInvalidBody(mixed $body): void
+    {
+        // From a file without strict_types, a string parameter would read 5 as "5"; an array would be a TypeError.
+        $vector = self::utf8();
+        try {
+            GeminaWebhooks::unwrap($body, $vector['headers'], $vector['secret'], 300, fn () => $vector['now']);
+            $this->fail('expected the delivery to be rejected');
+        } catch (GeminaWebhookVerificationException $error) {
+            $this->assertSame('invalid_body', $error->getReason());
+            $this->assertStringContainsString('not a parsed value', $error->getMessage());
+        }
+    }
+
+    public function testNoBodyIsJudgedLikeAnEmptyOne(): void
+    {
+        $vector = self::utf8();
+        $this->assertSame('no_matching_signature', $this->reasonOf(
+            fn () => GeminaWebhooks::unwrap(null, $vector['headers'], $vector['secret'], 300, fn () => $vector['now'])));
+    }
+
+    public static function clocksThatAreNotNumbers(): array
+    {
+        return [
+            'null' => [fn (int $now) => null],
+            'text' => [fn (int $now) => 'abc'],
+            'the right time as text' => [fn (int $now) => (string) $now],
+            'true' => [fn (int $now) => true],
+        ];
+    }
+
+    #[DataProvider('clocksThatAreNotNumbers')]
+    public function testAClockThatReturnsNoNumberIsOutOfTolerance(\Closure $clock): void
+    {
+        // A fresh, correctly signed delivery: only the clock refuses it. (float) would read null or "abc" as 0.0.
+        $vector = self::utf8();
+        $this->assertSame('timestamp_out_of_tolerance', $this->reasonOf(
+            fn () => GeminaWebhooks::unwrap($vector['body'], $vector['headers'], $vector['secret'], 300, fn () => $clock($vector['now']))));
+    }
+
+    public function testTheReasonConstantsNameEveryReasonTheVectorsAssert(): void
+    {
+        $constants = array_values((new \ReflectionClass(GeminaWebhookVerificationReason::class))->getConstants());
+        $reasons = array_values(array_unique(array_column(
+            array_merge(self::shared()['invalid'], self::typed()['invalid']), 'reason')));
+        sort($constants);
+        sort($reasons);
+        $this->assertSame($reasons, $constants);
     }
 }

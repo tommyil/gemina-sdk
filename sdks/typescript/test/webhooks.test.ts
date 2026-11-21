@@ -44,16 +44,21 @@ const named = (list: Vector[], name: string): Vector => {
 const unwrap = (v: Vector, options: UnwrapWebhookOptions = {}, headers: WebhookHeaders = v.headers) =>
   unwrapWebhook(v.body, headers, v.secret, { now: () => v.now, ...options });
 
-/** The reason a rejected call carried; fails the test if it resolved or threw anything else. */
-async function reasonOf(promise: Promise<unknown>): Promise<string> {
+/** The error a rejected call carried; fails the test if it resolved or threw anything else. */
+async function errorOf(promise: Promise<unknown>): Promise<GeminaWebhookVerificationError> {
   try {
     await promise;
   } catch (error) {
     expect(error).toBeInstanceOf(GeminaWebhookVerificationError);
     expect(error).toBeInstanceOf(GeminaError);
-    return (error as GeminaWebhookVerificationError).reason;
+    return error as GeminaWebhookVerificationError;
   }
   throw new Error('expected the delivery to be rejected');
+}
+
+/** The reason a rejected call carried. */
+async function reasonOf(promise: Promise<unknown>): Promise<string> {
+  return (await errorOf(promise)).reason;
 }
 
 /** The vector's headers, re-signed for other body bytes (for bodies JSON text cannot carry). */
@@ -166,6 +171,7 @@ describe('unwrapWebhook', () => {
   it('returns a body with no type raw, with a null type', async () => {
     const event = await unwrap(named(VECTORS.valid, 'standard-webhooks-published-example'));
     expect(event.type).toBeNull();
+    expect(event.data).toBeNull(); // not undefined: the body has no data
     expect(event.raw).toEqual({ test: 2432232314 });
   });
 
@@ -228,7 +234,9 @@ describe('unwrapWebhook', () => {
     const view = new DataView(buffer);
     structuredClone(buffer, { transfer: [buffer] });
     const body = kind === 'ArrayBuffer' ? buffer : view;
-    expect(await reasonOf(unwrapWebhook(body, utf8.headers, utf8.secret, { now: () => utf8.now }))).toBe('invalid_body');
+    const error = await errorOf(unwrapWebhook(body, utf8.headers, utf8.secret, { now: () => utf8.now }));
+    expect(error.reason).toBe('invalid_body');
+    expect(error.cause).toBeInstanceOf(TypeError);
   });
 
   it('copies a view over part of a larger buffer, and only that part', async () => {
@@ -347,6 +355,61 @@ describe('unwrapWebhook', () => {
     for (const body of [null, undefined]) {
       await reasonOf(unwrapWebhook(body as unknown as string, utf8.headers, utf8.secret, { now: () => utf8.now }));
     }
+  });
+
+  it.each([
+    ['a parsed object', { type: 'extraction.completed' }],
+    ['a negative number', -1],
+    ['a number', 5],
+    ['a large number', 1e12],
+  ] as const)('refuses %s as a body with invalid_body', async (_, body) => {
+    // new Uint8Array(-1) throws a RangeError, new Uint8Array(1e12) tries to allocate, and {} has no bytes.
+    const error = await errorOf(unwrapWebhook(body as unknown as string, utf8.headers, utf8.secret, { now: () => utf8.now }));
+    expect(error.reason).toBe('invalid_body');
+    expect(error.message).toContain('not a parsed value');
+  });
+
+  it('carries the underlying error as the cause', async () => {
+    const notJson = new TextEncoder().encode('{"type":');
+    const syntax = await errorOf(unwrapWebhook(notJson, signed(utf8, notJson), utf8.secret, { now: () => utf8.now }));
+    expect(syntax.reason).toBe('invalid_body');
+    expect(syntax.cause).toBeInstanceOf(SyntaxError);
+    const notUtf8 = new Uint8Array([0x7b, 0xff, 0x7d]);
+    const decoding = await errorOf(unwrapWebhook(notUtf8, signed(utf8, notUtf8), utf8.secret, { now: () => utf8.now }));
+    expect(decoding.cause).toBeInstanceOf(TypeError);
+    // A refusal that no underlying error caused has no cause.
+    expect('cause' in await errorOf(unwrap(utf8, {}, {}))).toBe(false);
+  });
+
+  it.each([
+    ['null', null],
+    ['a number', 5],
+    ['an object with no prototype', Object.create(null)],
+    ['a plain object', { a: 1 }],
+  ] as const)('skips a header value that is not text: %s', async (_, extra) => {
+    const real = utf8.headers['webhook-id'];
+    // Read as "5" or "[object Object]", the extra item would make the header ambiguous.
+    const withExtra = { ...utf8.headers, 'webhook-id': [real, extra] } as unknown as WebhookHeaders;
+    expect((await unwrap(utf8, {}, withExtra)).id).toBe(real);
+    const alone = { ...utf8.headers, 'webhook-id': extra } as unknown as WebhookHeaders;
+    expect(await reasonOf(unwrap(utf8, {}, alone))).toBe('missing_header');
+    const fetchLike = { get: (name: string) => (name === 'webhook-id' ? extra : utf8.headers[name]) } as unknown as WebhookHeaders;
+    expect(await reasonOf(unwrap(utf8, {}, fetchLike))).toBe('missing_header');
+  });
+
+  it('skips a Map entry whose name is not text', async () => {
+    const map = new Map<unknown, unknown>([...Object.entries(utf8.headers), [5, 'x'], [Object.create(null), 'x']]);
+    expect((await unwrap(utf8, {}, map as unknown as WebhookHeaders)).type).toBe('extraction.completed');
+  });
+
+  it.each([
+    ['clock text', { now: () => String(utf8.now) }],
+    ['clock null', { now: () => null }],
+    ['tolerance text', { toleranceSeconds: '300' }],
+  ] as const)('treats a clock or tolerance that is not a number as out of tolerance: %s', async (_, options) => {
+    // A fresh, correctly signed delivery: only the wrongly typed clock or tolerance refuses it.
+    expect(await reasonOf(unwrap(utf8, options as unknown as UnwrapWebhookOptions)))
+      .toBe('timestamp_out_of_tolerance');
   });
 
   it('narrows to the typed data without a cast', async () => {

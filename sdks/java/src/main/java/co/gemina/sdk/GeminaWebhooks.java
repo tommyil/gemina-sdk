@@ -1,5 +1,13 @@
 package co.gemina.sdk;
 
+import static co.gemina.sdk.GeminaWebhookVerificationReason.AMBIGUOUS_HEADER;
+import static co.gemina.sdk.GeminaWebhookVerificationReason.INVALID_BODY;
+import static co.gemina.sdk.GeminaWebhookVerificationReason.INVALID_SECRET;
+import static co.gemina.sdk.GeminaWebhookVerificationReason.INVALID_TIMESTAMP;
+import static co.gemina.sdk.GeminaWebhookVerificationReason.MISSING_HEADER;
+import static co.gemina.sdk.GeminaWebhookVerificationReason.NO_MATCHING_SIGNATURE;
+import static co.gemina.sdk.GeminaWebhookVerificationReason.TIMESTAMP_OUT_OF_TOLERANCE;
+
 import co.gemina.sdk.generated.model.ExtractionCompletedEventData;
 import co.gemina.sdk.generated.model.WebhookTestEventData;
 import com.google.gson.Gson;
@@ -13,8 +21,9 @@ import java.io.StringReader;
 import java.nio.ByteBuffer;
 import java.nio.charset.CodingErrorAction;
 import java.nio.charset.StandardCharsets;
-import java.security.GeneralSecurityException;
+import java.security.InvalidKeyException;
 import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.Base64;
 import java.util.Collections;
 import java.util.HashMap;
@@ -129,7 +138,7 @@ public final class GeminaWebhooks {
         String signatureHeader = header(headers, "webhook-signature");
 
         if (!TIMESTAMP.matcher(timestampText).matches()) {
-            throw fail("invalid_timestamp", "The webhook-timestamp header is not a whole number of seconds.");
+            throw fail(INVALID_TIMESTAMP, "The webhook-timestamp header is not a whole number of seconds.");
         }
         // At most 12 digits, so neither the parse nor the subtraction can overflow.
         long timestamp = Long.parseLong(timestampText);
@@ -137,12 +146,12 @@ public final class GeminaWebhooks {
         // "!(x < limit)" is also true for NaN and infinity. A clock beyond 13 digits is out of
         // tolerance for any 12-digit timestamp, and refusing it here keeps the subtraction from overflowing.
         if (!(Math.abs(clock) < 1e13) || options.getToleranceSeconds() < 0) {
-            throw fail("timestamp_out_of_tolerance",
+            throw fail(TIMESTAMP_OUT_OF_TOLERANCE,
                     "The clock or the tolerance is not usable, so the timestamp cannot be checked.");
         }
         long now = (long) Math.floor(clock);
         if (Math.abs(now - timestamp) > options.getToleranceSeconds()) {
-            throw fail("timestamp_out_of_tolerance",
+            throw fail(TIMESTAMP_OUT_OF_TOLERANCE,
                     "The webhook timestamp is more than " + options.getToleranceSeconds()
                             + " seconds from the current time.");
         }
@@ -151,7 +160,7 @@ public final class GeminaWebhooks {
                 : secret.startsWith(SECRET_PREFIX) ? secret.substring(SECRET_PREFIX.length()) : secret;
         byte[] key = decodeBase64(encodedKey);
         if (key == null || key.length == 0) {   // not set, not base64, or an empty key anyone could sign with
-            throw fail("invalid_secret", "The signing secret is not valid: expected whsec_ followed by base64.");
+            throw fail(INVALID_SECRET, "The signing secret is not valid: expected whsec_ followed by base64.");
         }
 
         byte[] expected;
@@ -160,9 +169,12 @@ public final class GeminaWebhooks {
             mac.init(new SecretKeySpec(key, "HmacSHA256"));
             mac.update((id + "." + timestampText + ".").getBytes(StandardCharsets.UTF_8));
             expected = mac.doFinal(body);
-        } catch (GeneralSecurityException e) {
-            // HmacSHA256 is a required algorithm on every Java platform, and the key is non-empty.
-            throw fail("invalid_secret", "The signing secret cannot be used as an HMAC key.", e);
+        } catch (NoSuchAlgorithmException e) {
+            // HmacSHA256 is a required algorithm on every Java platform: only a broken provider setup lands here.
+            throw fail(INVALID_SECRET, "HMAC-SHA256 is unavailable on this platform.", e);
+        } catch (InvalidKeyException e) {
+            // The key is non-empty, which is all HmacSHA256 asks of it.
+            throw fail(INVALID_SECRET, "The signing secret cannot be used as an HMAC key.", e);
         }
 
         boolean matched = false;
@@ -178,7 +190,7 @@ public final class GeminaWebhooks {
             }
         }
         if (!matched) {
-            throw fail("no_matching_signature", "No signature in the webhook-signature header matches.");
+            throw fail(NO_MATCHING_SIGNATURE, "No signature in the webhook-signature header matches.");
         }
 
         JsonObject parsed = parseBody(body);
@@ -192,7 +204,7 @@ public final class GeminaWebhooks {
     private static JsonObject parseBody(byte[] body) {
         // Gson silently skips a leading byte order mark, so it is refused here.
         if (body.length >= 3 && (body[0] & 0xFF) == 0xEF && (body[1] & 0xFF) == 0xBB && (body[2] & 0xFF) == 0xBF) {
-            throw fail("invalid_body", "The webhook body starts with a byte order mark.");
+            throw fail(INVALID_BODY, "The webhook body starts with a byte order mark.");
         }
         JsonElement element;
         try {
@@ -205,14 +217,14 @@ public final class GeminaWebhooks {
             reader.setLenient(false);
             element = GSON.getAdapter(JsonElement.class).read(reader);
             if (reader.peek() != JsonToken.END_DOCUMENT) {
-                throw fail("invalid_body", "The webhook body holds more than one JSON value.");
+                throw fail(INVALID_BODY, "The webhook body holds more than one JSON value.");
             }
         } catch (IOException | JsonParseException | IllegalStateException e) {
             // CharacterCodingException and MalformedJsonException are IOExceptions.
-            throw fail("invalid_body", "The webhook body is not valid JSON.", e);
+            throw fail(INVALID_BODY, "The webhook body is not valid JSON.", e);
         }
         if (element == null || !element.isJsonObject()) {
-            throw fail("invalid_body", "The webhook body is not a JSON object.");
+            throw fail(INVALID_BODY, "The webhook body is not a JSON object.");
         }
         return element.getAsJsonObject();
     }
@@ -227,14 +239,14 @@ public final class GeminaWebhooks {
             complete = payloadIsWhole(object);
         }
         if (!complete) {
-            throw fail("invalid_body", "The data of this " + type + " event is missing a required field.");
+            throw fail(INVALID_BODY, "The data of this " + type + " event is missing a required field.");
         }
         try {
             // The generated fromJson is what polling uses (GeminaClient), with the lenient dates installed above.
             return known.converter.fromJson(object.toString());
         } catch (IOException | RuntimeException e) {
             // The generated models document no exception set; the contract allows one type out.
-            throw fail("invalid_body", "The data of this " + type + " event could not be read.", e);
+            throw fail(INVALID_BODY, "The data of this " + type + " event could not be read.", e);
         }
     }
 
@@ -272,12 +284,12 @@ public final class GeminaWebhooks {
                 if (found == null) {
                     found = part;
                 } else if (!found.equals(part)) {
-                    throw fail("ambiguous_header", "The " + name + " header was sent more than once with different values.");
+                    throw fail(AMBIGUOUS_HEADER, "The " + name + " header was sent more than once with different values.");
                 }
             }
         }
         if (found == null) {
-            throw fail("missing_header", "The " + name + " header is missing.");
+            throw fail(MISSING_HEADER, "The " + name + " header is missing.");
         }
         return found;
     }

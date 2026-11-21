@@ -37,7 +37,8 @@ final class GeminaWebhooks
      * file_get_contents('php://input')). A re-encoded body will not verify.
      * A PHP string is a value, so the body cannot change under the helper.
      *
-     * @param string                        $body             the request body, as received
+     * @param string                        $body             the request body, as received; anything but a string
+     *                                                        (a decoded array, a number) fails with invalid_body
      * @param array<string,string|string[]> $headers          the request headers (getallheaders()); names are
      *                                                        matched ignoring ASCII case, and a value may be a list
      *                                                        or several values joined with ", "
@@ -49,35 +50,44 @@ final class GeminaWebhooks
      * @throws GeminaWebhookVerificationException the delivery is not verified or cannot be parsed; getReason() says why
      */
     public static function unwrap(
-        string $body,
+        mixed $body,
         array $headers,
         string $secret,
         int $toleranceSeconds = 300,
         ?callable $now = null,
     ): WebhookEvent {
+        // Typed mixed, not string: from a file without strict_types, PHP would turn 5 into "5"
+        // and refuse an array with a TypeError. No body is judged like an empty one, as in the other SDKs.
+        $body ??= '';
+        if (!is_string($body)) {
+            throw self::fail(GeminaWebhookVerificationReason::INVALID_BODY,
+                'The webhook body must be the raw request bytes or text, not a parsed value.');
+        }
         $id = self::header($headers, 'webhook-id');
         $timestampText = self::header($headers, 'webhook-timestamp');
         $signatureHeader = self::header($headers, 'webhook-signature');
 
         if (preg_match('/\A[0-9]{1,12}\z/', $timestampText) !== 1) {
-            throw self::fail('invalid_timestamp', 'The webhook-timestamp header is not a whole number of seconds.');
+            throw self::fail(GeminaWebhookVerificationReason::INVALID_TIMESTAMP, 'The webhook-timestamp header is not a whole number of seconds.');
         }
         // Floats, not integers: a 12-digit timestamp does not fit a 32-bit integer, and every
-        // whole number of that size is exact as a float. NAN and INF fail the is_finite test.
-        $current = floor($now !== null ? (float) $now() : (float) time());
+        // whole number of that size is exact as a float. NAN and INF fail the is_finite test, and
+        // so does a clock that returns no number: (float) would read null or "abc" as 0.0.
+        $clock = $now !== null ? $now() : time();
+        $current = is_int($clock) || is_float($clock) ? floor((float) $clock) : NAN;
         if (!is_finite($current) || $toleranceSeconds < 0) {
-            throw self::fail('timestamp_out_of_tolerance',
+            throw self::fail(GeminaWebhookVerificationReason::TIMESTAMP_OUT_OF_TOLERANCE,
                 'The clock or the tolerance is not usable, so the timestamp cannot be checked.');
         }
         if (abs($current - (float) $timestampText) > $toleranceSeconds) {
-            throw self::fail('timestamp_out_of_tolerance',
+            throw self::fail(GeminaWebhookVerificationReason::TIMESTAMP_OUT_OF_TOLERANCE,
                 "The webhook timestamp is more than {$toleranceSeconds} seconds from the current time.");
         }
 
         $encoded = str_starts_with($secret, self::SECRET_PREFIX) ? substr($secret, strlen(self::SECRET_PREFIX)) : $secret;
         $key = self::decodeBase64($encoded);
         if ($key === null || $key === '') {   // not base64, or an empty key anyone could sign with
-            throw self::fail('invalid_secret', 'The signing secret is not valid: expected whsec_ followed by base64.');
+            throw self::fail(GeminaWebhookVerificationReason::INVALID_SECRET, 'The signing secret is not valid: expected whsec_ followed by base64.');
         }
 
         $expected = hash_hmac('sha256', "{$id}.{$timestampText}." . $body, $key, true);
@@ -95,7 +105,7 @@ final class GeminaWebhooks
             }
         }
         if (!$matched) {
-            throw self::fail('no_matching_signature', 'No signature in the webhook-signature header matches.');
+            throw self::fail(GeminaWebhookVerificationReason::NO_MATCHING_SIGNATURE, 'No signature in the webhook-signature header matches.');
         }
 
         $decoded = self::decodeBody($body);
@@ -134,10 +144,10 @@ final class GeminaWebhooks
             }
         }
         if ($values === []) {
-            throw self::fail('missing_header', "The {$name} header is missing.");
+            throw self::fail(GeminaWebhookVerificationReason::MISSING_HEADER, "The {$name} header is missing.");
         }
         if (count($values) > 1) {
-            throw self::fail('ambiguous_header', "The {$name} header was sent more than once with different values.");
+            throw self::fail(GeminaWebhookVerificationReason::AMBIGUOUS_HEADER, "The {$name} header was sent more than once with different values.");
         }
         // An array key that looks like a whole number becomes an integer key: cast it back.
         return (string) array_key_first($values);
@@ -146,17 +156,17 @@ final class GeminaWebhooks
     private static function decodeBody(string $body): object
     {
         if (str_starts_with($body, "\xEF\xBB\xBF")) {
-            throw self::fail('invalid_body', 'The webhook body starts with a byte order mark.');
+            throw self::fail(GeminaWebhookVerificationReason::INVALID_BODY, 'The webhook body starts with a byte order mark.');
         }
         try {
             // Objects as stdClass, as ObjectSerializer expects; the same call the polling path makes.
             // json_decode also refuses bytes that are not UTF-8, a second value, and NaN.
             $decoded = json_decode($body, false, 512, JSON_THROW_ON_ERROR);
         } catch (\JsonException $e) {
-            throw self::fail('invalid_body', 'The webhook body is not valid JSON.', $e);
+            throw self::fail(GeminaWebhookVerificationReason::INVALID_BODY, 'The webhook body is not valid JSON.', $e);
         }
         if (!is_object($decoded)) {
-            throw self::fail('invalid_body', 'The webhook body is not a JSON object.');
+            throw self::fail(GeminaWebhookVerificationReason::INVALID_BODY, 'The webhook body is not a JSON object.');
         }
         return $decoded;
     }
@@ -171,16 +181,16 @@ final class GeminaWebhooks
             $complete = self::payloadIsWhole($data);
         }
         if (!$complete) {
-            throw self::fail('invalid_body', "The data of this {$type} event is missing a required field.");
+            throw self::fail(GeminaWebhookVerificationReason::INVALID_BODY, "The data of this {$type} event is missing a required field.");
         }
         try {
             $typed = ObjectSerializer::deserialize($data, self::MODELS[$type]);
         } catch (\Throwable $e) {
             // The generated serializer documents no exception set; the contract allows one type out.
-            throw self::fail('invalid_body', "The data of this {$type} event could not be read.", $e);
+            throw self::fail(GeminaWebhookVerificationReason::INVALID_BODY, "The data of this {$type} event could not be read.", $e);
         }
         if (!is_object($typed)) {
-            throw self::fail('invalid_body', "The data of this {$type} event could not be read.");
+            throw self::fail(GeminaWebhookVerificationReason::INVALID_BODY, "The data of this {$type} event could not be read.");
         }
         return $typed;
     }

@@ -8,6 +8,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
 import java.io.IOException;
+import java.lang.reflect.Field;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -18,6 +19,8 @@ import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.TreeSet;
 import java.util.function.DoubleSupplier;
 import java.util.stream.Stream;
 import javax.crypto.Mac;
@@ -438,5 +441,23 @@ class GeminaWebhooksTest {
         }
         reasonOf(() -> GeminaWebhooks.unwrap((String) null, v.headers, v.secret, clock(v.now)));
         reasonOf(() -> GeminaWebhooks.unwrap((byte[]) null, v.headers, v.secret, clock(v.now)));
+    }
+
+    @Test
+    void theReasonConstantsNameEveryReasonTheVectorsAssert() throws IllegalAccessException {
+        // The body, header, clock and tolerance parameters are typed, so the wrong-typed inputs
+        // the other languages refuse at run time do not compile here.
+        Set<String> constants = new TreeSet<>();
+        for (Field field : GeminaWebhookVerificationReason.class.getFields()) {
+            constants.add((String) field.get(null));
+        }
+        Set<String> reasons = new TreeSet<>();
+        for (Vector v : SHARED.get("invalid")) {
+            reasons.add(v.reason);
+        }
+        for (Vector v : TYPED.get("invalid")) {
+            reasons.add(v.reason);
+        }
+        assertEquals(reasons, constants);
     }
 }
