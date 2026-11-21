@@ -9,7 +9,7 @@ spec snapshot it was generated from where that matters.
 
 Pre-1.0: minor versions carry features and may change behaviour.
 
-## v0.17.1 — <release date>
+## v0.17.1 — 2026-11-21
 
 Webhook helper fixes. No new API surface beyond the reason constants.
 
