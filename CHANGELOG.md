@@ -9,7 +9,7 @@ spec snapshot it was generated from where that matters.
 
 Pre-1.0: minor versions carry features and may change behaviour.
 
-## v0.17.0 — <release date>
+## v0.17.0 — 2026-11-21
 
 Spec snapshot `gemina-1.12.0.json`.
 
@@ -25,6 +25,12 @@ Spec snapshot `gemina-1.12.0.json`.
 - A delivery-log event (`WebhookEventOutDTO`) has `manual`: true for a test
   event or a resend, which is sent once and never retried. The API added it
   without raising `info.version`, so `gemina-1.12.0.json` was frozen again.
+- An enum value the API adds later no longer fails a whole result. It reads
+  as the unknown member: `UNKNOWN_DEFAULT_OPEN_API` in Python and Java,
+  `'unknown_default_open_api'` in PHP, `UnknownDefaultOpenApi` in C#;
+  TypeScript passes the string through as sent. This applies to polling
+  results as well as webhooks. A value that is not a string is still
+  refused.
 - No breaking changes.
 
 NuGet uses GitHub trusted publishing. The Release workflow can recover only the
