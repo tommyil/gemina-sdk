@@ -6,7 +6,18 @@ Transport/HTTP errors raised by the generated client (for example
 
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Any, Literal, Optional
+
+# Why unwrap_webhook refused a delivery (contract section 6).
+GeminaWebhookVerificationReason = Literal[
+    "missing_header",
+    "ambiguous_header",
+    "invalid_timestamp",
+    "timestamp_out_of_tolerance",
+    "invalid_secret",
+    "no_matching_signature",
+    "invalid_body",
+]
 
 
 class GeminaError(Exception):
@@ -57,9 +68,10 @@ class GeminaWebhookVerificationError(GeminaError):
     Attributes:
         reason: One of ``missing_header``, ``ambiguous_header``,
             ``invalid_timestamp``, ``timestamp_out_of_tolerance``,
-            ``invalid_secret``, ``no_matching_signature``, ``invalid_body``.
+            ``invalid_secret``, ``no_matching_signature``, ``invalid_body``
+            (the ``GeminaWebhookVerificationReason`` type).
     """
 
-    def __init__(self, reason: str, message: str) -> None:
+    def __init__(self, reason: GeminaWebhookVerificationReason, message: str) -> None:
         super().__init__(message)
-        self.reason = reason
+        self.reason: GeminaWebhookVerificationReason = reason

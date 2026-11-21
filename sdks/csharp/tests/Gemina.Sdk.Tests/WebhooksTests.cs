@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Security.Cryptography;
 using System.Text;
 using Gemina.Sdk.Model;
@@ -425,6 +426,23 @@ namespace Gemina.Sdk.Tests
             }
             ReasonOf(() => GeminaWebhooks.Unwrap((string)null, v.Headers, v.Secret, new WebhookOptions { Now = () => v.Now }));
             ReasonOf(() => GeminaWebhooks.Unwrap((byte[])null, v.Headers, v.Secret, new WebhookOptions { Now = () => v.Now }));
+        }
+
+        [Fact]
+        public void TheReasonConstantsNameEveryReasonTheVectorsAssert()
+        {
+            // The body, header, clock and tolerance parameters are typed, so the wrong-typed inputs
+            // the other languages refuse at run time do not compile here.
+            var constants = typeof(GeminaWebhookVerificationReason)
+                .GetFields(BindingFlags.Public | BindingFlags.Static)
+                .Where(field => field.IsLiteral)
+                .Select(field => (string)field.GetRawConstantValue())
+                .OrderBy(reason => reason, StringComparer.Ordinal);
+            var reasons = Shared.Invalid.Concat(Typed.Invalid)
+                .Select(v => v.Reason)
+                .Distinct()
+                .OrderBy(reason => reason, StringComparer.Ordinal);
+            Assert.Equal(reasons, constants);
         }
     }
 }

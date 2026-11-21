@@ -1,9 +1,6 @@
 package co.gemina.sdk;
 
 import java.net.URI;
-import java.time.format.DateTimeFormatter;
-import java.time.format.DateTimeFormatterBuilder;
-import java.time.temporal.ChronoField;
 import java.util.List;
 import java.util.Random;
 import java.util.UUID;
@@ -12,7 +9,6 @@ import java.util.concurrent.CompletionException;
 
 import co.gemina.sdk.generated.ApiClient;
 import co.gemina.sdk.generated.ApiException;
-import co.gemina.sdk.generated.JSON;
 import co.gemina.sdk.generated.api.BillingApi;
 import co.gemina.sdk.generated.api.ChatApi;
 import co.gemina.sdk.generated.api.DocumentApi;
@@ -59,21 +55,6 @@ public class GeminaClient {
     /** Transient poll failures tolerated in a row before the last error is rethrown. */
     private static final int MAX_CONSECUTIVE_POLL_FAILURES = 3;
 
-    /**
-     * ISO-8601 date-time with an optional offset (the API serves some
-     * timestamps, e.g. {@code servedAt}, without one — treated as UTC). Also
-     * used for serializing, where it emits the standard offset form.
-     */
-    private static final DateTimeFormatter LENIENT_OFFSET_DATE_TIME = new DateTimeFormatterBuilder()
-            .append(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
-            .optionalStart()
-            .appendOffsetId()
-            .optionalEnd()
-            .parseDefaulting(ChronoField.OFFSET_SECONDS, 0)
-            .toFormatter();
-
-    private static boolean lenientJsonInstalled;
-
     static {
         // JSON's adapters are static/global, so installing once at class load
         // covers every construction path — including the
@@ -83,19 +64,7 @@ public class GeminaClient {
         // timestamps. Raw generated-client usage that never touches this
         // facade is out of scope, same as the multipart fix in
         // GeminaApiClient.
-        installLenientJson();
-    }
-
-    /**
-     * Idempotent. Also called by {@link GeminaWebhooks}, which must parse a
-     * webhook's result exactly as polling does without a client instance.
-     */
-    static synchronized void installLenientJson() {
-        if (lenientJsonInstalled) {
-            return;
-        }
-        JSON.setOffsetDateTimeFormat(LENIENT_OFFSET_DATE_TIME);
-        lenientJsonInstalled = true;
+        LenientJson.install();
     }
 
     private final ApiClient apiClient;

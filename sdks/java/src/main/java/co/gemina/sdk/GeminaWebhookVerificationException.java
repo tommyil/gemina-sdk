@@ -23,7 +23,8 @@ public class GeminaWebhookVerificationException extends GeminaException {
     /**
      * Why the delivery was refused: {@code missing_header}, {@code ambiguous_header},
      * {@code invalid_timestamp}, {@code timestamp_out_of_tolerance}, {@code invalid_secret},
-     * {@code no_matching_signature} or {@code invalid_body}.
+     * {@code no_matching_signature} or {@code invalid_body}, the constants of
+     * {@link GeminaWebhookVerificationReason}.
      */
     public String getReason() {
         return reason;

@@ -75,10 +75,14 @@ export type GeminaWebhookVerificationReason =
  */
 export class GeminaWebhookVerificationError extends GeminaError {
   readonly reason: GeminaWebhookVerificationReason;
+  /** The underlying error, when the refusal came from one (a body that is not JSON, say). */
+  readonly cause?: unknown;
 
-  constructor(reason: GeminaWebhookVerificationReason, message: string) {
+  constructor(reason: GeminaWebhookVerificationReason, message: string, cause?: unknown) {
     super(message);
     this.reason = reason;
+    // Set explicitly: the ES2020 target has no Error constructor option for it.
+    if (cause !== undefined) this.cause = cause;
     Object.setPrototypeOf(this, new.target.prototype);
   }
 }

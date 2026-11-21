@@ -21,7 +21,8 @@ class GeminaWebhookVerificationException extends GeminaException
     /**
      * Why the delivery was refused: missing_header, ambiguous_header,
      * invalid_timestamp, timestamp_out_of_tolerance, invalid_secret,
-     * no_matching_signature or invalid_body.
+     * no_matching_signature or invalid_body: the constants of
+     * GeminaWebhookVerificationReason.
      */
     public function getReason(): string
     {

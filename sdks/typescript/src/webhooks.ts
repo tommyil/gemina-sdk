@@ -34,7 +34,7 @@ export interface WebhookEvent {
   type: string | null;
   /** When the event was recorded; the same on every retry. */
   timestamp: string | null;
-  /** Typed for the known event types (narrow with the guards below); the parsed value otherwise. */
+  /** Typed for the known event types (narrow with the guards below); the parsed value otherwise, or `null` when the body has no `data`. */
   data: unknown;
   /** The whole parsed body. */
   raw: Record<string, unknown>;
@@ -56,13 +56,17 @@ export function isWebhookTest(event: WebhookEvent): event is WebhookTestWebhookE
   return event.type === 'webhook.test';
 }
 
-const REQUIRED: Record<string, Record<string, 'string' | 'boolean'>> = {
-  'extraction.completed': { correlationId: 'string', status: 'string', resultIncluded: 'boolean', resultPath: 'string' },
-  'webhook.test': { message: 'string' },
+// Each known event type: the fields its data must hold, and the generated converter that types it.
+const KNOWN: Record<string, { required: Record<string, 'string' | 'boolean'>; read: (json: unknown) => unknown }> = {
+  'extraction.completed': {
+    required: { correlationId: 'string', status: 'string', resultIncluded: 'boolean', resultPath: 'string' },
+    read: ExtractionCompletedEventDataFromJSON,
+  },
+  'webhook.test': { required: { message: 'string' }, read: WebhookTestEventDataFromJSON },
 };
 
-const fail = (reason: GeminaWebhookVerificationReason, message: string) =>
-  new GeminaWebhookVerificationError(reason, message);
+const fail = (reason: GeminaWebhookVerificationReason, message: string, cause?: unknown) =>
+  new GeminaWebhookVerificationError(reason, message, cause);
 
 function isObject(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
@@ -76,7 +80,7 @@ const asciiLower = (text: string) => text.replace(/[A-Z]/g, (c) => String.fromCh
 // The generated FromJSON functions do not check this: a result of {} comes back with holes.
 function isComplete(type: string, data: unknown): boolean {
   if (!isObject(data)) return false;
-  if (Object.entries(REQUIRED[type]).some(([field, kind]) => typeof data[field] !== kind)) return false;
+  if (Object.entries(KNOWN[type].required).some(([field, kind]) => typeof data[field] !== kind)) return false;
   if (type !== 'extraction.completed') return true;
   const result = data.result ?? null;
   const error = data.error ?? null;
@@ -96,10 +100,11 @@ function header(headers: WebhookHeaders, name: string): string {
   const add = (value: string) => {
     for (const part of value.split(', ')) if (!values.includes(part)) values.push(part);
   };
-  const fromEntries = (entries: Iterable<[string, unknown]>) => {
+  // Only text is a header name or value: anything else (null, a number, an object) is skipped.
+  const fromEntries = (entries: Iterable<[unknown, unknown]>) => {
     for (const [key, value] of entries) {
-      if (asciiLower(String(key)) !== name || value === undefined || value === null) continue;
-      for (const item of Array.isArray(value) ? value : [value]) add(String(item));
+      if (typeof key !== 'string' || asciiLower(key) !== name) continue;
+      for (const item of Array.isArray(value) ? value : [value]) if (typeof item === 'string') add(item);
     }
   };
   if (headers === null || headers === undefined) {
@@ -109,8 +114,8 @@ function header(headers: WebhookHeaders, name: string): string {
     fromEntries(headers.entries());
   } else if (typeof (headers as { get?: unknown }).get === 'function') {
     // A fetch Headers object: get() ignores case and joins a repeat with ", ".
-    const value = (headers as { get(n: string): string | null | undefined }).get(name);
-    if (value != null) add(String(value));
+    const value: unknown = (headers as { get(n: string): unknown }).get(name);
+    if (typeof value === 'string') add(value);
   } else {
     fromEntries(Object.entries(headers as Record<string, string | string[] | undefined>));
   }
@@ -136,17 +141,34 @@ function constantTimeEqual(a: Uint8Array, b: Uint8Array): boolean {
   return difference === 0;
 }
 
-// One private copy of the body. `new Uint8Array(arrayBuffer)` would be a view over the
+// A type tag, not `instanceof`: an ArrayBuffer made in another realm (a `vm` context, a jsdom
+// test environment) fails `instanceof ArrayBuffer` and is still the raw bytes.
+function isRawBuffer(value: unknown): value is ArrayBufferLike {
+  const tag = Object.prototype.toString.call(value);
+  return tag === '[object ArrayBuffer]' || tag === '[object SharedArrayBuffer]';
+}
+
+// Step 1: one private copy of the body. `new Uint8Array(arrayBuffer)` would be a view over the
 // caller's memory, so an ArrayBuffer or a view is copied explicitly, and only the bytes it covers.
-function copyBody(body: string | ArrayBuffer | ArrayBufferView | null | undefined): Uint8Array<ArrayBuffer> {
+function copyBody(body: unknown): Uint8Array<ArrayBuffer> {
   if (typeof body === 'string') return new TextEncoder().encode(body);
   if (body == null) return new Uint8Array(0); // possible from plain JavaScript: judged like an empty body
-  const source = ArrayBuffer.isView(body)
-    ? new Uint8Array(body.buffer, body.byteOffset, body.byteLength)
-    : new Uint8Array(body as ArrayBuffer);
-  const copy = new Uint8Array(source.length);
-  copy.set(source);
-  return copy;
+  if (!isRawBuffer(body) && !ArrayBuffer.isView(body)) {
+    // A parsed value is not the body: new Uint8Array(5) would be five zero bytes, and {} no bytes at all.
+    throw fail('invalid_body', 'The webhook body must be the raw request bytes or text, not a parsed value.');
+  }
+  try {
+    const source = ArrayBuffer.isView(body)
+      ? new Uint8Array(body.buffer, body.byteOffset, body.byteLength)
+      : new Uint8Array(body);
+    const copy = new Uint8Array(source.length);
+    copy.set(source);
+    return copy;
+  } catch (error) {
+    // A detached ArrayBuffer, or a view over one (a body transferred to a worker), throws a
+    // TypeError when read: there are no bytes left to verify.
+    throw fail('invalid_body', 'The webhook body cannot be read: its buffer was detached.', error);
+  }
 }
 
 async function subtleCrypto(): Promise<SubtleCrypto> {
@@ -157,6 +179,72 @@ async function subtleCrypto(): Promise<SubtleCrypto> {
   const nodeCrypto = 'node:crypto';
   const module = await import(/* @vite-ignore */ /* webpackIgnore: true */ nodeCrypto);
   return (module.webcrypto as Crypto).subtle;
+}
+
+// Steps 5 to 8: decode the secret, sign the received bytes, and find a matching v1 signature.
+// Returns the bytes that were signed, the only copy of the body read from here on.
+async function verifySignature(
+  rawBody: Uint8Array<ArrayBuffer>, id: string, timestampText: string, signatureHeader: string, secret: string,
+): Promise<Uint8Array<ArrayBuffer>> {
+  const key = typeof secret === 'string'
+    ? decodeBase64(secret.startsWith(SECRET_PREFIX) ? secret.slice(SECRET_PREFIX.length) : secret)
+    : undefined;
+  if (key === undefined || key.length === 0) {   // not set, not base64, or an empty key anyone could sign with
+    throw fail('invalid_secret', 'The signing secret is not valid: expected whsec_ followed by base64.');
+  }
+
+  const prefix = new TextEncoder().encode(`${id}.${timestampText}.`);
+  const signed = new Uint8Array(prefix.length + rawBody.length);
+  signed.set(prefix, 0);
+  signed.set(rawBody, prefix.length);
+
+  const subtle = await subtleCrypto();
+  const cryptoKey = await subtle.importKey('raw', key, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+  const expected = new Uint8Array(await subtle.sign('HMAC', cryptoKey, signed));
+
+  let matched = false;
+  for (const entry of signatureHeader.split(' ')) {
+    const comma = entry.indexOf(',');
+    if (comma < 0 || entry.slice(0, comma) !== 'v1') continue;
+    const candidate = decodeBase64(entry.slice(comma + 1));
+    // No early exit: keep the comparison count independent of position.
+    if (candidate !== undefined && constantTimeEqual(candidate, expected)) matched = true;
+  }
+  if (!matched) throw fail('no_matching_signature', 'No signature in the webhook-signature header matches.');
+  return signed.subarray(prefix.length);
+}
+
+// Step 9: exactly one JSON object, in UTF-8 without a byte order mark.
+function parseBody(verifiedBody: Uint8Array): Record<string, unknown> {
+  if (verifiedBody.length >= 3 && verifiedBody[0] === 0xef && verifiedBody[1] === 0xbb && verifiedBody[2] === 0xbf) {
+    throw fail('invalid_body', 'The webhook body starts with a byte order mark.');
+  }
+  let parsed: unknown;
+  try {
+    // ignoreBOM keeps a byte order mark in the text instead of silently dropping it.
+    parsed = JSON.parse(new TextDecoder('utf-8', { fatal: true, ignoreBOM: true }).decode(verifiedBody));
+  } catch (error) {
+    // These two calls read nothing but the body: whatever they throw (a TypeError for bytes
+    // that are not UTF-8, a SyntaxError for text that is not JSON) is about the body.
+    throw fail('invalid_body', 'The webhook body is not valid JSON.', error);
+  }
+  if (!isObject(parsed)) throw fail('invalid_body', 'The webhook body is not a JSON object.');
+  return parsed;
+}
+
+// Step 10: a known event's data as its generated model; any other event's data as parsed.
+function typeData(type: string | null, data: unknown): unknown {
+  // hasOwnProperty: a body whose type is "constructor" must not find an inherited property.
+  if (type === null || !Object.prototype.hasOwnProperty.call(KNOWN, type)) return data;
+  if (!isComplete(type, data)) {
+    throw fail('invalid_body', `The data of this ${type} event is missing a required field.`);
+  }
+  try {
+    return KNOWN[type].read(data);
+  } catch (error) {
+    // The generated converters document no error set; the contract allows one type out.
+    throw fail('invalid_body', `The data of this ${type} event could not be read.`, error);
+  }
 }
 
 /**
@@ -176,15 +264,7 @@ export async function unwrapWebhook(
   options: UnwrapWebhookOptions = {},
 ): Promise<WebhookEvent> {
   // One private copy, taken BEFORE the first await: the caller may reuse its buffer at once.
-  let rawBody: Uint8Array<ArrayBuffer>;
-  try {
-    rawBody = copyBody(body);
-  } catch (error) {
-    // A detached ArrayBuffer, or a view over one (a body transferred to a worker), throws a
-    // TypeError when read: there are no bytes left to verify.
-    if (!(error instanceof TypeError)) throw error;
-    throw fail('invalid_body', 'The webhook body cannot be read: its buffer was detached.');
-  }
+  const rawBody = copyBody(body);
   options = options ?? {}; // null from plain JavaScript reads as no options
 
   const id = header(headers, 'webhook-id');
@@ -206,64 +286,9 @@ export async function unwrapWebhook(
       `The webhook timestamp is more than ${tolerance} seconds from the current time.`);
   }
 
-  const key = typeof secret === 'string'
-    ? decodeBase64(secret.startsWith(SECRET_PREFIX) ? secret.slice(SECRET_PREFIX.length) : secret)
-    : undefined;
-  if (key === undefined || key.length === 0) {   // not set, not base64, or an empty key anyone could sign with
-    throw fail('invalid_secret', 'The signing secret is not valid: expected whsec_ followed by base64.');
-  }
-
-  const prefix = new TextEncoder().encode(`${id}.${timestampText}.`);
-  const signed = new Uint8Array(prefix.length + rawBody.length);
-  signed.set(prefix, 0);
-  signed.set(rawBody, prefix.length);
-
-  const subtle = await subtleCrypto();
-  // From here on only `signed` is read: the bytes the HMAC covers are the bytes that are parsed.
-  const verifiedBody = signed.subarray(prefix.length);
-  const cryptoKey = await subtle.importKey('raw', key, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
-  const expected = new Uint8Array(await subtle.sign('HMAC', cryptoKey, signed));
-
-  let matched = false;
-  for (const entry of signatureHeader.split(' ')) {
-    const comma = entry.indexOf(',');
-    if (comma < 0 || entry.slice(0, comma) !== 'v1') continue;
-    const candidate = decodeBase64(entry.slice(comma + 1));
-    // No early exit: keep the comparison count independent of position.
-    if (candidate !== undefined && constantTimeEqual(candidate, expected)) matched = true;
-  }
-  if (!matched) throw fail('no_matching_signature', 'No signature in the webhook-signature header matches.');
-
-  if (verifiedBody.length >= 3 && verifiedBody[0] === 0xef && verifiedBody[1] === 0xbb && verifiedBody[2] === 0xbf) {
-    throw fail('invalid_body', 'The webhook body starts with a byte order mark.');
-  }
-  let parsed: unknown;
-  try {
-    // ignoreBOM keeps a byte order mark in the text instead of silently dropping it.
-    parsed = JSON.parse(new TextDecoder('utf-8', { fatal: true, ignoreBOM: true }).decode(verifiedBody));
-  } catch {
-    // These two calls read nothing but the body: whatever they throw (a TypeError for bytes
-    // that are not UTF-8, a SyntaxError for text that is not JSON) is about the body.
-    throw fail('invalid_body', 'The webhook body is not valid JSON.');
-  }
-  if (!isObject(parsed)) throw fail('invalid_body', 'The webhook body is not a JSON object.');
-
+  const verifiedBody = await verifySignature(rawBody, id, timestampText, signatureHeader, secret);
+  const parsed = parseBody(verifiedBody);
   const type = typeof parsed.type === 'string' ? parsed.type : null;
   const timestamp = typeof parsed.timestamp === 'string' ? parsed.timestamp : null;
-  let data: unknown = parsed.data;
-  // hasOwnProperty: a body whose type is "constructor" must not find an inherited property.
-  if (type !== null && Object.prototype.hasOwnProperty.call(REQUIRED, type)) {
-    if (!isComplete(type, data)) {
-      throw fail('invalid_body', `The data of this ${type} event is missing a required field.`);
-    }
-    try {
-      data = type === 'extraction.completed'
-        ? ExtractionCompletedEventDataFromJSON(data)
-        : WebhookTestEventDataFromJSON(data);
-    } catch {
-      // The generated converters document no error set; the contract allows one type out.
-      throw fail('invalid_body', `The data of this ${type} event could not be read.`);
-    }
-  }
-  return { id, type, timestamp, data, raw: parsed };
+  return { id, type, timestamp, data: typeData(type, parsed.data ?? null), raw: parsed };
 }

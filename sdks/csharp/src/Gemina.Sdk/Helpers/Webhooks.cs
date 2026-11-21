@@ -54,6 +54,24 @@ namespace Gemina.Sdk
     public static class GeminaWebhooks
     {
         private const string SecretPrefix = "whsec_";
+        private const string ExtractionCompleted = "extraction.completed";
+        private const string WebhookTest = "webhook.test";
+
+        // Each known event type: the generated model its data is read as, and the fields that data must hold.
+        private static readonly Dictionary<string, KnownEvent> Known = new Dictionary<string, KnownEvent>(StringComparer.Ordinal)
+        {
+            [ExtractionCompleted] = new KnownEvent(typeof(ExtractionCompletedEventData), new Dictionary<string, JTokenType>
+            {
+                ["correlationId"] = JTokenType.String,
+                ["status"] = JTokenType.String,
+                ["resultIncluded"] = JTokenType.Boolean,
+                ["resultPath"] = JTokenType.String,
+            }),
+            [WebhookTest] = new KnownEvent(typeof(WebhookTestEventData), new Dictionary<string, JTokenType>
+            {
+                ["message"] = JTokenType.String,
+            }),
+        };
 
         // Standard alphabet, padded, no whitespace. \z, not $: $ also matches before a final newline.
         private static readonly Regex Base64 = new Regex(
@@ -125,10 +143,10 @@ namespace Gemina.Sdk
                 {
                     if (found == null) found = part;
                     else if (!string.Equals(found, part, StringComparison.Ordinal))
-                        throw Fail("ambiguous_header", $"The {name} header was sent more than once with different values.");
+                        throw Fail(GeminaWebhookVerificationReason.AmbiguousHeader, $"The {name} header was sent more than once with different values.");
                 }
             }
-            return found ?? throw Fail("missing_header", $"The {name} header is missing.");
+            return found ?? throw Fail(GeminaWebhookVerificationReason.MissingHeader, $"The {name} header is missing.");
         }
 
         private static byte[] DecodeBase64(string text)
@@ -152,25 +170,25 @@ namespace Gemina.Sdk
             var signatureHeader = Header(headerList, "webhook-signature");
 
             if (!IsTimestamp(timestampText))
-                throw Fail("invalid_timestamp", "The webhook-timestamp header is not a whole number of seconds.");
+                throw Fail(GeminaWebhookVerificationReason.InvalidTimestamp, "The webhook-timestamp header is not a whole number of seconds.");
             // At most 12 digits, so neither the parse nor the subtraction can overflow.
             var timestamp = long.Parse(timestampText, NumberStyles.None, CultureInfo.InvariantCulture);
             var clock = options.ReadClock();
             // "!(x < limit)" is also true for NaN and infinity. A clock beyond 13 digits is out of
             // tolerance for any 12-digit timestamp, and refusing it here keeps the cast to long defined.
             if (!(Math.Abs(clock) < 1e13) || options.ToleranceSeconds < 0)
-                throw Fail("timestamp_out_of_tolerance",
+                throw Fail(GeminaWebhookVerificationReason.TimestampOutOfTolerance,
                     "The clock or the tolerance is not usable, so the timestamp cannot be checked.");
             var now = (long)Math.Floor(clock);
             if (Math.Abs(now - timestamp) > options.ToleranceSeconds)
-                throw Fail("timestamp_out_of_tolerance",
+                throw Fail(GeminaWebhookVerificationReason.TimestampOutOfTolerance,
                     $"The webhook timestamp is more than {options.ToleranceSeconds} seconds from the current time.");
 
             secret = secret ?? string.Empty;
             var key = DecodeBase64(secret.StartsWith(SecretPrefix, StringComparison.Ordinal)
                 ? secret.Substring(SecretPrefix.Length) : secret);
             if (key == null || key.Length == 0)   // not set, not base64, or an empty key anyone could sign with
-                throw Fail("invalid_secret", "The signing secret is not valid: expected whsec_ followed by base64.");
+                throw Fail(GeminaWebhookVerificationReason.InvalidSecret, "The signing secret is not valid: expected whsec_ followed by base64.");
 
             var prefix = Encoding.UTF8.GetBytes($"{id}.{timestampText}.");
             var signed = new byte[prefix.Length + body.Length];
@@ -190,15 +208,15 @@ namespace Gemina.Sdk
                 if (candidate != null && ConstantTimeEquals(candidate, expected)) matched = true;
             }
             if (!matched)
-                throw Fail("no_matching_signature", "No signature in the webhook-signature header matches.");
+                throw Fail(GeminaWebhookVerificationReason.NoMatchingSignature, "No signature in the webhook-signature header matches.");
 
             var parsed = ParseBody(body);
 
             var type = parsed["type"]?.Type == JTokenType.String ? (string)parsed["type"] : null;
             var timestampField = parsed["timestamp"]?.Type == JTokenType.String ? (string)parsed["timestamp"] : null;
             object data = parsed["data"];
-            if (type == "extraction.completed" || type == "webhook.test")
-                data = ReadKnownData(type, parsed["data"] as JObject);
+            if (type != null && Known.TryGetValue(type, out var known))
+                data = ReadKnownData(type, known, parsed["data"] as JObject);
 
             return new WebhookEvent { Id = id, Type = type, Timestamp = timestampField, Data = data, Raw = parsed };
         }
@@ -206,7 +224,7 @@ namespace Gemina.Sdk
         private static JObject ParseBody(byte[] body)
         {
             if (body.Length >= 3 && body[0] == 0xEF && body[1] == 0xBB && body[2] == 0xBF)
-                throw Fail("invalid_body", "The webhook body starts with a byte order mark.");
+                throw Fail(GeminaWebhookVerificationReason.InvalidBody, "The webhook body starts with a byte order mark.");
             JObject parsed;
             try
             {
@@ -221,26 +239,23 @@ namespace Gemina.Sdk
             }
             catch (Exception ex) when (ex is JsonException || ex is ArgumentException)   // DecoderFallbackException is an ArgumentException
             {
-                throw new GeminaWebhookVerificationException("invalid_body", "The webhook body is not valid JSON.", ex);
+                throw new GeminaWebhookVerificationException(GeminaWebhookVerificationReason.InvalidBody, "The webhook body is not valid JSON.", ex);
             }
             if (parsed == null)
-                throw Fail("invalid_body", "The webhook body is not a JSON object.");
+                throw Fail(GeminaWebhookVerificationReason.InvalidBody, "The webhook body is not a JSON object.");
             // Newtonsoft reads NaN and Infinity as numbers. JSON has neither.
             foreach (var value in parsed.Descendants().OfType<JValue>())
                 if (value.Type == JTokenType.Float && (double.IsNaN((double)value) || double.IsInfinity((double)value)))
-                    throw Fail("invalid_body", "The webhook body is not valid JSON.");
+                    throw Fail(GeminaWebhookVerificationReason.InvalidBody, "The webhook body is not valid JSON.");
             return parsed;
         }
 
-        private static object ReadKnownData(string type, JObject data)
+        private static object ReadKnownData(string type, KnownEvent known, JObject data)
         {
-            var complete = data != null && (type == "webhook.test"
-                ? Is(data, "message", JTokenType.String)
-                : Is(data, "correlationId", JTokenType.String) && Is(data, "status", JTokenType.String)
-                  && Is(data, "resultIncluded", JTokenType.Boolean) && Is(data, "resultPath", JTokenType.String)
-                  && PayloadIsWhole(data));
+            var complete = data != null && known.Required.All(field => Is(data, field.Key, field.Value))
+                           && (type != ExtractionCompleted || PayloadIsWhole(data));
             if (!complete)
-                throw Fail("invalid_body", $"The data of this {type} event is missing a required field.");
+                throw Fail(GeminaWebhookVerificationReason.InvalidBody, $"The data of this {type} event is missing a required field.");
 
             // The SAME reader the polling path uses (DocumentTransport): JSON TEXT in, with its
             // settings. Not data.ToObject(...): the tree was read with DateParseHandling.None so that
@@ -252,15 +267,13 @@ namespace Gemina.Sdk
             object typed;
             try
             {
-                typed = type == "extraction.completed"
-                    ? (object)JsonConvert.DeserializeObject<ExtractionCompletedEventData>(dataJson, DocumentTransport.SerializerSettings)
-                    : JsonConvert.DeserializeObject<WebhookTestEventData>(dataJson, DocumentTransport.SerializerSettings);
+                typed = JsonConvert.DeserializeObject(dataJson, known.Model, DocumentTransport.SerializerSettings);
             }
             catch (Exception ex)   // the generated models document no exception set; the contract allows one type out
             {
-                throw new GeminaWebhookVerificationException("invalid_body", $"The data of this {type} event could not be read.", ex);
+                throw new GeminaWebhookVerificationException(GeminaWebhookVerificationReason.InvalidBody, $"The data of this {type} event could not be read.", ex);
             }
-            return typed ?? throw Fail("invalid_body", $"The data of this {type} event could not be read.");
+            return typed ?? throw Fail(GeminaWebhookVerificationReason.InvalidBody, $"The data of this {type} event could not be read.");
         }
 
         private static bool Is(JObject data, string field, JTokenType kind) => data[field]?.Type == kind;
@@ -281,6 +294,19 @@ namespace Gemina.Sdk
             }
             var envelope = error as JObject;
             return error == null || (envelope != null && Is(envelope, "status", JTokenType.String));
+        }
+
+        private sealed class KnownEvent
+        {
+            internal KnownEvent(Type model, Dictionary<string, JTokenType> required)
+            {
+                Model = model;
+                Required = required;
+            }
+
+            internal Type Model { get; }
+
+            internal Dictionary<string, JTokenType> Required { get; }
         }
 
         // netstandard2.0 has no CryptographicOperations.FixedTimeEquals.

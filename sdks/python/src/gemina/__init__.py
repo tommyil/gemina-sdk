@@ -25,6 +25,7 @@ from gemina.errors import (
     GeminaProcessingError as GeminaProcessingError,
     GeminaTimeoutError as GeminaTimeoutError,
     GeminaWebhookVerificationError as GeminaWebhookVerificationError,
+    GeminaWebhookVerificationReason as GeminaWebhookVerificationReason,
 )
 from gemina.helpers import (
     GeminaChatConversation as GeminaChatConversation,
@@ -92,6 +93,7 @@ __all__ = [
     "GeminaProcessingError",
     "GeminaTimeoutError",
     "GeminaWebhookVerificationError",
+    "GeminaWebhookVerificationReason",
     "WebhookEvent",
     "unwrap_webhook",
     "generated",
