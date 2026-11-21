@@ -193,7 +193,12 @@ unwrapWebhook(body, headers, secret, options?) -> WebhookEvent
   (encoded as UTF-8). Callers must NOT pass a parsed-and-reserialised body:
   the signature covers the exact bytes. Each README says this first.
   (TypeScript takes a string, an `ArrayBuffer` or any `ArrayBufferView`, and
-  copies the bytes the view covers before its first `await`.)
+  copies the bytes the view covers before its first `await`.) A body of any
+  other type, such as a parsed object or a number, fails with `invalid_body`
+  at step 1: it is never read as other bytes. No body at all (null) is judged
+  like an empty one. C# and Java declare the body as text or bytes, so other
+  types do not compile; PHP declares it `mixed` and checks it, because a file
+  without `strict_types` would otherwise turn `5` into `"5"`.
 - `headers`: a mapping of header names to values. Names are matched ignoring
   ASCII case. The same header given twice with different values is rejected,
   whether the repeats arrive as separate entries, as a list, or already
@@ -203,14 +208,18 @@ unwrapWebhook(body, headers, secret, options?) -> WebhookEvent
   signature. TypeScript also takes a fetch `Headers` object, read through
   `get(name)`, and a `Map`, whose entries are read and folded like a plain
   object's.) A value that cannot be read as text is not a
-  header value.
+  header value: only text is a header name or value (Python also takes bytes,
+  decoded as above; PHP also takes a scalar or a `Stringable`), and any other
+  item, such as null, a number or an object, is skipped, never turned into
+  text.
 - `secret`: the endpoint's signing secret, `whsec_...`.
 - `options`: `toleranceSeconds` (default **300**), and an injectable clock so
   unit tests need no real time (the same requirement as the polling wait in
   §2). The clock returns seconds since the epoch and may return a fraction;
   the helper rounds it down to whole seconds. A clock or a tolerance that is
   not a finite number, or a negative tolerance, rejects the delivery with
-  `timestamp_out_of_tolerance`: it never switches the check off. (In C#, Java
+  `timestamp_out_of_tolerance`: it never switches the check off. Text such as
+  `"300"` and a boolean are not numbers. (In C#, Java
   and PHP the tolerance is declared as an `int`, so it cannot hold a
   non-finite value at all. Do not declare it as a `double`, as Java's other
   options in seconds are: with a `double`, `NaN` makes both comparisons false
@@ -268,7 +277,8 @@ The platform decoders disagree without it: Java and PHP accept a missing `=`, an
   path uses. At most one of the two is set: a body with both is rejected, and
   so is a `result` or `error` that lacks its required fields. For
   `webhook.test`, the generated
-  `WebhookTestEventData`. Otherwise the raw parsed value.
+  `WebhookTestEventData`. Otherwise the raw parsed value, or null when the
+  body has no `data`.
 - `raw`: the whole parsed body.
 
 An unknown `type` is NOT an error. A new event type must not break an old SDK.
@@ -306,6 +316,13 @@ and PHP). `reason` is one of: `missing_header`, `ambiguous_header`,
 `invalid_timestamp`, `timestamp_out_of_tolerance`, `invalid_secret`,
 `no_matching_signature`, `invalid_body`. No other error type leaves the
 helper for any input.
+
+The reasons are exported as `GeminaWebhookVerificationReason`: a `Literal`
+type in Python, a union type in TypeScript, and a class of string constants
+in C#, Java and PHP. When an underlying error caused the refusal (a body that
+is not JSON, say), it is chained: `__cause__` in Python, `cause` in
+TypeScript, `InnerException` in C#, `getCause()` in Java, `getPrevious()` in
+PHP.
 
 ### Tests
 

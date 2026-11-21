@@ -9,6 +9,31 @@ spec snapshot it was generated from where that matters.
 
 Pre-1.0: minor versions carry features and may change behaviour.
 
+## v0.17.1 — <release date>
+
+Webhook helper fixes. No new API surface beyond the reason constants.
+
+- A webhook body that is neither bytes nor text, such as an already parsed
+  object or a number, now fails with `invalid_body`. Before, Python and
+  TypeScript could leak a native error or read it as other bytes. PHP's
+  `unwrap` now accepts any type for the body and checks it itself.
+- Header names and values that are not text are now skipped. Before, Python
+  and TypeScript turned them into text, so `None` or a number could make a
+  header ambiguous, and an integer value could pass as a header. A header
+  given only as a number is now `missing_header`.
+- The clock and the tolerance must be numbers. Text such as `"300"`, a
+  boolean or `None` now rejects the delivery with
+  `timestamp_out_of_tolerance` (Python), and a PHP clock that returns
+  anything but an int or a float does the same instead of reading as 0.
+- TypeScript: `GeminaWebhookVerificationError` carries the underlying error
+  as `cause` when there is one, and `data` is `null`, not `undefined`, when
+  the body has no `data`.
+- New: the reason names as `GeminaWebhookVerificationReason`, a `Literal`
+  type in Python and a class of constants in C#, Java and PHP (TypeScript
+  already exports the type).
+- Java: when the platform has no HMAC-SHA256, the error says so instead of
+  blaming the signing secret. The reason is still `invalid_secret`.
+
 ## v0.17.0 — 2026-11-21
 
 Spec snapshot `gemina-1.12.0.json`.
