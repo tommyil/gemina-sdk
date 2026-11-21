@@ -141,12 +141,19 @@ function constantTimeEqual(a: Uint8Array, b: Uint8Array): boolean {
   return difference === 0;
 }
 
+// A type tag, not `instanceof`: an ArrayBuffer made in another realm (a `vm` context, a jsdom
+// test environment) fails `instanceof ArrayBuffer` and is still the raw bytes.
+function isRawBuffer(value: unknown): value is ArrayBufferLike {
+  const tag = Object.prototype.toString.call(value);
+  return tag === '[object ArrayBuffer]' || tag === '[object SharedArrayBuffer]';
+}
+
 // Step 1: one private copy of the body. `new Uint8Array(arrayBuffer)` would be a view over the
 // caller's memory, so an ArrayBuffer or a view is copied explicitly, and only the bytes it covers.
 function copyBody(body: unknown): Uint8Array<ArrayBuffer> {
   if (typeof body === 'string') return new TextEncoder().encode(body);
   if (body == null) return new Uint8Array(0); // possible from plain JavaScript: judged like an empty body
-  if (!(body instanceof ArrayBuffer) && !ArrayBuffer.isView(body)) {
+  if (!isRawBuffer(body) && !ArrayBuffer.isView(body)) {
     // A parsed value is not the body: new Uint8Array(5) would be five zero bytes, and {} no bytes at all.
     throw fail('invalid_body', 'The webhook body must be the raw request bytes or text, not a parsed value.');
   }

@@ -4,6 +4,7 @@ import { createHmac } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { runInNewContext } from 'node:vm';
 import { describe, expect, it } from 'vitest';
 import {
   DocumentProcessingResultOutDTOFromJSON,
@@ -237,6 +238,15 @@ describe('unwrapWebhook', () => {
     const error = await errorOf(unwrapWebhook(body, utf8.headers, utf8.secret, { now: () => utf8.now }));
     expect(error.reason).toBe('invalid_body');
     expect(error.cause).toBeInstanceOf(TypeError);
+  });
+
+  it.each(['ArrayBuffer', 'Uint8Array'] as const)('accepts a %s made in another realm', async (kind) => {
+    // A jsdom test environment or a vm context has its own ArrayBuffer: instanceof fails, the bytes are the body.
+    const encoded = new TextEncoder().encode(utf8.body);
+    const foreign = runInNewContext(`new ${kind}(${encoded.length})`) as ArrayBuffer | Uint8Array;
+    new Uint8Array(ArrayBuffer.isView(foreign) ? foreign.buffer : foreign).set(encoded);
+    const event = await unwrapWebhook(foreign, utf8.headers, utf8.secret, { now: () => utf8.now });
+    expect(event.raw).toEqual(JSON.parse(utf8.body));
   });
 
   it('copies a view over part of a larger buffer, and only that part', async () => {

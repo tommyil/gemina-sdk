@@ -192,7 +192,8 @@ unwrapWebhook(body, headers, secret, options?) -> WebhookEvent
 - `body`: the raw request body exactly as received, as bytes or as a string
   (encoded as UTF-8). Callers must NOT pass a parsed-and-reserialised body:
   the signature covers the exact bytes. Each README says this first.
-  (TypeScript takes a string, an `ArrayBuffer` or any `ArrayBufferView`, and
+  (TypeScript takes a string, an `ArrayBuffer` or `SharedArrayBuffer` from any
+  realm, or any `ArrayBufferView`, and
   copies the bytes the view covers before its first `await`.) A body of any
   other type, such as a parsed object or a number, fails with `invalid_body`
   at step 1: it is never read as other bytes. No body at all (null) is judged
