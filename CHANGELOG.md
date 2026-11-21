@@ -9,6 +9,13 @@ spec snapshot it was generated from where that matters.
 
 Pre-1.0: minor versions carry features and may change behaviour.
 
+## Unreleased
+
+- TypeScript: `unwrapWebhook`'s `body` parameter is typed
+  `string | ArrayBufferLike | ArrayBufferView`, so a `SharedArrayBuffer`
+  (which the helper has always read) also type-checks with the ES2024
+  library types. No change at run time.
+
 ## v0.17.1 — 2026-11-21
 
 Webhook helper fixes. No new API surface beyond the reason constants.
