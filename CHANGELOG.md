@@ -55,7 +55,8 @@ Spec snapshot `gemina-1.12.0.json`.
   `'unknown_default_open_api'` in PHP, `UnknownDefaultOpenApi` in C#;
   TypeScript passes the string through as sent. This applies to polling
   results as well as webhooks. A value that is not a string is still
-  refused.
+  refused, except in TypeScript, whose generated models check no field's
+  JSON type and return it as sent (docs/HELPER_CONTRACT.md, section 6).
 - No breaking changes.
 
 NuGet uses GitHub trusted publishing. The Release workflow can recover only the
