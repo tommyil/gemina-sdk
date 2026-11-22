@@ -258,7 +258,9 @@ function typeData(type: string | null, data: unknown): unknown {
  *   for any body, header or secret.
  */
 export async function unwrapWebhook(
-  body: string | ArrayBuffer | ArrayBufferView,
+  // ArrayBufferLike, not ArrayBuffer: with the ES2024 library types a SharedArrayBuffer
+  // is no longer assignable to ArrayBuffer, and the contract accepts both.
+  body: string | ArrayBufferLike | ArrayBufferView,
   headers: WebhookHeaders,
   secret: string,
   options: UnwrapWebhookOptions = {},

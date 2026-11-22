@@ -228,6 +228,14 @@ describe('unwrapWebhook', () => {
     expect(event.raw).toEqual(JSON.parse(utf8.body));
   });
 
+  it('accepts a SharedArrayBuffer, typed as one', async () => {
+    const encoded = new TextEncoder().encode(utf8.body);
+    const shared: SharedArrayBuffer = new SharedArrayBuffer(encoded.length);
+    new Uint8Array(shared).set(encoded);
+    const event = await unwrapWebhook(shared, utf8.headers, utf8.secret, { now: () => utf8.now });
+    expect(event.raw).toEqual(JSON.parse(utf8.body));
+  });
+
   it.each(['ArrayBuffer', 'DataView'] as const)('reports a %s over a detached buffer as invalid_body', async (kind) => {
     // A body transferred to a worker leaves its ArrayBuffer detached: there are no bytes left to read.
     const encoded = new TextEncoder().encode(utf8.body);
